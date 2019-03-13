@@ -9,18 +9,21 @@ from .dist import MasterClient, WorkerClient
 
 logger = logging.getLogger(__name__)
 
-Config = namedtuple('Config', [
+config_fields = [
     'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch',
     'calc_obstat_prob', 'eval_prob', 'snapshot_freq',
-    'return_proc_mode', 'episode_cutoff_mode'
-])
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size'
+]
+Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit'])
-Result = namedtuple('Result', [
-    'worker_id',
+
+result_fields = [
+    'worker_id', 'evaluated_model_id', 'fitness',
     'noise_inds_n', 'returns_n2', 'signreturns_n2', 'lengths_n2',
     'eval_return', 'eval_length',
     'ob_sum', 'ob_sumsq', 'ob_count'
-])
+]
+Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 
 class RunningStat(object):
@@ -50,7 +53,8 @@ class RunningStat(object):
 
 class SharedNoiseTable(object):
     def __init__(self):
-        import ctypes, multiprocessing
+        import ctypes
+        import multiprocessing
         seed = 123
         count = 250000000  # 1 gigabyte of 32-bit numbers. Will actually sample 2 gigabytes below.
         logger.info('Sampling {} random numbers with seed {}'.format(count, seed))

@@ -1,3 +1,7 @@
+
+import mkl
+mkl.set_num_threads(1)
+
 import errno
 import json
 import logging
@@ -54,18 +58,18 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir):
     assert (exp_str is None) != (exp_file is None), 'Must provide exp_str xor exp_file to the master'
 
     # todo exp = experiment, json file
-    # if exp_str:
-    #     exp = json.loads(exp_str)
-    # elif exp_file:
-    #     with open(exp_file, 'r') as f:
-    #         exp = json.loads(f.read())
-    # else:
-    #     assert False
+    if exp_str:
+        exp = json.loads(exp_str)
+    elif exp_file:
+        with open(exp_file, 'r') as f:
+            exp = json.loads(f.read())
+    else:
+        assert False
 
-    log_dir = os.path.expanduser(log_dir) if log_dir else '/tmp/es_master_{}'.format(os.getpid())
+    log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
     mkdir_p(log_dir)
     algo = import_algo(algo)
-    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=None)
+    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp)
 
 
 @cli.command()
@@ -83,12 +87,13 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
         return
     # Start the workers
     algo = import_algo(algo)
-    noise = algo.SharedNoiseTable()  # Workers share the same noise
+    # noise = algo.SharedNoiseTable()  # Workers share the same noise
     num_workers = num_workers if num_workers else os.cpu_count()
     logging.info('Spawning {} workers'.format(num_workers))
     for _ in range(num_workers):
         if os.fork() == 0:
-            algo.run_worker(master_redis_cfg, relay_redis_cfg, noise=noise)
+            # todo pass along worker id to ensure unique
+            algo.run_worker(master_redis_cfg, relay_redis_cfg, noise=None)
             return
     os.wait()
 

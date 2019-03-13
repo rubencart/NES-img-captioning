@@ -60,6 +60,7 @@ def retry_get(pipe, key, tries=300, base_delay=4.):
     raise RuntimeError('{} not set'.format(key))
 
 
+# todo use RQ instead? https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 class MasterClient:
     def __init__(self, master_redis_cfg):
         self.task_counter = 0

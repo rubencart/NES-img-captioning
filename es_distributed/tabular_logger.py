@@ -140,7 +140,8 @@ class _Logger(object):
 
     def __init__(self, dir=None):
         self.name2val = OrderedDict()  # values this iteration
-        self.level = INFO
+        # self.level = INFO
+        self.level = DEBUG
         self.dir = dir
         self.text_outputs = [sys.stdout]
         if dir is not None:

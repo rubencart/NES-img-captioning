@@ -45,12 +45,14 @@ class Model(nn.Module):
         return x
 
     def evolve(self, sigma, rng_state):
+        # rng_state = int
         torch.manual_seed(rng_state)
         self.evolve_states.append((sigma, rng_state))
 
         for name, tensor in sorted(self.named_parameters()):
             to_add = self.add_tensors[tensor.size()]
-            to_add.normal_(0.0, sigma)
+            # fill to_add elements sampled from normal distr
+            to_add.normal_(mean=0.0, std=sigma)
             tensor.data.add_(to_add)
 
     def compress(self):
@@ -78,9 +80,6 @@ class CompressedModel:
         self.other_rng.append((sigma, rng_state if rng_state is not None else random_state()))
 
 
-net = Model()
-
-
 class FakeJob:
     def __init__(self, j):
         self.result = j.result
@@ -88,6 +87,7 @@ class FakeJob:
 
 class GA:
     def __init__(self, population, compressed_models=None, queue_name='default'):
+        # int --> size
         self.population = population
         self.models = [CompressedModel() for _ in range(population)] if compressed_models is None else compressed_models
 
@@ -103,7 +103,9 @@ class GA:
         for m in self.models:
             jobs.append(
                 self.queue.enqueue(evaluate_model, env, m, max_eval=max_eval, max_noop=max_noop, ttl=650, timeout=600))
+
         last_enqueue_time = time.time()
+
         while True:
             for i in range(len(jobs)):
                 if jobs[i].result is not None and not isinstance(jobs[i], FakeJob):
@@ -119,8 +121,11 @@ class GA:
                 return None
 
             scores = [convert_result(j) for j in jobs]
+
             if None not in scores:
+                # this means all models have been evaluated?
                 break
+
             if time.time() - last_enqueue_time > 600:
                 print(f'Reenqueuing unfinished jobs ({sum(x is None for x in scores)}).')
                 for i in range(len(jobs)):
@@ -131,6 +136,7 @@ class GA:
                             timeout=600)
                 last_enqueue_time = time.time()
             time.sleep(1)
+
         used_frames = sum(j.result[1] for j in jobs)
         scored_models = list(zip(self.models, scores))
         scored_models.sort(key=lambda x: x[1], reverse=True)
@@ -147,7 +153,9 @@ class GA:
         # Elitism
         self.models = [scored_models[0][0]]
         for _ in range(self.population):
+            # scored models contains (model, score) tuples so pick one randomly, take model ([0]), copy
             self.models.append(copy.deepcopy(random.choice(scored_models)[0]))
+            # self.models contains compressed models
             self.models[-1].evolve(sigma)
 
         return median_score, mean_score, max_score, used_frames
