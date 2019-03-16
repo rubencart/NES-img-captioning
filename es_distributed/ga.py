@@ -3,7 +3,6 @@ import logging
 import time
 from collections import namedtuple
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision
@@ -70,7 +69,7 @@ def setup(exp):
 
 
 # def run_master(master_redis_cfg, log_dir, exp):
-def run_master(master_redis_cfg, log_dir, exp):
+def run_master(master_redis_cfg, log_dir, exp, plot):
     logger.info('run_master: {}'.format(locals()))
     from . import tabular_logger as tlogger
     logger.info('Tabular logging to {}'.format(log_dir))
@@ -199,7 +198,7 @@ def run_master(master_redis_cfg, log_dir, exp):
             # while num_episodes_popped < config.episodes_per_batch or num_timesteps_popped < config.timesteps_per_batch:
             # todo population
             while nb_models_to_evaluate > 0 or not elite_evaluated:
-                if nb_models_to_evaluate % 50 == 0:
+                if nb_models_to_evaluate % 50 == 0 and nb_models_to_evaluate != population_size:
                     logger.info('Nb of models left to evaluate: {nb}. Elite evaluated: {el}'
                                 .format(nb=nb_models_to_evaluate, el=elite_evaluated))
 
@@ -383,9 +382,12 @@ def run_master(master_redis_cfg, log_dir, exp):
                 policy.save(filename)
                 tlogger.log('Saved snapshot {}'.format(filename))
 
-            plt.errorbar(x=np.arange(len(score_stats[1])), y=score_stats[1], yerr=(score_stats[0], score_stats[2]),
-                         label='Training loss')
-            plt.savefig(log_dir + '/loss_plot.png')
+            if plot:
+                import matplotlib.pyplot as plt
+                x = np.arange(len(score_stats[1]))
+                plt.plot(x=x, y=score_stats[1], label='Training loss')
+                plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2])
+                plt.savefig(log_dir + '/loss_plot.png')
 
     # except KeyboardInterrupt:
     #     pass

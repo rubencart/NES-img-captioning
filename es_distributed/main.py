@@ -53,7 +53,8 @@ def import_algo(name):
 @click.option('--exp_file')
 @click.option('--master_socket_path', required=True)
 @click.option('--log_dir')
-def master(algo, exp_str, exp_file, master_socket_path, log_dir):
+@click.option('--plot', type=bool, default=True)
+def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
     # Start the master
     assert (exp_str is None) != (exp_file is None), 'Must provide exp_str xor exp_file to the master'
 
@@ -69,7 +70,7 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir):
     log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
     mkdir_p(log_dir)
     algo = import_algo(algo)
-    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp)
+    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=bool(plot))
 
 
 @cli.command()
