@@ -95,6 +95,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
+    # MNIST has 60k training images
     trainset = torchvision.datasets.MNIST(root='./data', train=True,
                                           download=True, transform=transform)
 
@@ -163,7 +164,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     # todo max epochs?
     while True:
         # todo max generations
-
+        # todo check how many times training set has been gone through
         for i, batch_data in enumerate(trainloader, 0):
 
             step_tstart = time.time()
@@ -302,6 +303,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
             step_tend = time.time()
             time_stats.append(step_tend - step_tstart)
+            print('TIME STATSSSSSS ', time_stats)
 
             # Process returns
             # todo what does argpartition do
@@ -400,12 +402,12 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 plt.figure(1)
                 x = np.arange(len(score_stats[1]))
                 plt.plot(x=x, y=score_stats[1], label='Training loss', color='blue')
-                plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.5)
-                plt.savefig(log_dir + '/loss_plot.png')
+                plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
+                plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
 
                 plt.figure(2)
                 plt.plot(x=x, y=time_stats, label='Time per generation')
-                plt.savefig(log_dir + '/time_plot.png')
+                plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
 
     # except KeyboardInterrupt:
     #     pass
