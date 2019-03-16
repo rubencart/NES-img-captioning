@@ -70,7 +70,7 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
     log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
     mkdir_p(log_dir)
     algo = import_algo(algo)
-    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=bool(plot))
+    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
 
 
 @cli.command()
@@ -89,7 +89,9 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # Start the workers
     algo = import_algo(algo)
     # noise = algo.SharedNoiseTable()  # Workers share the same noise
+
     num_workers = num_workers if num_workers else os.cpu_count()
+
     logging.info('Spawning {} workers'.format(num_workers))
     for _ in range(num_workers):
         if os.fork() == 0:

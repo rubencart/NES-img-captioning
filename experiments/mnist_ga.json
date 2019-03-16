@@ -16,7 +16,7 @@
   "truncation": 30,
   "num_elites": 1,
   "policy": {
-    "type": "Cifar10Policy",
+    "type": "MnistPolicy",
     "args": {}
   }
 }

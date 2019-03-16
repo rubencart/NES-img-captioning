@@ -84,28 +84,33 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     # noise = SharedNoiseTable()
     rs = np.random.RandomState()
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                            download=True, transform=transform)
+    # transform = transforms.Compose(
+    #     [transforms.ToTensor(),
+    #      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    # trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+    #                                         download=True, transform=transform)
+    # testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+    #                                        download=True, transform=transform)
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+    trainset = torchvision.datasets.MNIST(root='./data', train=True,
+                                          download=True, transform=transform)
 
     # batch_size = config.batch_size if config.batch_size else 256
     batch_size = config.batch_size
+
     # todo num_workers?
     num_workers = config.num_dataloader_workers
 
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=num_workers)
+    # testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+    #                                          shuffle=False, num_workers=num_workers)
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                           download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                             shuffle=False, num_workers=num_workers)
-
-    classes = ('plane', 'car', 'bird', 'cat',
-               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    # classes = ('plane', 'car', 'bird', 'cat',
+    #            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     torch.set_grad_enabled(False)
 
@@ -153,6 +158,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     # parent_dict = {model_id: (model_id, model) for (model_id, model) in parents}
 
     score_stats = [[], [], []]
+    time_stats = []
 
     # todo max epochs?
     while True:
@@ -198,9 +204,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
             # while num_episodes_popped < config.episodes_per_batch or num_timesteps_popped < config.timesteps_per_batch:
             # todo population
             while nb_models_to_evaluate > 0 or not elite_evaluated:
-                if nb_models_to_evaluate % 50 == 0 and nb_models_to_evaluate != population_size:
-                    logger.info('Nb of models left to evaluate: {nb}. Elite evaluated: {el}'
-                                .format(nb=nb_models_to_evaluate, el=elite_evaluated))
+                # if nb_models_to_evaluate % 50 == 0 and nb_models_to_evaluate != population_size:
+                #     logger.info('Nb of models left to evaluate: {nb}. Elite evaluated: {el}'
+                #                 .format(nb=nb_models_to_evaluate, el=elite_evaluated))
 
                 # if nb_models_to_evaluate <= 0 and not elite_evaluated:
                 #     logger.warning('Only the elite still has to be evaluated')
@@ -287,9 +293,15 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
             # pick parents for next generation, give new index
             parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
 
+            print([(i, round(f, 2)) for (i, _, f) in scored_models[:5]])
+            # input('PRESS ENTER')
+
             score_stats[0].append(scores.min())
             score_stats[1].append(scores.mean())
             score_stats[2].append(scores.max())
+
+            step_tend = time.time()
+            time_stats.append(step_tend - step_tstart)
 
             # Process returns
             # todo what does argpartition do
@@ -337,9 +349,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
             #     tslimit = int(tslimit_incr_ratio * tslimit)
             #     logger.info('Increased timestep limit from {} to {}'.format(old_tslimit, tslimit))
 
-            step_tend = time.time()
             tlogger.record_tabular("RewMax", scores.max())
             tlogger.record_tabular("RewMean", scores.mean())
+            tlogger.record_tabular("RewMin", scores.min())
             tlogger.record_tabular("RewStd", scores.std())
             # tlogger.record_tabular("EpLenMean", lengths_n2.mean())
 
@@ -384,10 +396,16 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
             if plot:
                 import matplotlib.pyplot as plt
+
+                plt.figure(1)
                 x = np.arange(len(score_stats[1]))
-                plt.plot(x=x, y=score_stats[1], label='Training loss')
-                plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2])
+                plt.plot(x=x, y=score_stats[1], label='Training loss', color='blue')
+                plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.5)
                 plt.savefig(log_dir + '/loss_plot.png')
+
+                plt.figure(2)
+                plt.plot(x=x, y=time_stats, label='Time per generation')
+                plt.savefig(log_dir + '/time_plot.png')
 
     # except KeyboardInterrupt:
     #     pass
@@ -475,6 +493,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
 
             # parent_id, compressed_parent = task_data.parents[rs.randint(len(task_data.parents))]
             index = rs.randint(len(task_data.parents))
+            # print(index)
             # parent_id, compressed_parent = rs.choice(task_data.parents)
             parent_id, compressed_parent = task_data.parents[index]
 
@@ -485,7 +504,10 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                 model = copy.deepcopy(compressed_parent)
                 # elite doesn't have to be evolved
                 if index != 0:
+                    # print(model)
                     model.evolve(config.noise_stdev)
+                    assert isinstance(model, CompressedModel)
+                    # print(model)
 
             policy.set_model(model)
 

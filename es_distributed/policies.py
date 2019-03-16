@@ -139,23 +139,6 @@ class Policy:
         # todo adjust to pytorch
         # self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
         # self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
-        pass
-
-    def save(self, filename):
-        # todo check self-critical --> also save iteration,... not only params?
-        raise NotImplementedError
-
-    def load(self, filename):
-        raise NotImplementedError
-
-    def nb_learnable_params(self):
-        raise NotImplementedError
-
-
-class Cifar10Policy(Policy):
-    def __init__(self, *args):
-        super(Cifar10Policy, self).__init__()
-        # self.model = Cifar10Classifier(random_state())
         self.model = None
 
     def rollout(self, data):
@@ -167,30 +150,103 @@ class Cifar10Policy(Policy):
         # todo for now use cross entropy loss as fitness
         criterion = nn.CrossEntropyLoss()
         loss = criterion(outputs, labels)
+        # print(loss) --> tensor(2.877)
         return -loss.item()
 
-    def set_model(self, compressed_model):
-        # model: compressed model
-        uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Classifier)
-        self.model = uncompressed_model
-
-    def nb_learnable_params(self):
-        torch.set_grad_enabled(True)
-        model = Cifar10Classifier(random_state())
-        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        torch.set_grad_enabled(False)
-        return count
-
     def save(self, filename):
+        # todo check self-critical --> also save iteration,... not only params?
         pass
 
     def load(self, filename):
         pass
 
+    def nb_learnable_params(self):
+        pass
 
-class Cifar10Classifier(nn.Module):
+
+class Cifar10Policy(Policy):
+    def __init__(self, *args):
+        super(Cifar10Policy, self).__init__()
+        # self.model = Cifar10Classifier(random_state())
+        # self.model = None
+
+    def set_model(self, compressed_model):
+        # model: compressed model
+        uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
+        self.model = uncompressed_model
+
+    def nb_learnable_params(self):
+        torch.set_grad_enabled(True)
+        model = Cifar10Net(random_state())
+        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        torch.set_grad_enabled(False)
+        return count
+
+
+class MnistPolicy(Policy):
+    def __init__(self, *args):
+        super(MnistPolicy, self).__init__()
+        # self.model = Cifar10Classifier(random_state())
+        # self.model = None
+
+    def set_model(self, compressed_model):
+        # model: compressed model
+        uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
+        self.model = uncompressed_model
+
+    def nb_learnable_params(self):
+        torch.set_grad_enabled(True)
+        model = MnistNet(random_state())
+        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        torch.set_grad_enabled(False)
+        return count
+
+
+class PolicyNet(nn.Module):
     def __init__(self, rng_state):
-        super(Cifar10Classifier, self).__init__()
+        super(PolicyNet, self).__init__()
+
+        self.rng_state = rng_state
+        torch.manual_seed(rng_state)
+        self.evolve_states = []
+        self.add_tensors = {}
+
+    def _initialize_params(self):
+        for name, tensor in self.named_parameters():
+            if tensor.size() not in self.add_tensors:
+                self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
+            if 'weight' in name:
+                # todo kaiming normal or:
+                # We use Xavier initialization (Glorot & Bengio, 2010) as our policy initialization
+                # function φ where all bias weights are set to zero, and connection weights are drawn
+                # from a standard normal distribution with variance 1/Nin, where Nin is the number of
+                # incoming connections to a neuron
+                # nn.init.kaiming_normal_(tensor)
+                nn.init.xavier_normal_(tensor)
+            else:
+                tensor.data.zero_()
+
+    def evolve(self, sigma, rng_state):
+        # rng_state = int
+        torch.manual_seed(rng_state)
+        self.evolve_states.append((sigma, rng_state))
+
+        for name, tensor in sorted(self.named_parameters()):
+            to_add = self.add_tensors[tensor.size()]
+            # fill to_add elements sampled from normal distr
+            to_add.normal_(mean=0.0, std=sigma)
+            tensor.data.add_(to_add)
+
+    def compress(self):
+        return CompressedModel(self.rng_state, self.evolve_states)
+
+    def forward(self, x):
+        pass
+
+
+class Cifar10Net(PolicyNet):
+    def __init__(self, rng_state):
+        super(Cifar10Net, self).__init__(rng_state)
 
         # 60K params
         self.conv1 = nn.Conv2d(3, 6, 5)
@@ -214,38 +270,7 @@ class Cifar10Classifier(nn.Module):
         # self.fc3 = nn.Linear(32, 10)
         # self.fc4 = nn.Linear(8, 2)
 
-        self.rng_state = rng_state
-        torch.manual_seed(rng_state)
-
-        self.evolve_states = []
-
-        self.add_tensors = {}
-        for name, tensor in self.named_parameters():
-            if tensor.size() not in self.add_tensors:
-                self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
-            if 'weight' in name:
-                # todo kaiming normal or:
-                # We use Xavier initialization (Glorot & Bengio, 2010) as our policy initialization
-                # function φ where all bias weights are set to zero, and connection weights are drawn
-                # from a standard normal distribution with variance 1/Nin, where Nin is the number of
-                # incoming connections to a neuron
-                nn.init.kaiming_normal_(tensor)
-            else:
-                tensor.data.zero_()
-
-    def evolve(self, sigma, rng_state):
-        # rng_state = int
-        torch.manual_seed(rng_state)
-        self.evolve_states.append((sigma, rng_state))
-
-        for name, tensor in sorted(self.named_parameters()):
-            to_add = self.add_tensors[tensor.size()]
-            # fill to_add elements sampled from normal distr
-            to_add.normal_(mean=0.0, std=sigma)
-            tensor.data.add_(to_add)
-
-    def compress(self):
-        return CompressedModel(self.rng_state, self.evolve_states)
+        self._initialize_params()
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -321,6 +346,28 @@ class BlockSlidesNet32(nn.Module):
         return x
 
 
+class MnistNet(PolicyNet):
+    def __init__(self, rng_state):
+        super(MnistNet, self).__init__(rng_state)
+
+        self.conv1 = nn.Conv2d(1, 10, 5, 1)
+        self.conv2 = nn.Conv2d(10, 20, 5, 1)
+        self.fc1 = nn.Linear(4*4*20, 100)
+        self.fc2 = nn.Linear(100, 10)
+
+        self._initialize_params()
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = x.view(-1, 4*4*20)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+
 class CompressedModel:
     def __init__(self, start_rng=None, other_rng=None):
         self.start_rng = start_rng if start_rng is not None else random_state()
@@ -329,12 +376,18 @@ class CompressedModel:
     def evolve(self, sigma, rng_state=None):
         self.other_rng.append((sigma, rng_state if rng_state is not None else random_state()))
 
-    def uncompress(self, to_class_name=Cifar10Classifier):
+    def uncompress(self, to_class_name=MnistNet):
         start_rng, other_rng = self.start_rng, self.other_rng
         m = to_class_name(start_rng)
         for sigma, rng in other_rng:
             m.evolve(sigma, rng)
         return m
+
+    def __str__(self):
+        result = '[( {start_rng} )'.format(start_rng=self.start_rng)
+        for _, rng in self.other_rng:
+            result += '( {rng} )'.format(rng=rng)
+        return result + ']'
 
 
 def random_state():
