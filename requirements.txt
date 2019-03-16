@@ -1,10 +1,10 @@
 certifi==2019.3.9
 Click==7.0
 cycler==0.10.0
+intel-openmp==2019.0
 kiwisolver==1.0.1
 matplotlib==3.0.3
-mkl-fft==1.0.10
-mkl-random==1.0.2
+mkl==2019.0
 numpy==1.16.2
 Pillow==5.4.1
 pyparsing==2.3.1

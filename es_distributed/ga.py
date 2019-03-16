@@ -399,14 +399,14 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
             if plot:
                 import matplotlib.pyplot as plt
 
-                plt.figure(1)
+                plt.figure()
                 x = np.arange(len(score_stats[1]))
-                plt.plot(x=x, y=score_stats[1], label='Training loss', color='blue')
                 plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
+                plt.plot(x=x, y=score_stats[1], label='Training loss', color='blue')
                 plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
 
-                plt.figure(2)
-                plt.plot(x=x, y=time_stats, label='Time per generation')
+                plt.figure()
+                plt.plot(x=x, y=time_stats, label='Time per generation', color='black')
                 plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
 
     # except KeyboardInterrupt:

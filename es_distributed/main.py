@@ -1,6 +1,6 @@
 
-import mkl
-mkl.set_num_threads(1)
+# import mkl
+# mkl.set_num_threads(1)
 
 import errno
 import json
@@ -58,6 +58,9 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
     # Start the master
     assert (exp_str is None) != (exp_file is None), 'Must provide exp_str xor exp_file to the master'
 
+    # import mkl
+    # mkl.set_num_threads(1)
+
     # todo exp = experiment, json file
     if exp_str:
         exp = json.loads(exp_str)
@@ -86,6 +89,10 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     if os.fork() == 0:
         RelayClient(master_redis_cfg, relay_redis_cfg).run()
         return
+
+    # import mkl
+    # mkl.set_num_threads(1)
+
     # Start the workers
     algo = import_algo(algo)
     # noise = algo.SharedNoiseTable()  # Workers share the same noise
