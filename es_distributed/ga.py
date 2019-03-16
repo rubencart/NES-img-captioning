@@ -1,15 +1,38 @@
 import copy
+import logging
+import time
+from collections import namedtuple
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
-
-from es_distributed.policies import CompressedModel
-from .es import *
-
 import torchvision
 import torchvision.transforms as transforms
 
-ga_task_fields = ['params', 'population', 'ob_mean', 'ob_std', 'timestep_limit', 'batch_data']
+from es_distributed.dist import MasterClient, WorkerClient
+from es_distributed.policies import CompressedModel
+
+
+logger = logging.getLogger(__name__)
+
+ga_task_fields = ['params', 'population', 'ob_mean', 'ob_std', 'timestep_limit', 'batch_data', 'parents']
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
+
+config_fields = [
+    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch',
+    'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers',
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size'
+]
+Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
+Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit'])
+
+result_fields = [
+    'worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
+    'noise_inds_n', 'returns_n2', 'signreturns_n2', 'lengths_n2',
+    'eval_return', 'eval_length',
+    'ob_sum', 'ob_sumsq', 'ob_count'
+]
+Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 
 # def setup(exp, single_threaded):
@@ -69,9 +92,10 @@ def run_master(master_redis_cfg, log_dir, exp):
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transform)
 
-    batch_size = config.batch_size if config.batch_size else 128
+    # batch_size = config.batch_size if config.batch_size else 256
+    batch_size = config.batch_size
     # todo num_workers?
-    num_workers = 4
+    num_workers = config.num_dataloader_workers
 
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=num_workers)
@@ -120,17 +144,21 @@ def run_master(master_redis_cfg, log_dir, exp):
     truncation = exp['truncation']
 
     num_elites = exp['num_elites']
-    population_score = np.array([])
+    # population_score = np.array([])
 
     # fill population
     # population = []
     # todo continue_from
-    population = [(model_id, CompressedModel()) for model_id in range(population_size)]
-    population_dict = {model_id: (model_id, model) for (model_id, model) in population}
+    # population = [(model_id, CompressedModel()) for model_id in range(population_size)]
+    parents = [(model_id, None) for model_id in range(truncation)]
+    # parent_dict = {model_id: (model_id, model) for (model_id, model) in parents}
+
+    score_stats = [[], [], []]
 
     # todo max epochs?
     while True:
         # todo max generations
+
         for i, batch_data in enumerate(trainloader, 0):
 
             step_tstart = time.time()
@@ -146,7 +174,8 @@ def run_master(master_redis_cfg, log_dir, exp):
 
             curr_task_id = master.declare_task(GATask(
                 # params=theta,
-                population=population,
+                # population=population,
+                parents=parents,
                 batch_data=batch_data,
                 ob_mean=None,  # ob_stat.mean if policy.needs_ob_stat else None,
                 ob_std=None,  # ob_stat.std if policy.needs_ob_stat else None,
@@ -154,6 +183,7 @@ def run_master(master_redis_cfg, log_dir, exp):
             ))
 
             tlogger.log('********** Iteration {} **********'.format(curr_task_id))
+            logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
 
             # Pop off results for the current task
             # curr_task_results, eval_rets, eval_lens, worker_ids = [], [], [], []
@@ -161,12 +191,20 @@ def run_master(master_redis_cfg, log_dir, exp):
             # num_results_skipped, num_episodes_popped, num_timesteps_popped, ob_count_this_batch = 0, 0, 0, 0
             num_results_skipped = 0
 
-            models_to_evaluate = sorted([i for i, _ in population])
+            # models_to_evaluate = sorted([i for i, _ in population])
+            nb_models_to_evaluate = population_size
+            elite_evaluated = False
             # evaluated_models = []
 
             # while num_episodes_popped < config.episodes_per_batch or num_timesteps_popped < config.timesteps_per_batch:
             # todo population
-            while models_to_evaluate:
+            while nb_models_to_evaluate > 0 or not elite_evaluated:
+                if nb_models_to_evaluate % 50 == 0:
+                    logger.info('Nb of models left to evaluate: {nb}. Elite evaluated: {el}'
+                                .format(nb=nb_models_to_evaluate, el=elite_evaluated))
+
+                # if nb_models_to_evaluate <= 0 and not elite_evaluated:
+                #     logger.warning('Only the elite still has to be evaluated')
 
                 # Wait for a result
                 task_id, result = master.pop_result()
@@ -200,9 +238,12 @@ def run_master(master_redis_cfg, log_dir, exp):
                         # num_episodes_popped += result_num_eps
                         # num_timesteps_popped += result_num_timesteps
 
-                        if result.evaluated_model_id in models_to_evaluate:
-                            models_to_evaluate.remove(result.evaluated_model_id)
-                            curr_task_results.append(result)
+                        # if result.evaluated_model_id in models_to_evaluate:
+                        # models_to_evaluate.remove(result.evaluated_model_id)
+                        nb_models_to_evaluate -= 1
+                        curr_task_results.append(result)
+                        if result.evaluated_model_id == 0:
+                            elite_evaluated = True
 
                         # Update ob stats
                         # if policy.needs_ob_stat and result.ob_count > 0:
@@ -233,12 +274,23 @@ def run_master(master_redis_cfg, log_dir, exp):
             # scores = np.array(
             #     sorted([result.fitness.item() for result in curr_task_results], reverse=True)
             # )
-            scored_models = [(population_dict[result.evaluated_model_id], result.fitness.item())
+            scored_models = [(result.evaluated_model_id, result.evaluated_model, result.fitness.item())
                              for result in curr_task_results]
-            scored_models.sort(key=lambda x: x[1], reverse=True)
-            scores = np.array([fitness for (_, fitness) in scored_models])
-            # pick parents for next generation
-            parents = [model for ((id, model), _) in scored_models[:truncation]]
+            elite_scored_models = [t for t in scored_models if t[0] == 0]
+            other_scored_models = [t for t in scored_models if t[0] != 0]
+
+            best_elite_score = (0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models]))
+
+            scored_models = [best_elite_score] + other_scored_models
+
+            scored_models.sort(key=lambda x: x[2], reverse=True)
+            scores = np.array([fitness for (_, _, fitness) in scored_models])
+            # pick parents for next generation, give new index
+            parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
+
+            score_stats[0].append(scores.min())
+            score_stats[1].append(scores.mean())
+            score_stats[2].append(scores.max())
 
             # Process returns
             # todo what does argpartition do
@@ -258,14 +310,14 @@ def run_master(master_redis_cfg, log_dir, exp):
 
             # EVOLVE
             # Elitism
-            next_generation = [(0, parents[0])]
-            for idx in range(population_size):
-                next_generation.append((idx + 1, copy.deepcopy(rs.choice(parents))))
-                # self.models contains compressed models
-                next_generation[-1][1].evolve(config.noise_stdev)
-
-            population = copy.deepcopy(next_generation)
-            population_dict = {model_id: (model_id, model) for (model_id, model) in population}
+            # next_generation = [(0, parents[0])]
+            # for idx in range(population_size):
+            #     next_generation.append((idx + 1, copy.deepcopy(rs.choice(parents))))
+            #     # self.models contains compressed models
+            #     next_generation[-1][1].evolve(config.noise_stdev)
+            #
+            # population = copy.deepcopy(next_generation)
+            # population_dict = {model_id: (model_id, model) for (model_id, model) in population}
 
             # todo adjust to pytorch
             # this evolves the elite of last iteration --> to be able to evaluate it
@@ -322,6 +374,7 @@ def run_master(master_redis_cfg, log_dir, exp):
             if config.snapshot_freq != 0:
                 import os.path as osp
                 # todo filename --> .h5? or .p like torch files
+                # todo to log_dir
                 filename = 'snapshot_iter{:05d}_rew{}.h5'.format(
                     curr_task_id,
                     np.nan if not eval_rets else int(np.mean(eval_rets))
@@ -330,9 +383,32 @@ def run_master(master_redis_cfg, log_dir, exp):
                 policy.save(filename)
                 tlogger.log('Saved snapshot {}'.format(filename))
 
+            plt.errorbar(x=np.arange(len(score_stats[1])), y=score_stats[1], yerr=(score_stats[0], score_stats[2]),
+                         label='Training loss')
+            plt.savefig(log_dir + '/loss_plot.png')
+
+    # except KeyboardInterrupt:
+    #     pass
+
+    # def plot_acc_loss(mins: list, means: list, maxes: list) -> None:
+    #     # plt.xlabel('epochs')
+    #     loss_plot, = plt.errorbar(x=np.arange(len(means)), y=means, yerr=(mins, maxes), label='Training loss')
+    #     # t_acc_plot, = plt.plot(1 - train_accs, label='Train err')
+    #     # v_acc_plot, = plt.plot(1 - val_accs, label='Val err')
+    #     # plt.legend(handles=[loss_plot, t_acc_plot, v_acc_plot])
+    #     plt.savefig(log_dir + '/loss_plot.png')
+    #     # show_plots and plt.draw()
+
+    # plt.errorbar(x=np.arange(len(score_stats[1])), y=score_stats[1], yerr=(score_stats[0], score_stats[2]),
+    #              label='Training loss')
+    # plt.savefig(log_dir + '/loss_plot.png')
+
 
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
     logger.info('run_worker: {}'.format(locals()))
+
+    torch.set_grad_enabled(False)
+
     # assert isinstance(noise, SharedNoiseTable)
 
     # redis client
@@ -395,8 +471,21 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                 # noise.sample_index(rs, np) --> rs.randint(0, len(self.noise) - np + 1)
                 # seeds = [noise.sample_index(rs, policy.num_params)]
 
-            model_id, compressed_model = task_data.population[rs.randint(len(task_data.population))]
-            policy.set_model(compressed_model)
+            # parent_id, compressed_parent = task_data.parents[rs.randint(len(task_data.parents))]
+            index = rs.randint(len(task_data.parents))
+            # parent_id, compressed_parent = rs.choice(task_data.parents)
+            parent_id, compressed_parent = task_data.parents[index]
+
+            if compressed_parent is None:
+                # 0'th iteration: first models still have to be generated
+                model = CompressedModel()
+            else:
+                model = copy.deepcopy(compressed_parent)
+                # elite doesn't have to be evolved
+                if index != 0:
+                    model.evolve(config.noise_stdev)
+
+            policy.set_model(model)
 
             # get(i, dim) --> self.noise[i:i + dim]
             # v = noise.get(seeds[0], policy.num_params)
@@ -429,7 +518,8 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
             worker.push_result(task_id, Result(
                 worker_id=worker_id,
                 # noise_inds_n=noise_inds,
-                evaluated_model_id=model_id,
+                evaluated_model_id=parent_id,
+                evaluated_model=model,
                 fitness=np.array([fitness], dtype=np.float32)
                 # returns_n2=np.array(returns, dtype=np.float32),
                 # signreturns_n2=np.array(signreturns, dtype=np.float32),

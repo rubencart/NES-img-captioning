@@ -148,6 +148,9 @@ class Policy:
     def load(self, filename):
         raise NotImplementedError
 
+    def nb_learnable_params(self):
+        raise NotImplementedError
+
 
 class Cifar10Policy(Policy):
     def __init__(self, *args):
@@ -171,6 +174,13 @@ class Cifar10Policy(Policy):
         uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Classifier)
         self.model = uncompressed_model
 
+    def nb_learnable_params(self):
+        torch.set_grad_enabled(True)
+        model = Cifar10Classifier(random_state())
+        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        torch.set_grad_enabled(False)
+        return count
+
     def save(self, filename):
         pass
 
@@ -182,12 +192,27 @@ class Cifar10Classifier(nn.Module):
     def __init__(self, rng_state):
         super(Cifar10Classifier, self).__init__()
 
+        # 60K params
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
+
+        # 291466 params
+        # self.conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1)
+        # self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        # self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        # self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1)
+        # self.conv5 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
+        # self.conv6 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1)
+        # self.pool = nn.MaxPool2d(2, 2)
+        # self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        #
+        # self.fc2 = nn.Linear(128, 32)
+        # self.fc3 = nn.Linear(32, 10)
+        # self.fc4 = nn.Linear(8, 2)
 
         self.rng_state = rng_state
         torch.manual_seed(rng_state)
@@ -204,7 +229,7 @@ class Cifar10Classifier(nn.Module):
                 # function φ where all bias weights are set to zero, and connection weights are drawn
                 # from a standard normal distribution with variance 1/Nin, where Nin is the number of
                 # incoming connections to a neuron
-                nn.init.kaiming_normal(tensor)
+                nn.init.kaiming_normal_(tensor)
             else:
                 tensor.data.zero_()
 
@@ -229,6 +254,70 @@ class Cifar10Classifier(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
+        return x
+        # def _conv_conv_pool(conv1, conv2, pool, x):
+        #     x = F.relu(conv1(x))
+        #     x = F.relu(conv2(x))
+        #     return pool(x)
+        #
+        # x = _conv_conv_pool(self.conv1, self.conv2, self.pool, x)
+        # x = _conv_conv_pool(self.conv3, self.conv4, self.pool, x)
+        # x = _conv_conv_pool(self.conv5, self.conv6, self.avg_pool, x)
+        #
+        # x = x.view(-1, 128)
+        # x = self.fc2(x)
+        # x = self.fc3(x)
+        # return x
+
+
+class BlockSlidesNet32(nn.Module):
+
+    def __init__(self):
+        super(BlockSlidesNet32, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
+        self.conv6 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1)
+        # self.conv7 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1)
+        # self.conv8 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+        # self.conv9 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1)
+        # self.conv10 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1)
+
+        # self.bn1 = nn.BatchNorm2d(32)
+        # self.bn2 = nn.BatchNorm2d(32)
+        # self.bn3 = nn.BatchNorm2d(64)
+        # self.bn4 = nn.BatchNorm2d(64)
+        # self.bn5 = nn.BatchNorm2d(128)
+        # self.bn6 = nn.BatchNorm2d(128)
+        self.pool = nn.MaxPool2d(2, 2)
+
+        # self.avg_pool = nn.AvgPool2d(8, 8)
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+
+        self.fc2 = nn.Linear(128, 32)
+        self.fc3 = nn.Linear(32, 8)
+        self.fc4 = nn.Linear(8, 2)
+
+        # self.bn_fc2 = nn.BatchNorm1d(32)
+        # self.bn_fc3 = nn.BatchNorm1d(8)
+
+    def forward(self, x):
+        def _conv_conv_pool(conv1, conv2, pool, x):
+            x = F.relu(conv1(x))
+            x = F.relu(conv2(x))
+            return pool(x)
+
+        x = _conv_conv_pool(self.conv1, self.conv2, self.pool, x)
+        x = _conv_conv_pool(self.conv3, self.conv4, self.pool, x)
+        x = _conv_conv_pool(self.conv5, self.conv6, self.avg_pool, x)
+
+        x = x.view(-1, 128)
+        x = self.fc2(x)
+        x = self.fc3(x)
+        x = self.fc4(x)
         return x
 
 
