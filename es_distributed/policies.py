@@ -380,10 +380,15 @@ class MnistNet(PolicyNet):
         super(MnistNet, self).__init__(rng_state)
 
         # todo compare fitness incr rate with and without weight norm + time per generation
-        self.conv1 = nn.utils.weight_norm(nn.Conv2d(1, 10, 5, 1))
-        self.conv2 = nn.utils.weight_norm(nn.Conv2d(10, 20, 5, 1))
-        self.fc1 = nn.utils.weight_norm(nn.Linear(4*4*20, 100))
-        self.fc2 = nn.utils.weight_norm(nn.Linear(100, 10))
+        # self.conv1 = nn.utils.weight_norm(nn.Conv2d(1, 10, 5, 1))
+        # self.conv2 = nn.utils.weight_norm(nn.Conv2d(10, 20, 5, 1))
+        # self.fc1 = nn.utils.weight_norm(nn.Linear(4*4*20, 100))
+        # self.fc2 = nn.utils.weight_norm(nn.Linear(100, 10))
+
+        self.conv1 = nn.Conv2d(1, 10, 5, 1)
+        self.conv2 = nn.Conv2d(10, 20, 5, 1)
+        self.fc1 = nn.Linear(4*4*20, 100)
+        self.fc2 = nn.Linear(100, 10)
 
         self._initialize_params()
 
