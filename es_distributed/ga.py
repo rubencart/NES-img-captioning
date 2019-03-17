@@ -1,5 +1,7 @@
 import copy
+import json
 import logging
+import os
 import time
 from collections import namedtuple
 
@@ -9,8 +11,9 @@ import torchvision
 import torchvision.transforms as transforms
 
 from es_distributed.dist import MasterClient, WorkerClient
+from es_distributed.main import mkdir_p
 from es_distributed.policies import CompressedModel
-
+from es_distributed.utils import plot_stats, save_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,7 @@ GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len
 config_fields = [
     'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch',
     'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers',
-    'return_proc_mode', 'episode_cutoff_mode', 'batch_size'
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs',
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit'])
@@ -102,19 +105,27 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
     # todo continue_from
     parents = [(model_id, None) for model_id in range(truncation)]
-    elite = None
+
+    # todo use best so far as elite instead of best of last gen?
+    elite = CompressedModel()
+    policy.set_model(elite)
 
     score_stats = [[], [], []]
     time_stats = []
     acc_stats = [[], []]
     norm_stats = []
 
+    epoch = 0
+    max_nb_epochs = 1000
     try:
         # todo max epochs?
-        while True:
+        while True or epoch < max_nb_epochs:
+            epoch += 1
+
             # todo max generations
             # todo check how many times training set has been gone through
-            for i, batch_data in enumerate(trainloader, 0):
+            for iteration, batch_data in enumerate(trainloader, 0):
+                total_iteration = ((epoch - 1) * len(trainloader) + iteration)
 
                 step_tstart = time.time()
 
@@ -131,7 +142,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     batch_data=batch_data,
                 ))
 
-                tlogger.log('********** Iteration {} **********'.format(curr_task_id))
+                tlogger.log('********** Iteration {} **********'.format(total_iteration))
                 logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
 
                 curr_task_results, eval_rets, worker_ids = [], [], []
@@ -139,14 +150,18 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 nb_models_to_evaluate = population_size
                 elite_evaluated = False
+                at_least_one_eval = False
 
-                while nb_models_to_evaluate > 0 or not elite_evaluated:
+                while nb_models_to_evaluate > 0 or not elite_evaluated or not at_least_one_eval:
                     # if nb_models_to_evaluate % 50 == 0 and nb_models_to_evaluate != population_size:
                     #     logger.info('Nb of models left to evaluate: {nb}. Elite evaluated: {el}'
                     #                 .format(nb=nb_models_to_evaluate, el=elite_evaluated))
 
                     if nb_models_to_evaluate <= 0 and not elite_evaluated:
                         logger.warning('Only the elite still has to be evaluated')
+
+                    if nb_models_to_evaluate <= 0 and not at_least_one_eval:
+                        logger.warning('Waiting for an eval run')
 
                     # Wait for a result
                     task_id, result = master.pop_result()
@@ -159,7 +174,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         # Store the result only for current tasks
                         if task_id == curr_task_id:
                             eval_rets.append(result.eval_return)
-                    else:
+                            at_least_one_eval = True
+
+                    elif result.evaluated_model_id is not None:
                         # assert result.returns_n2.dtype == np.float32
                         assert result.fitness.dtype == np.float32
 
@@ -173,6 +190,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                         else:
                             num_results_skipped += 1
+                    else:
+                        # first generation eval runs are empty
+                        pass
 
                 # Compute skip fraction
                 frac_results_skipped = num_results_skipped / (num_results_skipped + len(curr_task_results))
@@ -195,12 +215,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 # pick parents for next generation, give new index
                 parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
 
-                print('Best 5: ', [(i, round(f, 2)) for (i, _, f) in scored_models[:5]])
+                logger.info('Best 5: ', [(i, round(f, 2)) for (i, _, f) in scored_models[:5]])
                 # input('PRESS ENTER')
-
-                # set new elite
-                elite = scored_models[0][1]
-                policy.set_model(elite)
 
                 score_stats[0].append(scores.min())
                 score_stats[1].append(scores.mean())
@@ -224,7 +240,13 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 tlogger.record_tabular("RewMean", scores.mean())
                 tlogger.record_tabular("RewMin", scores.min())
                 tlogger.record_tabular("RewStd", scores.std())
+
+                # todo apart from norm, would also be interesting to see how far params are from
+                # each other in param space (distance between param_vectors)
                 tlogger.record_tabular("Norm", norm)
+
+                if eval_rets:
+                    tlogger.record_tabular("MaxAcc", acc_stats[1][-1])
 
                 num_unique_workers = len(set(worker_ids))
                 tlogger.record_tabular("UniqueWorkers", num_unique_workers)
@@ -235,64 +257,31 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 tlogger.record_tabular("TimeElapsed", step_tend - tstart)
                 tlogger.dump_tabular()
 
-                # if config.snapshot_freq != 0 and curr_task_id % config.snapshot_freq == 0:
-                if config.snapshot_freq != 0:
-                    import os.path as osp
-                    # todo filename --> .h5? or .p like torch files
-                    # todo to log_dir
-                    filename = 'snapshot_iter{:05d}_rew{}.h5'.format(
-                        curr_task_id,
-                        np.nan if not eval_rets else int(np.mean(eval_rets))
-                    )
-                    assert not osp.exists(filename)
-                    policy.save(filename)
-                    tlogger.log('Saved snapshot {}'.format(filename))
+                if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
 
-                # if plot:
-                #     import matplotlib
-                #     matplotlib.use('TkAgg')
-                #     import matplotlib.pyplot as plt
-                #
-                #     plt.figure()
-                #     x = np.arange(len(score_stats[1]))
-                #     plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
-                #     plt.plot(x.copy(), score_stats[1], label='Training loss', color='blue')
-                #     # plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
-                #     plt.savefig(log_dir + '/loss_plot.png')
-                #
-                #     plt.figure()
-                #     plt.plot(np.arange(len(time_stats)), time_stats, label='Time per generation')
-                #     # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
-                #     plt.savefig(log_dir + '/time_plot.png')
+                    filename = save_snapshot(acc_stats, epoch, iteration, parents, policy, len(trainloader))
+
+                    # todo adjust tlogger to log like logger (time, pid)
+                    logger.info('Saved snapshot {}'.format(filename))
+
+                    if plot:
+                        plot_stats(log_dir, score_stats,
+                                   time=(time_stats, 'Time per gen'),
+                                   norm=(norm_stats, 'Norm of params'),
+                                   # todo also plot fitness
+                                   acc=(acc_stats[1], 'Elite accuracy'))
+
+                # set policy to new elite
+                elite = scored_models[0][1]
+                policy.set_model(elite)
 
     except KeyboardInterrupt:
         if plot:
-            import matplotlib
-            matplotlib.use('TkAgg')
-            import matplotlib.pyplot as plt
-
-            plt.figure()
-            x = np.arange(len(score_stats[1]))
-            plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
-            plt.plot(x.copy(), score_stats[1], label='Training loss', color='blue')
-            # plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
-            plt.savefig(log_dir + '/loss_plot.png')
-
-            plt.figure()
-            plt.plot(np.arange(len(time_stats)), time_stats, label='Time per generation')
-            # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
-            plt.savefig(log_dir + '/time_plot.png')
-
-            plt.figure()
-            plt.plot(np.arange(len(norm_stats)), norm_stats, label='Parameter norm')
-            # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
-            plt.savefig(log_dir + '/norm_plot.png')
-
-            plt.figure()
-            # todo also plot fitness
-            plt.plot(np.arange(len(acc_stats[1])), acc_stats[1], label='Eval accuracy')
-            # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
-            plt.savefig(log_dir + '/eval_plot.png')
+            plot_stats(log_dir, score_stats,
+                       time=(time_stats, 'Time per gen'),
+                       norm=(norm_stats, 'Norm of params'),
+                       # todo also plot fitness
+                       acc=(acc_stats[1], 'Elite accuracy'))
 
 
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
@@ -316,10 +305,8 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
         assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
         if rs.rand() < config.eval_prob:
-            if task_data.elite is not None:
-                model = copy.deepcopy(task_data.elite)
-            else:
-                model = CompressedModel()
+            model = copy.deepcopy(task_data.elite)
+
             policy.set_model(model)
             fitness = policy.rollout(task_data.batch_data)
 

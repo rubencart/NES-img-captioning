@@ -58,6 +58,7 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
     # Start the master
     assert (exp_str is None) != (exp_file is None), 'Must provide exp_str xor exp_file to the master'
 
+    # todo look into this
     # import mkl
     # mkl.set_num_threads(1)
 

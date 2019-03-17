@@ -1,4 +1,5 @@
 import logging
+import os
 import pickle
 import time
 
@@ -14,6 +15,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from es_distributed.main import mkdir_p
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +136,6 @@ class TfPolicy:
 
 
 class Policy:
-    # TODO : https://pytorch.org/docs/stable/nn.html#parameters-to-vector exists??!!!!
 
     def __init__(self):
         # todo adjust to pytorch
@@ -163,9 +164,11 @@ class Policy:
         accuracy = float(correct) / labels.size()[0]
         return accuracy
 
-    def save(self, filename):
+    def save(self, path, filename):
         # todo check self-critical --> also save iteration,... not only params?
-        pass
+        mkdir_p(path)
+        assert not os.path.exists(os.path.join(path, filename))
+        torch.save(self.policy_net.state_dict(), os.path.join(path, filename))
 
     def load(self, filename):
         pass
@@ -177,9 +180,7 @@ class Policy:
         pass
 
     def reinitialize_params(self):
-        # https://pytorch.org/docs/stable/nn.html#torch.nn.utils.weight_norm
-        # todo BUT needed?
-        # in FW() if we use it
+        # todo rescale weights manually (can we use weight norm?)
         pass
 
     def parameter_vector(self):
@@ -378,10 +379,11 @@ class MnistNet(PolicyNet):
     def __init__(self, rng_state):
         super(MnistNet, self).__init__(rng_state)
 
-        self.conv1 = nn.Conv2d(1, 10, 5, 1)
-        self.conv2 = nn.Conv2d(10, 20, 5, 1)
-        self.fc1 = nn.Linear(4*4*20, 100)
-        self.fc2 = nn.Linear(100, 10)
+        # todo compare fitness incr rate with and without weight norm + time per generation
+        self.conv1 = nn.utils.weight_norm(nn.Conv2d(1, 10, 5, 1))
+        self.conv2 = nn.utils.weight_norm(nn.Conv2d(10, 20, 5, 1))
+        self.fc1 = nn.utils.weight_norm(nn.Linear(4*4*20, 100))
+        self.fc2 = nn.utils.weight_norm(nn.Linear(100, 10))
 
         self._initialize_params()
 

@@ -1,14 +1,9 @@
 {
   "config": {
-    "calc_obstat_prob": 0.0,
-    "episodes_per_batch": 5000,
     "eval_prob": 0.01,
     "l2coeff": 0.005,
     "noise_stdev": 0.01,
-    "snapshot_freq": 20,
-    "timesteps_per_batch": 10000,
-    "return_proc_mode": "centered_rank",
-    "episode_cutoff_mode": 5000,
+    "snapshot_freq": 3,
     "batch_size": 512,
     "num_dataloader_workers": 2
   },
