@@ -134,24 +134,34 @@ class TfPolicy:
 
 
 class Policy:
+    # TODO : https://pytorch.org/docs/stable/nn.html#parameters-to-vector exists??!!!!
+
     def __init__(self):
-        # self.args, self.kwargs = args, kwargs
         # todo adjust to pytorch
         # self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
         # self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
-        self.model = None
+        self.policy_net = None
 
     def rollout(self, data):
-        assert self.model is not None, 'set model first!'
+        assert self.policy_net is not None, 'set model first!'
 
         inputs, labels = data
-        outputs = self.model(inputs)
+        outputs = self.policy_net(inputs)
 
         # todo for now use cross entropy loss as fitness
         criterion = nn.CrossEntropyLoss()
         loss = criterion(outputs, labels)
         # print(loss) --> tensor(2.877)
         return -loss.item()
+
+    def accuracy_on(self, data):
+        inputs, labels = data
+        outputs = self.policy_net(inputs)
+
+        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        correct = prediction.eq(labels.view_as(prediction)).sum().item()
+        accuracy = float(correct) / labels.size()[0]
+        return accuracy
 
     def save(self, filename):
         # todo check self-critical --> also save iteration,... not only params?
@@ -163,6 +173,19 @@ class Policy:
     def nb_learnable_params(self):
         pass
 
+    def set_model(self, compressed_model):
+        pass
+
+    def reinitialize_params(self):
+        # https://pytorch.org/docs/stable/nn.html#torch.nn.utils.weight_norm
+        # todo BUT needed?
+        # in FW() if we use it
+        pass
+
+    def parameter_vector(self):
+        assert self.policy_net is not None, 'set model first!'
+        return nn.utils.parameters_to_vector(self.policy_net.parameters())
+
 
 class Cifar10Policy(Policy):
     def __init__(self, *args):
@@ -171,9 +194,11 @@ class Cifar10Policy(Policy):
         # self.model = None
 
     def set_model(self, compressed_model):
+        assert isinstance(compressed_model, CompressedModel)
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
-        self.model = uncompressed_model
+        assert isinstance(uncompressed_model, PolicyNet)
+        self.policy_net = uncompressed_model
 
     def nb_learnable_params(self):
         torch.set_grad_enabled(True)
@@ -190,9 +215,11 @@ class MnistPolicy(Policy):
         # self.model = None
 
     def set_model(self, compressed_model):
+        assert isinstance(compressed_model, CompressedModel)
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
-        self.model = uncompressed_model
+        assert isinstance(uncompressed_model, PolicyNet)
+        self.policy_net = uncompressed_model
 
     def nb_learnable_params(self):
         torch.set_grad_enabled(True)
@@ -227,6 +254,7 @@ class PolicyNet(nn.Module):
                 tensor.data.zero_()
 
     def evolve(self, sigma, rng_state):
+        # Evolve params 1 step
         # rng_state = int
         torch.manual_seed(rng_state)
         self.evolve_states.append((sigma, rng_state))
@@ -374,9 +402,11 @@ class CompressedModel:
         self.other_rng = other_rng if other_rng is not None else []
 
     def evolve(self, sigma, rng_state=None):
+        # evolve params 1 step
         self.other_rng.append((sigma, rng_state if rng_state is not None else random_state()))
 
     def uncompress(self, to_class_name=MnistNet):
+        # evolve through all steps
         start_rng, other_rng = self.start_rng, self.other_rng
         m = to_class_name(start_rng)
         for sigma, rng in other_rng:
