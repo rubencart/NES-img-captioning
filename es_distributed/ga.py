@@ -104,6 +104,13 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
 
     # todo continue_from
+    # if 'continue_from' in exp and exp['continue_from'] is not None:
+    #     infos = json.loads()
+    #     epoch = 0
+    #     parents = 0
+    # else:
+
+    epoch = 0
     parents = [(model_id, None) for model_id in range(truncation)]
 
     # todo use best so far as elite instead of best of last gen?
@@ -115,8 +122,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     acc_stats = [[], []]
     norm_stats = []
 
-    epoch = 0
-    max_nb_epochs = 1000
+    max_nb_epochs = config.max_nb_epochs if config.max_nb_epochs else 0
     try:
         # todo max epochs?
         while True or epoch < max_nb_epochs:
@@ -215,7 +221,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 # pick parents for next generation, give new index
                 parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
 
-                logger.info('Best 5: ', [(i, round(f, 2)) for (i, _, f) in scored_models[:5]])
+                logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
                 # input('PRESS ENTER')
 
                 score_stats[0].append(scores.min())
@@ -259,7 +265,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
 
-                    filename = save_snapshot(acc_stats, epoch, iteration, parents, policy, len(trainloader))
+                    filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
+                                             epoch, iteration, parents, policy, len(trainloader))
 
                     # todo adjust tlogger to log like logger (time, pid)
                     logger.info('Saved snapshot {}'.format(filename))
@@ -268,7 +275,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         plot_stats(log_dir, score_stats,
                                    time=(time_stats, 'Time per gen'),
                                    norm=(norm_stats, 'Norm of params'),
-                                   # todo also plot fitness
+                                   # todo also plot eval fitness
                                    acc=(acc_stats[1], 'Elite accuracy'))
 
                 # set policy to new elite
@@ -295,7 +302,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
     # config, env, sess, policy = setup(exp, single_threaded=True)
     config, policy = setup(exp)
 
-    rs = np.random.RandomState()  # todo randomstate vs seed? blogpost
+    rs = np.random.RandomState()
     worker_id = rs.randint(2 ** 31)
     # todo worker_id random int???? what if two get the same?
 
@@ -329,6 +336,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                 model = copy.deepcopy(compressed_parent)
                 # elite doesn't have to be evolved
                 if index != 0:
+                    # todo after not improved for > 20 generations: smaller stdev
                     model.evolve(config.noise_stdev)
                     assert isinstance(model, CompressedModel)
 

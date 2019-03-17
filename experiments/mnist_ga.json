@@ -13,5 +13,6 @@
   "policy": {
     "type": "MnistPolicy",
     "args": {}
-  }
+  },
+  "continue_from": ""
 }
