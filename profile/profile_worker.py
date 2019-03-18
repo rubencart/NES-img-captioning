@@ -1,4 +1,5 @@
 
+
 # import mkl
 # mkl.set_num_threads(1)
 
@@ -25,12 +26,12 @@ def mkdir_p(path):
             raise
 
 
-@click.group()
-def cli():
-    logging.basicConfig(
-        format='[%(asctime)s pid=%(process)d] %(message)s',
-        level=logging.INFO,
-        stream=sys.stderr)
+# @click.group()
+# def cli():
+#     logging.basicConfig(
+#         format='[%(asctime)s pid=%(process)d] %(message)s',
+#         level=logging.INFO,
+#         stream=sys.stderr)
 
 
 def import_algo(name):
@@ -49,43 +50,43 @@ def import_algo(name):
 
 
 # @profile(stream=open('memory_profiler.log', 'w+'))
-@cli.command()
-@click.option('--algo')
-@click.option('--exp_str')
-@click.option('--exp_file')
-@click.option('--master_socket_path', required=True)
-@click.option('--log_dir')
-@click.option('--plot', type=bool, default=True)
-def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
-    # Start the master
-    assert (exp_str is None) != (exp_file is None), 'Must provide exp_str xor exp_file to the master'
+# @cli.command()
+# @click.option('--algo')
+# @click.option('--exp_str')
+# @click.option('--exp_file')
+# @click.option('--master_socket_path', required=True)
+# @click.option('--log_dir')
+# @click.option('--plot', type=bool, default=True)
+# def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
+#     # Start the master
+#     assert (exp_str is None) != (exp_file is None), 'Must provide exp_str xor exp_file to the master'
+#
+#     # todo look into this
+#     # import mkl
+#     # mkl.set_num_threads(1)
+#
+#     # todo exp = experiment, json file
+#     if exp_str:
+#         exp = json.loads(exp_str)
+#     elif exp_file:
+#         with open(exp_file, 'r') as f:
+#             exp = json.loads(f.read())
+#     else:
+#         assert False
+#
+#     log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
+#     mkdir_p(log_dir)
+#     algo = import_algo(algo)
+#     algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
 
-    # todo look into this
-    # import mkl
-    # mkl.set_num_threads(1)
 
-    # todo exp = experiment, json file
-    if exp_str:
-        exp = json.loads(exp_str)
-    elif exp_file:
-        with open(exp_file, 'r') as f:
-            exp = json.loads(f.read())
-    else:
-        assert False
-
-    log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
-    mkdir_p(log_dir)
-    algo = import_algo(algo)
-    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
-
-
-# @profile(stream=open('memory_profiler.log', 'w+'))
-@cli.command()
-@click.option('--algo')
-@click.option('--master_host', required=True)
-@click.option('--master_port', default=6379, type=int)
-@click.option('--relay_socket_path', required=True)
-@click.option('--num_workers', type=int, default=0)
+# @profile(stream=open('profile/memory_profile_worker.log', 'w+'))
+# @cli.command()
+# @click.option('--algo')
+# @click.option('--master_host', required=True)
+# @click.option('--master_port', default=6379, type=int)
+# @click.option('--relay_socket_path', required=True)
+# @click.option('--num_workers', type=int, default=0)
 def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # Start the relay
     master_redis_cfg = {'host': master_host, 'port': master_port}
@@ -113,4 +114,5 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
 
 
 if __name__ == '__main__':
-    cli()
+    workers(algo='ga', master_host='localhost', relay_socket_path='/tmp/es_redis_relay.sock', master_port=6379,
+            num_workers=2)

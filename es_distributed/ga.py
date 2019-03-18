@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from memory_profiler import profile
 
 from es_distributed.dist import MasterClient, WorkerClient
 from es_distributed.main import mkdir_p
@@ -201,7 +202,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     # https://psutil.readthedocs.io/en/latest/#memory
                     mem_usage = psutil.Process(os.getpid()).memory_info().rss
                     mem_usages.append(mem_usage)
-                    if psutil.virtual_memory().percent > 90.0:
+                    if psutil.virtual_memory().percent > 80.0 and not lower_memory_usage:
                         tlogger.warn('MEMORY USAGE TOO HIGH, GOING INTO LOWER MEM MODE')
                         lower_memory_usage = True
 
@@ -244,6 +245,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                 scored_models = best_elite_score + other_scored_models
                                 scored_models.sort(key=lambda x: x[2], reverse=True)
                                 scored_models = scored_models[:truncation]
+                                del elite_scored_models, other_scored_models, best_elite_score
                             else:
                                 curr_task_results.append(result)
 
@@ -257,10 +259,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         pass
 
                 # Compute skip fraction
-                frac_results_skipped = num_results_skipped / (num_results_skipped + len(curr_task_results))
-                if num_results_skipped > 0:
-                    logger.warning('Skipped {} out of date results ({:.2f}%)'.format(
-                        num_results_skipped, 100. * frac_results_skipped))
+                # frac_results_skipped = num_results_skipped / (num_results_skipped + len(curr_task_results))
+                # if num_results_skipped > 0:
+                #     logger.warning('Skipped {} out of date results ({:.2f}%)'.format(
+                #         num_results_skipped, 100. * frac_results_skipped))
 
                 # comment if mem usage too high
                 if not lower_memory_usage:
@@ -288,9 +290,13 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     if bad_generations > config.patience:
                         # todo tlogger like logger
                         logger.warning('MAX PATIENCE REACHED, SETTING LOWER NOISE STD DEV')
+                        # todo also set parents to best parents
                         current_noise_stdev /= config.stdev_decr_divisor
+                        bad_generations = 0
+                        parents = best_parents_so_far[1]
 
                 logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
+                del scored_models
                 # input('PRESS ENTER')
 
                 score_stats[0].append(scores.min())
@@ -333,7 +339,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 tlogger.record_tabular("UniqueWorkers", num_unique_workers)
                 tlogger.record_tabular("UniqueWorkersFrac", num_unique_workers / len(worker_ids))
-                tlogger.record_tabular("ResultsSkippedFrac", frac_results_skipped)
+                # tlogger.record_tabular("ResultsSkippedFrac", frac_results_skipped)
 
                 tlogger.record_tabular("TimeElapsedThisIter", step_tend - step_tstart)
                 tlogger.record_tabular("TimeElapsed", step_tend - tstart)
@@ -359,7 +365,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                    virtmem=(mem_stats[1], 'Virt mem usage'))
 
                 # set policy to new elite
-                elite = scored_models[0][1]
+                elite = parents[0][1]
                 policy.set_model(elite)
 
             iteration = 0
@@ -380,6 +386,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
         logger.info('Saved snapshot {}'.format(filename))
 
 
+@profile(stream=open('profile/memory_profile_worker.log', 'w+'))
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
     logger.info('run_worker: {}'.format(locals()))
     torch.set_grad_enabled(False)
@@ -395,7 +402,9 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
     worker_id = rs.randint(2 ** 31)
     # todo worker_id random int???? what if two get the same?
 
-    while True:
+    i = 0
+    while i < 1000:
+        i += 1
         mem_usages = []
 
         task_id, task_data = worker.get_current_task()
@@ -437,7 +446,6 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                 model = copy.deepcopy(compressed_parent)
                 # elite doesn't have to be evolved
                 if index != 0:
-                    # todo after not improved for > 20 generations: smaller stdev
                     model.evolve(config.noise_stdev)
                     assert isinstance(model, CompressedModel)
 
@@ -458,3 +466,5 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                 fitness=np.array([fitness], dtype=np.float32),
                 mem_usage=max(mem_usages)
             ))
+
+        del task_data

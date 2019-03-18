@@ -4,8 +4,12 @@
 __pycache__/*
 
 *.pyc
+*.log
 
 data/
 logs/
 snapshots/
 p3env/
+
+profile/profile_master.txt
+profile/profile_worker.txt
