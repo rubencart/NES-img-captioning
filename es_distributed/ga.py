@@ -47,7 +47,8 @@ def setup(exp):
     policy = getattr(policies, exp['policy']['type'])(**exp['policy']['args'])
 
     if 'continue_from' in exp and exp['continue_from'] is not None:
-        infos = json.load(open(exp['continue_from']))
+        with open(exp['continue_from']) as f:
+            infos = json.load(f)
         epoch = infos['epoch'] - 1
         iteration = infos['iter']   # todo -1 ?
         parents = [(i, CompressedModel(p_dict['start_rng'], p_dict['other_rng']))
@@ -123,8 +124,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
     tstart = time.time()
 
-    # master, virt
-    mem_stats = [[], []]
+    # master, virt, worker
+    mem_stats = [[], [], []]
 
     # this puts up a redis key, value pair with the experiment
     master.declare_experiment(exp)
@@ -176,15 +177,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 eval_runs = 0
 
                 mem_usages = []
-                # worker_mem_usage = []
+                worker_mem_usage = {}
                 while nb_models_to_evaluate > 0 or not elite_evaluated or not eval_runs >= min_eval_runs:
-
-                    # https://psutil.readthedocs.io/en/latest/#memory
-                    mem_usage = psutil.Process(os.getpid()).memory_info().rss
-                    mem_usages.append(mem_usage)
-                    if psutil.virtual_memory().percent > 90.0:
-                        tlogger.warn('MEMORY USAGE TOO HIGH, GOING INTO LOWER MEM MODE')
-                        lower_memory_usage = True
 
                     if nb_models_to_evaluate <= 0 and not elite_evaluated:
                         logger.warning('Only the elite still has to be evaluated')
@@ -196,8 +190,17 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     task_id, result = master.pop_result()
                     assert isinstance(task_id, int) and isinstance(result, Result)
 
+                    # https://psutil.readthedocs.io/en/latest/#memory
+                    mem_usage = psutil.Process(os.getpid()).memory_info().rss
+                    mem_usages.append(mem_usage)
+                    if psutil.virtual_memory().percent > 90.0:
+                        tlogger.warn('MEMORY USAGE TOO HIGH, GOING INTO LOWER MEM MODE')
+                        lower_memory_usage = True
+
                     worker_ids.append(result.worker_id)
-                    # worker_mem_usage.append((result.worker_id, result.mem_usage))
+                    value = max(result.mem_usage, worker_mem_usage[result.worker_id]) \
+                        if result.worker_id in worker_mem_usage else result.mem_usage
+                    worker_mem_usage.update({result.worker_id: value})
 
                     if result.eval_return is not None:
                         # This was an eval job
@@ -287,6 +290,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 mem_stats[0].append(mem_usage)
                 mem_stats[1].append(psutil.virtual_memory().percent)
 
+                num_unique_workers = len(set(worker_ids))
+                mem_stats[2].append(sum(worker_mem_usage.values()) / num_unique_workers)
+
                 # todo assertions
                 # assert len(population) == population_size
                 # assert np.max(returns_n2) == population_score[0]
@@ -303,7 +309,6 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 if eval_rets:
                     tlogger.record_tabular("MaxAcc", acc_stats[1][-1])
 
-                num_unique_workers = len(set(worker_ids))
                 tlogger.record_tabular("UniqueWorkers", num_unique_workers)
                 tlogger.record_tabular("UniqueWorkersFrac", num_unique_workers / len(worker_ids))
                 tlogger.record_tabular("ResultsSkippedFrac", frac_results_skipped)
@@ -327,7 +332,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                    norm=(norm_stats, 'Norm of params'),
                                    # todo also plot eval fitness
                                    acc=(acc_stats[1], 'Elite accuracy'),
-                                   mem=(mem_stats[0], 'Memory usage'),
+                                   master_mem=(mem_stats[0], 'Master mem usage'),
+                                   worker_mem=(mem_stats[2], 'Worker mem usage'),
                                    virtmem=(mem_stats[1], 'Virt mem usage'))
 
                 # set policy to new elite
@@ -343,7 +349,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                        norm=(norm_stats, 'Norm of params'),
                        # todo also plot fitness
                        acc=(acc_stats[1], 'Elite accuracy'),
-                       mem=(mem_stats[0], 'Memory usage'),
+                       master_mem=(mem_stats[0], 'Master mem usage'),
+                       worker_mem=(mem_stats[2], 'Worker mem usage'),
                        virtmem=(mem_stats[1], 'Virt mem usage'))
 
 
@@ -363,7 +370,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
     # todo worker_id random int???? what if two get the same?
 
     while True:
-        # mem_usages = []
+        mem_usages = []
 
         task_id, task_data = worker.get_current_task()
         task_tstart = time.time()
@@ -372,24 +379,24 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
         if rs.rand() < config.eval_prob:
             model = copy.deepcopy(task_data.elite)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             policy.set_model(model)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             fitness = policy.rollout(task_data.batch_data)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             accuracy = policy.accuracy_on(task_data.batch_data)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             worker.push_result(task_id, Result(
                 worker_id=worker_id,
                 eval_return=(fitness, accuracy),
-                # mem_usage=max(mem_usages)
+                mem_usage=max(mem_usages)
             ))
         else:
             # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
@@ -408,20 +415,20 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                     model.evolve(config.noise_stdev)
                     assert isinstance(model, CompressedModel)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             policy.set_model(model)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             fitness = policy.rollout(task_data.batch_data)
 
-            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             worker.push_result(task_id, Result(
                 worker_id=worker_id,
                 evaluated_model_id=parent_id,
                 evaluated_model=model,
                 fitness=np.array([fitness], dtype=np.float32),
-                # mem_usage=max(mem_usages)
+                mem_usage=max(mem_usages)
             ))
