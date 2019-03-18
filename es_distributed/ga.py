@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import os
+import psutil
 import time
 from collections import namedtuple
 
@@ -13,7 +14,7 @@ import torchvision.transforms as transforms
 from es_distributed.dist import MasterClient, WorkerClient
 from es_distributed.main import mkdir_p
 from es_distributed.policies import CompressedModel
-from es_distributed.utils import plot_stats, save_snapshot
+from es_distributed.utils import plot_stats, save_snapshot, readable_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ result_fields = [
     'worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
     'noise_inds_n', 'returns_n2', 'signreturns_n2', 'lengths_n2',
     'eval_return', 'eval_length',
-    'ob_sum', 'ob_sumsq', 'ob_count'
+    'ob_sum', 'ob_sumsq', 'ob_count', 'mem_usage'
 ]
 Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
 
@@ -44,7 +45,30 @@ def setup(exp):
     from . import policies
     config = Config(**exp['config'])
     policy = getattr(policies, exp['policy']['type'])(**exp['policy']['args'])
-    return config, policy
+
+    if 'continue_from' in exp and exp['continue_from'] is not None:
+        infos = json.load(open(exp['continue_from']))
+        epoch = infos['epoch'] - 1
+        iteration = infos['iter']   # todo -1 ?
+        parents = [(i, CompressedModel(p_dict['start_rng'], p_dict['other_rng']))
+                   for (i, p_dict) in enumerate(infos['parents'])]
+        elite = parents[0][1]
+        score_stats = infos['score_stats']
+        time_stats = infos['time_stats']
+        acc_stats = infos['acc_stats']
+        norm_stats = infos['norm_stats']
+    else:
+        epoch = 0
+        iteration = 0
+        elite = CompressedModel()
+        parents = [(model_id, None) for model_id in range(exp['truncation'])]
+        score_stats = [[], [], []]
+        time_stats = []
+        acc_stats = [[], []]
+        norm_stats = []
+
+    return (config, policy, epoch, iteration, elite, parents,
+            score_stats, time_stats, acc_stats, norm_stats)
 
 
 def run_master(master_redis_cfg, log_dir, exp, plot):
@@ -53,8 +77,11 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     logger.info('Tabular logging to {}'.format(log_dir))
     tlogger.start(log_dir)
 
+    lower_memory_usage = False
+
     # config, env, sess, policy = setup(exp, single_threaded=False)
-    config, policy = setup(exp)
+    (config, policy, epoch, iteration, elite, parents,
+     score_stats, time_stats, acc_stats, norm_stats) = setup(exp)
 
     # redis master
     master = MasterClient(master_redis_cfg)
@@ -80,8 +107,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     # batch_size = config.batch_size if config.batch_size else 256
     batch_size = config.batch_size
 
-    # todo num_workers?
-    num_workers = config.num_dataloader_workers
+    # num_workers? https://discuss.pytorch.org/t/guidelines-for-assigning-num-workers-to-dataloader/813/2
+    # 0 means this process will load data
+    num_workers = config.num_dataloader_workers if config.num_dataloader_workers else 1  # os.cpu_count()
 
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=num_workers)
@@ -95,6 +123,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
     tstart = time.time()
 
+    # master, virt
+    mem_stats = [[], []]
+
     # this puts up a redis key, value pair with the experiment
     master.declare_experiment(exp)
 
@@ -102,25 +133,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     population_size = exp['population_size']
     truncation = exp['truncation']
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
-
-    # todo continue_from
-    # if 'continue_from' in exp and exp['continue_from'] is not None:
-    #     infos = json.loads()
-    #     epoch = 0
-    #     parents = 0
-    # else:
-
-    epoch = 0
-    parents = [(model_id, None) for model_id in range(truncation)]
+    min_eval_runs = int(population_size * config.eval_prob) / 2
 
     # todo use best so far as elite instead of best of last gen?
-    elite = CompressedModel()
     policy.set_model(elite)
-
-    score_stats = [[], [], []]
-    time_stats = []
-    acc_stats = [[], []]
-    norm_stats = []
 
     max_nb_epochs = config.max_nb_epochs if config.max_nb_epochs else 0
     try:
@@ -130,7 +146,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
             # todo max generations
             # todo check how many times training set has been gone through
-            for iteration, batch_data in enumerate(trainloader, 0):
+            for _, batch_data in enumerate(trainloader, 0):
+                iteration += 1
                 total_iteration = ((epoch - 1) * len(trainloader) + iteration)
 
                 step_tstart = time.time()
@@ -151,36 +168,43 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 tlogger.log('********** Iteration {} **********'.format(total_iteration))
                 logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
 
-                curr_task_results, eval_rets, worker_ids = [], [], []
+                curr_task_results, eval_rets, worker_ids, scored_models = [], [], [], []
                 num_results_skipped = 0
 
                 nb_models_to_evaluate = population_size
                 elite_evaluated = False
-                at_least_one_eval = False
+                eval_runs = 0
 
-                while nb_models_to_evaluate > 0 or not elite_evaluated or not at_least_one_eval:
-                    # if nb_models_to_evaluate % 50 == 0 and nb_models_to_evaluate != population_size:
-                    #     logger.info('Nb of models left to evaluate: {nb}. Elite evaluated: {el}'
-                    #                 .format(nb=nb_models_to_evaluate, el=elite_evaluated))
+                mem_usages = []
+                # worker_mem_usage = []
+                while nb_models_to_evaluate > 0 or not elite_evaluated or not eval_runs >= min_eval_runs:
+
+                    # https://psutil.readthedocs.io/en/latest/#memory
+                    mem_usage = psutil.Process(os.getpid()).memory_info().rss
+                    mem_usages.append(mem_usage)
+                    if psutil.virtual_memory().percent > 90.0:
+                        tlogger.warn('MEMORY USAGE TOO HIGH, GOING INTO LOWER MEM MODE')
+                        lower_memory_usage = True
 
                     if nb_models_to_evaluate <= 0 and not elite_evaluated:
                         logger.warning('Only the elite still has to be evaluated')
 
-                    if nb_models_to_evaluate <= 0 and not at_least_one_eval:
-                        logger.warning('Waiting for an eval run')
+                    if nb_models_to_evaluate <= 0 and not eval_runs >= min_eval_runs:
+                        logger.warning('Waiting for eval runs')
 
                     # Wait for a result
                     task_id, result = master.pop_result()
                     assert isinstance(task_id, int) and isinstance(result, Result)
 
                     worker_ids.append(result.worker_id)
+                    # worker_mem_usage.append((result.worker_id, result.mem_usage))
 
                     if result.eval_return is not None:
                         # This was an eval job
                         # Store the result only for current tasks
-                        if task_id == curr_task_id:
+                        if task_id == curr_task_id and eval_runs < min_eval_runs:
                             eval_rets.append(result.eval_return)
-                            at_least_one_eval = True
+                            eval_runs += 1
 
                     elif result.evaluated_model_id is not None:
                         # assert result.returns_n2.dtype == np.float32
@@ -190,7 +214,24 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         if task_id == curr_task_id:
 
                             nb_models_to_evaluate -= 1
-                            curr_task_results.append(result)
+
+                            # uncomment if mem usage too high
+                            if lower_memory_usage:
+                                scored_models.append((result.evaluated_model_id, result.evaluated_model,
+                                                      result.fitness.item()))
+                                elite_scored_models = [t for t in scored_models if t[0] == 0]
+                                other_scored_models = [t for t in scored_models if t[0] != 0]
+
+                                best_elite_score = (
+                                    0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models])
+                                )
+
+                                scored_models = [best_elite_score] + other_scored_models
+                                scored_models.sort(key=lambda x: x[2], reverse=True)
+                                scored_models = scored_models[:truncation]
+                            else:
+                                curr_task_results.append(result)
+
                             if result.evaluated_model_id == 0:
                                 elite_evaluated = True
 
@@ -206,14 +247,18 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     logger.warning('Skipped {} out of date results ({:.2f}%)'.format(
                         num_results_skipped, 100. * frac_results_skipped))
 
-                scored_models = [(result.evaluated_model_id, result.evaluated_model, result.fitness.item())
-                                 for result in curr_task_results]
-                elite_scored_models = [t for t in scored_models if t[0] == 0]
-                other_scored_models = [t for t in scored_models if t[0] != 0]
+                # comment if mem usage too high
+                if not lower_memory_usage:
+                    scored_models = [(result.evaluated_model_id, result.evaluated_model, result.fitness.item())
+                                     for result in curr_task_results]
+                    elite_scored_models = [t for t in scored_models if t[0] == 0]
+                    other_scored_models = [t for t in scored_models if t[0] != 0]
 
-                best_elite_score = (0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models]))
+                    best_elite_score = (0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models]))
 
-                scored_models = [best_elite_score] + other_scored_models
+                    scored_models = [best_elite_score] + other_scored_models
+                else:
+                    tlogger.warn('MEMORY USAGE TOO HIGH, IN LOWER MEM MODE')
 
                 scored_models.sort(key=lambda x: x[2], reverse=True)
                 scores = np.array([fitness for (_, _, fitness) in scored_models])
@@ -238,6 +283,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 acc_stats[0].append(max([fit for fit, _ in eval_rets]))
                 acc_stats[1].append(max([acc for _, acc in eval_rets]))
 
+                mem_usage = max(mem_usages) if mem_usages else 0
+                mem_stats[0].append(mem_usage)
+                mem_stats[1].append(psutil.virtual_memory().percent)
+
                 # todo assertions
                 # assert len(population) == population_size
                 # assert np.max(returns_n2) == population_score[0]
@@ -261,6 +310,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 tlogger.record_tabular("TimeElapsedThisIter", step_tend - step_tstart)
                 tlogger.record_tabular("TimeElapsed", step_tend - tstart)
+                tlogger.record_tabular("MemUsage", readable_bytes(mem_usage))
                 tlogger.dump_tabular()
 
                 if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
@@ -276,11 +326,15 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                    time=(time_stats, 'Time per gen'),
                                    norm=(norm_stats, 'Norm of params'),
                                    # todo also plot eval fitness
-                                   acc=(acc_stats[1], 'Elite accuracy'))
+                                   acc=(acc_stats[1], 'Elite accuracy'),
+                                   mem=(mem_stats[0], 'Memory usage'),
+                                   virtmem=(mem_stats[1], 'Virt mem usage'))
 
                 # set policy to new elite
                 elite = scored_models[0][1]
                 policy.set_model(elite)
+
+            iteration = 0
 
     except KeyboardInterrupt:
         if plot:
@@ -288,7 +342,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                        time=(time_stats, 'Time per gen'),
                        norm=(norm_stats, 'Norm of params'),
                        # todo also plot fitness
-                       acc=(acc_stats[1], 'Elite accuracy'))
+                       acc=(acc_stats[1], 'Elite accuracy'),
+                       mem=(mem_stats[0], 'Memory usage'),
+                       virtmem=(mem_stats[1], 'Virt mem usage'))
 
 
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
@@ -300,13 +356,15 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
 
     exp = worker.get_experiment()
     # config, env, sess, policy = setup(exp, single_threaded=True)
-    config, policy = setup(exp)
+    config, policy, *_ = setup(exp)
 
     rs = np.random.RandomState()
     worker_id = rs.randint(2 ** 31)
     # todo worker_id random int???? what if two get the same?
 
     while True:
+        # mem_usages = []
+
         task_id, task_data = worker.get_current_task()
         task_tstart = time.time()
         assert isinstance(task_id, int) and isinstance(task_data, GATask)
@@ -314,14 +372,24 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
         if rs.rand() < config.eval_prob:
             model = copy.deepcopy(task_data.elite)
 
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
             policy.set_model(model)
+
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
             fitness = policy.rollout(task_data.batch_data)
+
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             accuracy = policy.accuracy_on(task_data.batch_data)
 
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
             worker.push_result(task_id, Result(
                 worker_id=worker_id,
-                eval_return=(fitness, accuracy)
+                eval_return=(fitness, accuracy),
+                # mem_usage=max(mem_usages)
             ))
         else:
             # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
@@ -340,13 +408,20 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                     model.evolve(config.noise_stdev)
                     assert isinstance(model, CompressedModel)
 
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
             policy.set_model(model)
 
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
             fitness = policy.rollout(task_data.batch_data)
+
+            # mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             worker.push_result(task_id, Result(
                 worker_id=worker_id,
                 evaluated_model_id=parent_id,
                 evaluated_model=model,
-                fitness=np.array([fitness], dtype=np.float32)
+                fitness=np.array([fitness], dtype=np.float32),
+                # mem_usage=max(mem_usages)
             ))

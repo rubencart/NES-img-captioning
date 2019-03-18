@@ -98,7 +98,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     algo = import_algo(algo)
     # noise = algo.SharedNoiseTable()  # Workers share the same noise
 
-    num_workers = num_workers if num_workers else os.cpu_count()
+    num_workers = num_workers if num_workers else os.cpu_count() - 2
 
     logging.info('Spawning {} workers'.format(num_workers))
     for _ in range(num_workers):

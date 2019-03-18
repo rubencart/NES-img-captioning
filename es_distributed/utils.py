@@ -34,7 +34,6 @@ def save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
     return os.path.join(snapshot_dir, filename)
 
 
-
 def plot_stats(log_dir, score_stats=None, **kwargs):
     import matplotlib
     if sys.platform == 'darwin':
@@ -45,15 +44,24 @@ def plot_stats(log_dir, score_stats=None, **kwargs):
         fig = plt.figure()
         x = np.arange(len(score_stats[1]))
         plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
-        plt.plot(x.copy(), score_stats[1], label='Training loss', color='blue')
+        plt.plot(x.copy(), score_stats[1], color='blue')
+        plt.title('Training loss')
         # plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
         plt.savefig(log_dir + '/loss_plot.png')
         plt.close(fig)
 
     for (name, (lst, label)) in kwargs.items():
         fig = plt.figure()
-        plt.plot(np.arange(len(lst)), lst, label=label)
+        plt.plot(np.arange(len(lst)), lst)
+        plt.title(label)
         # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
         plt.savefig(log_dir + '/{}_plot.png'.format(name))
         plt.close(fig)
 
+
+def readable_bytes(num, suffix='B'):
+    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
+        if abs(num) < 1024.0:
+            return '%3.1f%s%s' % (num, unit, suffix)
+        num /= 1024.0
+    return '%.1f%s%s' % (num, 'Yi', suffix)

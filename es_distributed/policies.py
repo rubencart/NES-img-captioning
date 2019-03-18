@@ -404,7 +404,7 @@ class MnistNet(PolicyNet):
 
 
 class CompressedModel:
-    def __init__(self, start_rng=None, other_rng=None):
+    def __init__(self, start_rng: float = None, other_rng: list = None):
         self.start_rng = start_rng if start_rng is not None else random_state()
         self.other_rng = other_rng if other_rng is not None else []
 

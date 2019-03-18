@@ -1,11 +1,10 @@
 {
   "config": {
-    "eval_prob": 0.01,
+    "eval_prob": 0.02,
     "l2coeff": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 3,
-    "batch_size": 512,
-    "num_dataloader_workers": 2
+    "batch_size": 512
   },
   "population_size": 500,
   "truncation": 30,
@@ -14,5 +13,5 @@
     "type": "MnistPolicy",
     "args": {}
   },
-  "continue_from": ""
+  "_comment": "continue_from: snapshots/es_master_33749/info_e1_i12_118.json"
 }
