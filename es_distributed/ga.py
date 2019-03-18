@@ -45,7 +45,7 @@ def setup(exp):
     # todo
     from . import policies
     config = Config(**exp['config'])
-    policy = getattr(policies, exp['policy']['type'])(**exp['policy']['args'])
+    Policy = getattr(policies, exp['policy']['type'])  # (**exp['policy']['args'])
 
     # todo continue from 1 model instead of set of parents should also be possible
     if 'continue_from' in exp and exp['continue_from'] is not None:
@@ -70,7 +70,7 @@ def setup(exp):
         acc_stats = [[], []]
         norm_stats = []
 
-    return (config, policy, epoch, iteration, elite, parents,
+    return (config, Policy, epoch, iteration, elite, parents,
             score_stats, time_stats, acc_stats, norm_stats)
 
 
@@ -83,7 +83,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     lower_memory_usage = True
 
     # config, env, sess, policy = setup(exp, single_threaded=False)
-    (config, policy, epoch, iteration, elite, parents,
+    (config, Policy, epoch, iteration, elite, parents,
      score_stats, time_stats, acc_stats, norm_stats) = setup(exp)
 
     # redis master
@@ -140,6 +140,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     min_eval_runs = int(population_size * config.eval_prob) / 2
 
     # todo use best so far as elite instead of best of last gen?
+    policy = Policy()
     policy.set_model(elite)
 
     # todo also to and from info.json
@@ -396,7 +397,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
 
     exp = worker.get_experiment()
     # config, env, sess, policy = setup(exp, single_threaded=True)
-    config, policy, *_ = setup(exp)
+    config, Policy, *_ = setup(exp)
 
     rs = np.random.RandomState()
     worker_id = rs.randint(2 ** 31)
@@ -404,8 +405,10 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
 
     i = 0
     while i < 1000:
+        time.sleep(1)
         i += 1
         mem_usages = []
+        policy = Policy()
 
         task_id, task_data = worker.get_current_task()
         task_tstart = time.time()
@@ -467,4 +470,4 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
                 mem_usage=max(mem_usages)
             ))
 
-        del task_data
+        # del task_data
