@@ -46,6 +46,7 @@ def setup(exp):
     config = Config(**exp['config'])
     policy = getattr(policies, exp['policy']['type'])(**exp['policy']['args'])
 
+    # todo continue from 1 model instead of set of parents should also be possible
     if 'continue_from' in exp and exp['continue_from'] is not None:
         with open(exp['continue_from']) as f:
             infos = json.load(f)
@@ -78,7 +79,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     logger.info('Tabular logging to {}'.format(log_dir))
     tlogger.start(log_dir)
 
-    lower_memory_usage = False
+    lower_memory_usage = True
 
     # config, env, sess, policy = setup(exp, single_threaded=False)
     (config, policy, epoch, iteration, elite, parents,
@@ -90,6 +91,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     # noise = SharedNoiseTable()
     rs = np.random.RandomState()
 
+    # todo parameterize trainloaders
     # transform = transforms.Compose(
     #     [transforms.ToTensor(),
     #      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -130,7 +132,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     # this puts up a redis key, value pair with the experiment
     master.declare_experiment(exp)
 
-    best_score = float('-inf')
+    # best_score = float('-inf')
     population_size = exp['population_size']
     truncation = exp['truncation']
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
@@ -138,6 +140,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
     # todo use best so far as elite instead of best of last gen?
     policy.set_model(elite)
+
+    # todo also to and from info.json
     best_parents_so_far = (float('-inf'), [])
     bad_generations = 0
     current_noise_stdev = config.noise_stdev
@@ -229,11 +233,15 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                 elite_scored_models = [t for t in scored_models if t[0] == 0]
                                 other_scored_models = [t for t in scored_models if t[0] != 0]
 
-                                best_elite_score = (
-                                    0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models])
-                                )
+                                if elite_scored_models:
+                                    best_elite_score = [(
+                                        0, elite_scored_models[0][1],
+                                        max([score for _, _, score in elite_scored_models])
+                                    )]
+                                else:
+                                    best_elite_score = []
 
-                                scored_models = [best_elite_score] + other_scored_models
+                                scored_models = best_elite_score + other_scored_models
                                 scored_models.sort(key=lambda x: x[2], reverse=True)
                                 scored_models = scored_models[:truncation]
                             else:
@@ -329,7 +337,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 tlogger.record_tabular("TimeElapsedThisIter", step_tend - step_tstart)
                 tlogger.record_tabular("TimeElapsed", step_tend - tstart)
-                tlogger.record_tabular("MemUsage", readable_bytes(mem_usage))
+                tlogger.record_tabular("MemUsage", psutil.virtual_memory().percent)
                 tlogger.dump_tabular()
 
                 if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
@@ -366,6 +374,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                        master_mem=(mem_stats[0], 'Master mem usage'),
                        worker_mem=(mem_stats[2], 'Worker mem usage'),
                        virtmem=(mem_stats[1], 'Virt mem usage'))
+        filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
+                                 epoch, iteration, parents, policy, len(trainloader))
+
+        logger.info('Saved snapshot {}'.format(filename))
 
 
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
