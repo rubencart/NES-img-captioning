@@ -4,7 +4,9 @@
     "l2coeff": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 3,
-    "batch_size": 512
+    "batch_size": 512,
+    "patience": 30,
+    "stdev_decr_divisor": 5
   },
   "population_size": 500,
   "truncation": 30,

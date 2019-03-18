@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 
 # todo clean
 ga_task_fields = ['elite', 'population', 'ob_mean', 'ob_std',
-                  'timestep_limit', 'batch_data', 'parents']
+                  'timestep_limit', 'batch_data', 'parents', 'noise_stdev']
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
 config_fields = [
-    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch',
+    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
     'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers',
-    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs',
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit'])
@@ -138,6 +138,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
     # todo use best so far as elite instead of best of last gen?
     policy.set_model(elite)
+    best_parents_so_far = (float('-inf'), [])
+    bad_generations = 0
+    current_noise_stdev = config.noise_stdev
 
     max_nb_epochs = config.max_nb_epochs if config.max_nb_epochs else 0
     try:
@@ -164,6 +167,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     elite=elite,
                     parents=parents,
                     batch_data=batch_data,
+                    noise_stdev=current_noise_stdev,
                 ))
 
                 tlogger.log('********** Iteration {} **********'.format(total_iteration))
@@ -269,6 +273,15 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 # pick parents for next generation, give new index
                 parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
 
+                if not best_parents_so_far[1] or (scores.max() > best_parents_so_far[0] + 10):
+                    best_parents_so_far = (scores.max(), copy.deepcopy(parents))
+                elif config.patience:
+                    bad_generations += 1
+                    if bad_generations > config.patience:
+                        # todo tlogger like logger
+                        logger.warning('MAX PATIENCE REACHED, SETTING LOWER NOISE STD DEV')
+                        current_noise_stdev /= config.stdev_decr_divisor
+
                 logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
                 # input('PRESS ENTER')
 
@@ -305,6 +318,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 # todo apart from norm, would also be interesting to see how far params are from
                 # each other in param space (distance between param_vectors)
                 tlogger.record_tabular("Norm", norm)
+                tlogger.record_tabular("NoiseStd", current_noise_stdev)
 
                 if eval_rets:
                     tlogger.record_tabular("MaxAcc", acc_stats[1][-1])
