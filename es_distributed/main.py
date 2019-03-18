@@ -2,27 +2,20 @@
 # import mkl
 # mkl.set_num_threads(1)
 
-import errno
 import json
 import logging
 import os
+import signal
 import sys
+import time
 
 import click
-from memory_profiler import profile
+# from memory_profiler import profile
+import psutil
 
 from es_distributed.dist import RelayClient
 # from .es import run_master, run_worker, SharedNoiseTable
-
-
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
+from es_distributed.utils import mkdir_p
 
 
 @click.group()
@@ -102,14 +95,30 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # noise = algo.SharedNoiseTable()  # Workers share the same noise
 
     num_workers = num_workers if num_workers else os.cpu_count() - 2
+    worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+    while True:
+        if psutil.virtual_memory().percent > 75.0:
+            logging.warning('!!!!! ---  Killing all workers   --- !!!!!')
+            [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
+            worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+        else:
+            time.sleep(60)
+    # os.wait()
 
+
+def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
     logging.info('Spawning {} workers'.format(num_workers))
+    worker_ids = []
     for _ in range(num_workers):
-        if os.fork() == 0:
+        new_pid = os.fork()
+        if new_pid == 0:
             # todo pass along worker id to ensure unique
             algo.run_worker(master_redis_cfg, relay_redis_cfg, noise=None)
             return
-    os.wait()
+        else:
+            worker_ids.append(new_pid)
+    return worker_ids
+
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from memory_profiler import profile
+# from memory_profiler import profile
 
 from es_distributed.dist import MasterClient, WorkerClient
 from es_distributed.main import mkdir_p
@@ -75,12 +75,14 @@ def setup(exp):
 
 
 def run_master(master_redis_cfg, log_dir, exp, plot):
+    import matplotlib.pyplot as plt
+
     logger.info('run_master: {}'.format(locals()))
     from . import tabular_logger as tlogger
     logger.info('Tabular logging to {}'.format(log_dir))
     tlogger.start(log_dir)
 
-    lower_memory_usage = True
+    lower_memory_usage = False
 
     # config, env, sess, policy = setup(exp, single_threaded=False)
     (config, Policy, epoch, iteration, elite, parents,
@@ -246,7 +248,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                 scored_models = best_elite_score + other_scored_models
                                 scored_models.sort(key=lambda x: x[2], reverse=True)
                                 scored_models = scored_models[:truncation]
-                                del elite_scored_models, other_scored_models, best_elite_score
+                                # del elite_scored_models, other_scored_models, best_elite_score
                             else:
                                 curr_task_results.append(result)
 
@@ -356,7 +358,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     logger.info('Saved snapshot {}'.format(filename))
 
                     if plot:
-                        plot_stats(log_dir, score_stats,
+                        plot_stats(log_dir, plt, score_stats,
                                    time=(time_stats, 'Time per gen'),
                                    norm=(norm_stats, 'Norm of params'),
                                    # todo also plot eval fitness
@@ -373,7 +375,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
     except KeyboardInterrupt:
         if plot:
-            plot_stats(log_dir, score_stats,
+            plot_stats(log_dir, plt, score_stats,
                        time=(time_stats, 'Time per gen'),
                        norm=(norm_stats, 'Norm of params'),
                        # todo also plot fitness
@@ -387,7 +389,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
         logger.info('Saved snapshot {}'.format(filename))
 
 
-@profile(stream=open('profile/memory_profile_worker.log', 'w+'))
+# @profile(stream=open('profile/memory_profile_worker.log', 'w+'))
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
     logger.info('run_worker: {}'.format(locals()))
     torch.set_grad_enabled(False)
@@ -403,12 +405,14 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
     worker_id = rs.randint(2 ** 31)
     # todo worker_id random int???? what if two get the same?
 
-    i = 0
-    while i < 1000:
-        time.sleep(1)
-        i += 1
+    # i = 0
+    # while i < 1000:
+    #     time.sleep(1)
+    #     i += 1
+    policy = Policy()
+    while True:
+        time.sleep(0.01)
         mem_usages = []
-        policy = Policy()
 
         task_id, task_data = worker.get_current_task()
         task_tstart = time.time()

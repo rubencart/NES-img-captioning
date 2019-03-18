@@ -1,10 +1,27 @@
+import errno
 import json
 import os
 import sys
+# import matplotlib
+# import matplotlib.pyplot as plt
+# import matplotlib.pyplot
+
+# import matplotlib
+# matplotlib.use("TkAgg")
+#
+# from matplotlib import pyplot as plt
 
 import numpy as np
 
-from es_distributed.main import mkdir_p
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 
 def save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
@@ -21,7 +38,7 @@ def save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
         'score_stats': score_stats,
         'iter': iteration,
         'epoch': epoch,
-        'parents': [parent.__dict__ for (_, parent) in parents],
+        'parents': [parent.__dict__ for (_, parent) in parents if parent],
     }
 
     with open(os.path.join(snapshot_dir, filename), 'w') as f:
@@ -34,11 +51,11 @@ def save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
     return os.path.join(snapshot_dir, filename)
 
 
-def plot_stats(log_dir, score_stats=None, **kwargs):
-    import matplotlib
-    if sys.platform == 'darwin':
-        matplotlib.use('TkAgg')
-    import matplotlib.pyplot as plt
+def plot_stats(log_dir, plt, score_stats=None, **kwargs):
+    # import matplotlib
+    # import matplotlib.pyplot as plt
+    # if sys.platform == 'darwin':
+    #     matplotlib.use('TkAgg')
 
     if score_stats:
         fig = plt.figure()

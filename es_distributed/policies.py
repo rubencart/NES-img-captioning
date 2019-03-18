@@ -189,7 +189,7 @@ class Policy:
 
 
 class Cifar10Policy(Policy):
-    def __init__(self, *args):
+    def __init__(self):
         super(Cifar10Policy, self).__init__()
         # self.model = Cifar10Classifier(random_state())
         # self.model = None
@@ -210,7 +210,7 @@ class Cifar10Policy(Policy):
 
 
 class MnistPolicy(Policy):
-    def __init__(self, *args):
+    def __init__(self):
         super(MnistPolicy, self).__init__()
         # self.model = Cifar10Classifier(random_state())
         # self.model = None
