@@ -13,7 +13,7 @@ import torchvision.transforms as transforms
 # from memory_profiler import profile
 
 from es_distributed.dist import MasterClient, WorkerClient
-from es_distributed.main import mkdir_p
+# from es_distributed.main import mkdir_p
 from es_distributed.policies import CompressedModel
 from es_distributed.utils import plot_stats, save_snapshot, readable_bytes
 
@@ -74,19 +74,18 @@ def setup(exp):
             score_stats, time_stats, acc_stats, norm_stats)
 
 
-# todo cpu profile on server! --> a lot of waiting in workers??
+# todo cpu profile_exp on server! --> a lot of waiting in workers??
 # - snelste lijkt 2 workers --> hele master / worker setup nog nodig?
 # - memory problemen door CompressedModel? Misschien zonder hele serializatie proberen?
 # - meer CPUs wel veel sneller? Misschien toch GPU overwegen voor snellere FW?
 def run_master(master_redis_cfg, log_dir, exp, plot):
-    import matplotlib.pyplot as plt
 
     logger.info('run_master: {}'.format(locals()))
     from . import tabular_logger as tlogger
     logger.info('Tabular logging to {}'.format(log_dir))
     tlogger.start(log_dir)
 
-    lower_memory_usage = False
+    import matplotlib.pyplot as plt
 
     # config, env, sess, policy = setup(exp, single_threaded=False)
     (config, Policy, epoch, iteration, elite, parents,
@@ -153,6 +152,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     best_parents_so_far = (float('-inf'), [])
     bad_generations = 0
     current_noise_stdev = config.noise_stdev
+    noise_std_stats = []
+
+    # lower_memory_usage = False
 
     max_nb_epochs = config.max_nb_epochs if config.max_nb_epochs else 0
     try:
@@ -183,7 +185,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 ))
 
                 tlogger.log('********** Iteration {} **********'.format(total_iteration))
-                logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
+                logger.info('Searching {nb} params for NW'.format(nb=Policy.nb_learnable_params()))
 
                 curr_task_results, eval_rets, worker_ids, scored_models = [], [], [], []
                 num_results_skipped = 0
@@ -194,13 +196,13 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 mem_usages = []
                 worker_mem_usage = {}
-                while nb_models_to_evaluate > 0 or not elite_evaluated or not eval_runs >= min_eval_runs:
+                while nb_models_to_evaluate > 0 or not elite_evaluated:  # or not eval_runs >= min_eval_runs:
 
                     if nb_models_to_evaluate <= 0 and not elite_evaluated:
                         logger.warning('Only the elite still has to be evaluated')
 
-                    if nb_models_to_evaluate <= 0 and not eval_runs >= min_eval_runs:
-                        logger.warning('Waiting for eval runs')
+                    # if nb_models_to_evaluate <= 0 and not eval_runs >= min_eval_runs:
+                    #     logger.warning('Waiting for eval runs')
 
                     # Wait for a result
                     task_id, result = master.pop_result()
@@ -209,9 +211,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     # https://psutil.readthedocs.io/en/latest/#memory
                     mem_usage = psutil.Process(os.getpid()).memory_info().rss
                     mem_usages.append(mem_usage)
-                    if psutil.virtual_memory().percent > 80.0 and not lower_memory_usage:
-                        tlogger.warn('MEMORY USAGE TOO HIGH, GOING INTO LOWER MEM MODE')
-                        lower_memory_usage = True
+                    # if psutil.virtual_memory().percent > 80.0 and not lower_memory_usage:
+                    #     logger.warning('MEMORY USAGE TOO HIGH, GOING INTO LOWER MEM MODE')
+                    #     lower_memory_usage = True
 
                     worker_ids.append(result.worker_id)
                     value = max(result.mem_usage, worker_mem_usage[result.worker_id]) \
@@ -235,26 +237,26 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                             nb_models_to_evaluate -= 1
 
                             # uncomment if mem usage too high
-                            if lower_memory_usage:
-                                scored_models.append((result.evaluated_model_id, result.evaluated_model,
-                                                      result.fitness.item()))
-                                elite_scored_models = [t for t in scored_models if t[0] == 0]
-                                other_scored_models = [t for t in scored_models if t[0] != 0]
-
-                                if elite_scored_models:
-                                    best_elite_score = [(
-                                        0, elite_scored_models[0][1],
-                                        max([score for _, _, score in elite_scored_models])
-                                    )]
-                                else:
-                                    best_elite_score = []
-
-                                scored_models = best_elite_score + other_scored_models
-                                scored_models.sort(key=lambda x: x[2], reverse=True)
-                                scored_models = scored_models[:truncation]
-                                # del elite_scored_models, other_scored_models, best_elite_score
-                            else:
-                                curr_task_results.append(result)
+                            # if lower_memory_usage:
+                            #     scored_models.append((result.evaluated_model_id, result.evaluated_model,
+                            #                           result.fitness.item()))
+                            #     elite_scored_models = [t for t in scored_models if t[0] == 0]
+                            #     other_scored_models = [t for t in scored_models if t[0] != 0]
+                            #
+                            #     if elite_scored_models:
+                            #         best_elite_score = [(
+                            #             0, elite_scored_models[0][1],
+                            #             max([score for _, _, score in elite_scored_models])
+                            #         )]
+                            #     else:
+                            #         best_elite_score = []
+                            #
+                            #     scored_models = best_elite_score + other_scored_models
+                            #     scored_models.sort(key=lambda x: x[2], reverse=True)
+                            #     scored_models = scored_models[:truncation]
+                            #     del elite_scored_models, other_scored_models, best_elite_score
+                            # else:
+                            curr_task_results.append(result)
 
                             if result.evaluated_model_id == 0:
                                 elite_evaluated = True
@@ -272,17 +274,17 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 #         num_results_skipped, 100. * frac_results_skipped))
 
                 # comment if mem usage too high
-                if not lower_memory_usage:
-                    scored_models = [(result.evaluated_model_id, result.evaluated_model, result.fitness.item())
-                                     for result in curr_task_results]
-                    elite_scored_models = [t for t in scored_models if t[0] == 0]
-                    other_scored_models = [t for t in scored_models if t[0] != 0]
+                # if not lower_memory_usage:
+                scored_models = [(result.evaluated_model_id, result.evaluated_model, result.fitness.item())
+                                 for result in curr_task_results]
+                elite_scored_models = [t for t in scored_models if t[0] == 0]
+                other_scored_models = [t for t in scored_models if t[0] != 0]
 
-                    best_elite_score = (0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models]))
+                best_elite_score = (0, elite_scored_models[0][1], max([score for _, _, score in elite_scored_models]))
 
-                    scored_models = [best_elite_score] + other_scored_models
-                else:
-                    tlogger.warn('MEMORY USAGE TOO HIGH, IN LOWER MEM MODE')
+                scored_models = [best_elite_score] + other_scored_models
+                # else:
+                #     logger.warning('MEMORY USAGE TOO HIGH, IN LOWER MEM MODE')
 
                 scored_models.sort(key=lambda x: x[2], reverse=True)
                 scores = np.array([fitness for (_, _, fitness) in scored_models])
@@ -293,7 +295,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 if not best_parents_so_far[1] or (scores.max() > best_parents_so_far[0]):
                     best_parents_so_far = (scores.max(), copy.deepcopy(parents))
                 elif config.patience:
-                    tlogger.info('BAD GENERATION')
+                    logger.info('BAD GENERATION')
                     bad_generations += 1
                     if bad_generations > config.patience:
                         # todo tlogger like logger
@@ -302,9 +304,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         current_noise_stdev /= config.stdev_decr_divisor
                         bad_generations = 0
                         parents = best_parents_so_far[1]
+                        # todo default_best_parents_so_far() --> also with a lot of other stuff
+                        best_parents_so_far = (float('-inf'), [])
 
                 logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
-                del scored_models
                 # input('PRESS ENTER')
 
                 score_stats[0].append(scores.min())
@@ -318,8 +321,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 norm_stats.append(norm)
 
                 # todo also keep conf interv
-                acc_stats[0].append(max([fit for fit, _ in eval_rets]))
-                acc_stats[1].append(max([acc for _, acc in eval_rets]))
+                acc_stats[0].append(max([fit for fit, _ in eval_rets]) if eval_rets else 0)
+                acc_stats[1].append(max([acc for _, acc in eval_rets]) if eval_rets else 0)
 
                 mem_usage = max(mem_usages) if mem_usages else 0
                 mem_stats[0].append(mem_usage)
@@ -327,6 +330,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 num_unique_workers = len(set(worker_ids))
                 mem_stats[2].append(sum(worker_mem_usage.values()) / num_unique_workers)
+
+                noise_std_stats.append(current_noise_stdev)
 
                 # todo assertions
                 # assert len(population) == population_size
@@ -344,6 +349,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 if eval_rets:
                     tlogger.record_tabular("MaxAcc", acc_stats[1][-1])
+
+                if config.patience:
+                    tlogger.record_tabular("BadGen", str(bad_generations) + '/' + str(config.patience))
 
                 tlogger.record_tabular("UniqueWorkers", num_unique_workers)
                 tlogger.record_tabular("UniqueWorkersFrac", num_unique_workers / len(worker_ids))
@@ -370,7 +378,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                                    acc=(acc_stats[1], 'Elite accuracy'),
                                    master_mem=(mem_stats[0], 'Master mem usage'),
                                    worker_mem=(mem_stats[2], 'Worker mem usage'),
-                                   virtmem=(mem_stats[1], 'Virt mem usage'))
+                                   virtmem=(mem_stats[1], 'Virt mem usage'),
+                                   noise_std=(noise_std_stats, 'Noise stdev'))
 
                 # set policy to new elite
                 elite = parents[0][1]
@@ -387,14 +396,15 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                        acc=(acc_stats[1], 'Elite accuracy'),
                        master_mem=(mem_stats[0], 'Master mem usage'),
                        worker_mem=(mem_stats[2], 'Worker mem usage'),
-                       virtmem=(mem_stats[1], 'Virt mem usage'))
+                       virtmem=(mem_stats[1], 'Virt mem usage'),
+                       noise_std=(noise_std_stats, 'Noise stdev'))
         filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
                                  epoch, iteration, parents, policy, len(trainloader))
 
         logger.info('Saved snapshot {}'.format(filename))
 
 
-# @profile(stream=open('profile/memory_profile_worker.log', 'w+'))
+# @profile_exp(stream=open('profile_exp/memory_profile_worker.log', 'w+'))
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
     logger.info('run_worker: {}'.format(locals()))
     torch.set_grad_enabled(False)
@@ -411,11 +421,10 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
     # todo worker_id random int???? what if two get the same?
 
     # i = 0
-    # while i < 1000:
-    #     time.sleep(1)
+    # while i < 100:
     #     i += 1
-    policy = Policy()
     while True:
+        policy = Policy()
         time.sleep(0.01)
         mem_usages = []
 
@@ -428,15 +437,15 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-            policy.set_model(model)
+            # policy.set_model(model)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-            fitness = policy.rollout(task_data.batch_data)
+            fitness = policy.rollout_(data=task_data.batch_data, compressed_model=model)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-            accuracy = policy.accuracy_on(task_data.batch_data)
+            accuracy = policy.accuracy_on_(data=task_data.batch_data, compressed_model=model)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
@@ -463,11 +472,11 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-            policy.set_model(model)
+            # policy.set_model(model)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-            fitness = policy.rollout(task_data.batch_data)
+            fitness = policy.rollout_(data=task_data.batch_data, compressed_model=model)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 

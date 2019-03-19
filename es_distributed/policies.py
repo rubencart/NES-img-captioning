@@ -135,101 +135,6 @@ class TfPolicy:
     #     raise NotImplementedError
 
 
-class Policy:
-
-    def __init__(self):
-        # todo adjust to pytorch
-        # self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
-        # self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
-        self.policy_net = None
-
-    def rollout(self, data):
-        assert self.policy_net is not None, 'set model first!'
-
-        inputs, labels = data
-        outputs = self.policy_net(inputs)
-
-        # todo for now use cross entropy loss as fitness
-        criterion = nn.CrossEntropyLoss()
-        loss = criterion(outputs, labels)
-        # print(loss) --> tensor(2.877)
-        return -loss.item()
-
-    def accuracy_on(self, data):
-        inputs, labels = data
-        outputs = self.policy_net(inputs)
-
-        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        correct = prediction.eq(labels.view_as(prediction)).sum().item()
-        accuracy = float(correct) / labels.size()[0]
-        return accuracy
-
-    def save(self, path, filename):
-        # todo check self-critical --> also save iteration,... not only params?
-        mkdir_p(path)
-        assert not os.path.exists(os.path.join(path, filename))
-        torch.save(self.policy_net.state_dict(), os.path.join(path, filename))
-
-    def load(self, filename):
-        pass
-
-    def nb_learnable_params(self):
-        pass
-
-    def set_model(self, compressed_model):
-        pass
-
-    def reinitialize_params(self):
-        # todo rescale weights manually (can we use weight norm?)
-        pass
-
-    def parameter_vector(self):
-        assert self.policy_net is not None, 'set model first!'
-        return nn.utils.parameters_to_vector(self.policy_net.parameters())
-
-
-class Cifar10Policy(Policy):
-    def __init__(self):
-        super(Cifar10Policy, self).__init__()
-        # self.model = Cifar10Classifier(random_state())
-        # self.model = None
-
-    def set_model(self, compressed_model):
-        assert isinstance(compressed_model, CompressedModel)
-        # model: compressed model
-        uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
-        assert isinstance(uncompressed_model, PolicyNet)
-        self.policy_net = uncompressed_model
-
-    def nb_learnable_params(self):
-        torch.set_grad_enabled(True)
-        model = Cifar10Net(random_state())
-        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        torch.set_grad_enabled(False)
-        return count
-
-
-class MnistPolicy(Policy):
-    def __init__(self):
-        super(MnistPolicy, self).__init__()
-        # self.model = Cifar10Classifier(random_state())
-        # self.model = None
-
-    def set_model(self, compressed_model):
-        assert isinstance(compressed_model, CompressedModel)
-        # model: compressed model
-        uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
-        assert isinstance(uncompressed_model, PolicyNet)
-        self.policy_net = uncompressed_model
-
-    def nb_learnable_params(self):
-        torch.set_grad_enabled(True)
-        model = MnistNet(random_state())
-        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        torch.set_grad_enabled(False)
-        return count
-
-
 class PolicyNet(nn.Module):
     def __init__(self, rng_state):
         super(PolicyNet, self).__init__()
@@ -430,6 +335,169 @@ class CompressedModel:
 def random_state():
     rs = np.random.RandomState()
     return rs.randint(0, 2 ** 31 - 1)
+
+
+class Policy:
+    def __init__(self):
+        # todo adjust to pytorch
+        # self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
+        # self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
+        self.policy_net = None
+
+    # def rollout(self, data):
+    #     assert self.policy_net is not None, 'set model first!'
+    #     torch.set_grad_enabled(False)
+    #     self.policy_net.eval()
+    #
+    #     inputs, labels = data
+    #     outputs = self.policy_net(inputs)
+    #
+    #     # todo for now use cross entropy loss as fitness
+    #     criterion = nn.CrossEntropyLoss()
+    #     loss = criterion(outputs, labels)
+    #     # print(loss) --> tensor(2.877)
+    #     result = -float(loss.item())
+    #
+    #     del inputs, labels, outputs, loss, criterion
+    #     return result
+
+    def rollout_(self, data, compressed_model):
+        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
+
+        assert compressed_model is not None, 'Pass model!'
+        policy_net: PolicyNet = self._uncompress_model(compressed_model)
+
+        torch.set_grad_enabled(False)
+        policy_net.eval()
+
+        inputs, labels = data
+        outputs = policy_net(inputs)
+
+        # todo for now use cross entropy loss as fitness
+        criterion = nn.CrossEntropyLoss()
+        loss = criterion(outputs, labels)
+        # print(loss) --> tensor(2.877)
+        result = -float(loss.item())
+
+        del inputs, labels, outputs, loss, criterion, policy_net
+        return result
+
+    # def accuracy_on(self, data):
+    #     assert self.policy_net is not None, 'set model first!'
+    #     torch.set_grad_enabled(False)
+    #     self.policy_net.eval()
+    #
+    #     inputs, labels = data
+    #     outputs = self.policy_net(inputs)
+    #
+    #     prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+    #     correct = prediction.eq(labels.view_as(prediction)).sum().item()
+    #     accuracy = float(correct) / labels.size()[0]
+    #
+    #     del inputs, labels, outputs, prediction, correct
+    #     return accuracy
+
+    def accuracy_on_(self, data, compressed_model):
+        assert compressed_model is not None, 'Pass model!'
+        policy_net: PolicyNet = self._uncompress_model(compressed_model)
+
+        torch.set_grad_enabled(False)
+        policy_net.eval()
+
+        inputs, labels = data
+        outputs = policy_net(inputs)
+
+        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        correct = prediction.eq(labels.view_as(prediction)).sum().item()
+        accuracy = float(correct) / labels.size()[0]
+
+        del inputs, labels, outputs, prediction, correct, policy_net
+        return accuracy
+
+    def save(self, path, filename):
+        # todo check self-critical --> also save iteration,... not only params?
+        mkdir_p(path)
+        assert not os.path.exists(os.path.join(path, filename))
+        torch.save(self.policy_net.state_dict(), os.path.join(path, filename))
+
+    def load(self, filename):
+        pass
+
+    @staticmethod
+    def nb_learnable_params():
+        pass
+
+    def set_model(self, compressed_model):
+        pass
+
+    def _uncompress_model(self, compressed_model):
+        pass
+
+    def reinitialize_params(self):
+        # todo rescale weights manually (can we use weight norm?)
+        pass
+
+    def parameter_vector(self):
+        assert self.policy_net is not None, 'set model first!'
+        return nn.utils.parameters_to_vector(self.policy_net.parameters())
+
+
+class Cifar10Policy(Policy):
+    def __init__(self):
+        super(Cifar10Policy, self).__init__()
+        # self.model = Cifar10Classifier(random_state())
+        # self.model = None
+
+    def set_model(self, compressed_model):
+        assert isinstance(compressed_model, CompressedModel)
+        # model: compressed model
+        uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
+        assert isinstance(uncompressed_model, PolicyNet)
+        self.policy_net = uncompressed_model
+
+    def _uncompress_model(self, compressed_model) -> Cifar10Net:
+        assert isinstance(compressed_model, CompressedModel)
+        # model: compressed model
+        uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
+        assert isinstance(uncompressed_model, PolicyNet)
+        return uncompressed_model
+
+    @staticmethod
+    def nb_learnable_params():
+        torch.set_grad_enabled(True)
+        model = Cifar10Net(random_state())
+        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        torch.set_grad_enabled(False)
+        return count
+
+
+class MnistPolicy(Policy):
+    def __init__(self):
+        super(MnistPolicy, self).__init__()
+        # self.model = Cifar10Classifier(random_state())
+        # self.model = None
+
+    def set_model(self, compressed_model):
+        assert isinstance(compressed_model, CompressedModel)
+        # model: compressed model
+        uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
+        assert isinstance(uncompressed_model, PolicyNet)
+        self.policy_net = uncompressed_model
+
+    def _uncompress_model(self, compressed_model) -> MnistNet:
+        assert isinstance(compressed_model, CompressedModel)
+        # model: compressed model
+        uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
+        assert isinstance(uncompressed_model, PolicyNet)
+        return uncompressed_model
+
+    @staticmethod
+    def nb_learnable_params():
+        torch.set_grad_enabled(True)
+        model = MnistNet(random_state())
+        count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        torch.set_grad_enabled(False)
+        return count
 
 
 # AS EXAMPLE

@@ -77,6 +77,12 @@ def plot_stats(log_dir, plt, score_stats=None, **kwargs):
         plt.close(fig)
 
 
+# To plot against scores:
+# fig = plt.figure()
+# plt.plot(x[:150], score_stats[1][:150], color='blue')
+# plt.plot(np.arange(150), np.array(numstds[:150])*80 - 2.4, color='red')
+# plt.savefig('tmp/1/both')
+# plt.close(fig)
 def extract_stds_from_log(filename):
     # eg 'logs/logs/es_master_16799/log.txt'
     with open(filename) as f:

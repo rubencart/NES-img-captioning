@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 
 # import mkl
@@ -7,11 +8,14 @@ import errno
 import json
 import logging
 import os
+import random
 import sys
 
 import click
-from memory_profiler import profile
+import objgraph
+# from memory_profiler import profile
 
+import es_distributed
 from es_distributed.dist import RelayClient
 # from .es import run_master, run_worker, SharedNoiseTable
 
@@ -49,7 +53,7 @@ def import_algo(name):
     return algo
 
 
-# @profile(stream=open('memory_profiler.log', 'w+'))
+# @profile_exp(stream=open('memory_profiler.log', 'w+'))
 # @cli.command()
 # @click.option('--algo')
 # @click.option('--exp_str')
@@ -80,7 +84,7 @@ def import_algo(name):
 #     algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
 
 
-# @profile(stream=open('profile/memory_profile_worker.log', 'w+'))
+# @profile_exp(stream=open('profile_exp/memory_profile_worker.log', 'w+'))
 # @cli.command()
 # @click.option('--algo')
 # @click.option('--master_host', required=True)
@@ -105,7 +109,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     num_workers = num_workers if num_workers else os.cpu_count() - 2
 
     logging.info('Spawning {} workers'.format(num_workers))
-    for _ in range(num_workers):
+    for _ in range(1):
         if os.fork() == 0:
             # todo pass along worker id to ensure unique
             algo.run_worker(master_redis_cfg, relay_redis_cfg, noise=None)
@@ -114,5 +118,21 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
 
 
 if __name__ == '__main__':
-    workers(algo='ga', master_host='localhost', relay_socket_path='/tmp/es_redis_relay.sock', master_port=6379,
-            num_workers=2)
+    objgraph.show_growth(limit=3)
+    try:
+        workers(algo='ga', master_host='localhost', relay_socket_path='/tmp/es_redis_relay.sock', master_port=6379,
+                num_workers=2)
+    except KeyboardInterrupt:
+        pass
+    objgraph.show_growth()
+    objgraph.show_chain(
+
+        objgraph.find_backref_chain(
+            random.choice(
+                objgraph.by_type(objgraph.most_common_types()[0][0])
+            ),
+            objgraph.is_proper_module
+        ),
+
+        filename='chain.png'
+    )

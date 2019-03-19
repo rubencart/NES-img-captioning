@@ -10,7 +10,7 @@ import sys
 import time
 
 import click
-# from memory_profiler import profile
+# from memory_profiler import profile_exp
 import psutil
 
 from es_distributed.dist import RelayClient
@@ -41,7 +41,7 @@ def import_algo(name):
     return algo
 
 
-# @profile(stream=open('memory_profiler.log', 'w+'))
+# @profile_exp(stream=open('memory_profiler.log', 'w+'))
 @cli.command()
 @click.option('--algo')
 @click.option('--exp_str')
@@ -72,7 +72,7 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
     algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
 
 
-# @profile(stream=open('memory_profiler.log', 'w+'))
+# @profile_exp(stream=open('memory_profiler.log', 'w+'))
 @cli.command()
 @click.option('--algo')
 @click.option('--master_host', required=True)
@@ -97,7 +97,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     num_workers = num_workers if num_workers else os.cpu_count() - 2
     worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
     while True:
-        if psutil.virtual_memory().percent > 75.0:
+        if psutil.virtual_memory().percent > 90.0:
             logging.warning('!!!!! ---  Killing all workers   --- !!!!!')
             [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
             worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
@@ -118,7 +118,6 @@ def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
         else:
             worker_ids.append(new_pid)
     return worker_ids
-
 
 
 if __name__ == '__main__':

@@ -5,8 +5,8 @@
     "noise_stdev": 0.01,
     "snapshot_freq": 3,
     "batch_size": 512,
-    "patience": 30,
-    "stdev_decr_divisor": 5
+    "patience": 20,
+    "stdev_decr_divisor": 2
   },
   "population_size": 500,
   "truncation": 30,
