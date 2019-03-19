@@ -9,6 +9,7 @@ __pycache__/*
 data/
 logs/
 snapshots/
+tmp/
 p3env/
 
 profile/profile_master.txt

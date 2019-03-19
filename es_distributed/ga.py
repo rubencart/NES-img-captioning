@@ -74,6 +74,10 @@ def setup(exp):
             score_stats, time_stats, acc_stats, norm_stats)
 
 
+# todo cpu profile on server! --> a lot of waiting in workers??
+# - snelste lijkt 2 workers --> hele master / worker setup nog nodig?
+# - memory problemen door CompressedModel? Misschien zonder hele serializatie proberen?
+# - meer CPUs wel veel sneller? Misschien toch GPU overwegen voor snellere FW?
 def run_master(master_redis_cfg, log_dir, exp, plot):
     import matplotlib.pyplot as plt
 
@@ -286,9 +290,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 # pick parents for next generation, give new index
                 parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
 
-                if not best_parents_so_far[1] or (scores.max() > best_parents_so_far[0] + 10):
+                if not best_parents_so_far[1] or (scores.max() > best_parents_so_far[0]):
                     best_parents_so_far = (scores.max(), copy.deepcopy(parents))
                 elif config.patience:
+                    tlogger.info('BAD GENERATION')
                     bad_generations += 1
                     if bad_generations > config.patience:
                         # todo tlogger like logger

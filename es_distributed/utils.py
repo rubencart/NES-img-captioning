@@ -56,12 +56,13 @@ def plot_stats(log_dir, plt, score_stats=None, **kwargs):
     # import matplotlib.pyplot as plt
     # if sys.platform == 'darwin':
     #     matplotlib.use('TkAgg')
+    mkdir_p(log_dir)
 
     if score_stats:
         fig = plt.figure()
         x = np.arange(len(score_stats[1]))
         plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
-        plt.plot(x.copy(), score_stats[1], color='blue')
+        plt.plot(x, score_stats[1], color='blue')
         plt.title('Training loss')
         # plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
         plt.savefig(log_dir + '/loss_plot.png')
@@ -74,6 +75,32 @@ def plot_stats(log_dir, plt, score_stats=None, **kwargs):
         # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
         plt.savefig(log_dir + '/{}_plot.png'.format(name))
         plt.close(fig)
+
+
+def extract_stds_from_log(filename):
+    # eg 'logs/logs/es_master_16799/log.txt'
+    with open(filename) as f:
+        content = f.readlines()
+    content = [x.strip() for x in content]
+    # print(content[:15])
+    # --> ['********** Iteration 1 **********',
+    #  '----------------------------------',
+    #  '| RewMax              | -2.26    |',
+    #  '| RewMean             | -2.42    |',
+    #  '| RewMin              | -2.77    |',
+    #  '| RewStd              | 0.0852   |',
+    #  '| Norm                | 13.6     |',
+    #  '| NoiseStd            | 0.01     |',
+    #  '| MaxAcc              | 0.146    |',
+    #  '| UniqueWorkers       | 2        |',
+    #  '| UniqueWorkersFrac   | 0.00388  |',
+    #  '| TimeElapsedThisIter | 6.9      |',
+    #  '| TimeElapsed         | 7.05     |',
+    #  '| MemUsage            | 4.7      |',
+    #  '----------------------------------']
+    stds = [c for (i, c) in enumerate(content) if (i - 7) % 15 == 0]
+    numstds = [float(s[24:-1].strip()) for s in stds]
+    return numstds
 
 
 def readable_bytes(num, suffix='B'):
