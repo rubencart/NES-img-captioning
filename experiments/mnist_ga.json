@@ -4,12 +4,12 @@
     "l2coeff": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 3,
-    "batch_size": 512,
+    "batch_size": 1024,
     "patience": 30,
-    "stdev_decr_divisor": 5
+    "stdev_decr_divisor": 1.5
   },
-  "population_size": 500,
-  "truncation": 30,
+  "population_size": 800,
+  "truncation": 40,
   "num_elites": 1,
   "policy": {
     "type": "MnistPolicy",

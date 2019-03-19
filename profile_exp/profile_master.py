@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 
 # import mkl
@@ -10,7 +11,7 @@ import os
 import sys
 
 import click
-from memory_profiler import profile
+# from memory_profiler import profile
 
 # from es_distributed.dist import RelayClient
 # from .es import run_master, run_worker, SharedNoiseTable
@@ -49,7 +50,7 @@ def import_algo(name):
     return algo
 
 
-# @profile(stream=open('profile/memory_profile_master.log', 'w+'))
+# @profile_exp(stream=open('profile_exp/memory_profile_master.log', 'w+'))
 # @cli.command()
 # @click.option('--algo')
 # @click.option('--exp_str')
@@ -80,7 +81,7 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir, plot):
     algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
 
 
-# @profile(stream=open('memory_profiler.log', 'w+'))
+# @profile_exp(stream=open('memory_profiler.log', 'w+'))
 # @cli.command()
 # @click.option('--algo')
 # @click.option('--master_host', required=True)

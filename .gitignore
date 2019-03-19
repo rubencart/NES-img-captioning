@@ -12,5 +12,8 @@ snapshots/
 tmp/
 p3env/
 
-profile/profile_master.txt
-profile/profile_worker.txt
+profile_exp/profile_master.txt
+profile_exp/profile_worker.txt
+
+chain.png
+tmp.txt

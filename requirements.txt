@@ -4,14 +4,17 @@ certifi==2019.3.9
 Click==7.0
 cycler==0.10.0
 decorator==4.4.0
+graphviz==0.10.1
 intel-openmp==2019.0
 ipython==7.3.0
 ipython-genutils==0.2.0
 jedi==0.13.3
 kiwisolver==1.0.1
 matplotlib==3.0.3
+memory-profiler==0.55.0
 mkl==2019.0
 numpy==1.16.2
+objgraph==3.4.0
 parso==0.3.4
 pexpect==4.6.0
 pickleshare==0.7.5
