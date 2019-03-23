@@ -1,3 +1,8 @@
+import os
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 # print('importing rest')
 import argparse
@@ -51,7 +56,7 @@ def import_algo(name):
     # elif name == 'ns-es' or name == "nsr-es":
     #     from . import nses as algo
     if name == 'ga':
-        import ga as algo
+        import ga_master as algo
     # elif name == 'rs':
     #     from . import rs as algo
     else:
@@ -64,9 +69,8 @@ def master(algo, exp_file, master_socket_path, log_dir, plot):
     # Start the master
     # assert exp_file is not None, 'Must provide exp_file to the master'
 
-    # todo look into this
-    import mkl
-    mkl.set_num_threads(1)
+    # import mkl
+    # mkl.set_num_threads(1)
 
     if exp_file:
         with open(exp_file, 'r') as f:
@@ -112,9 +116,9 @@ def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
         new_pid = os.fork()
         if new_pid == 0:
 
-            print('importing mkl, setting num threads')
-            import mkl
-            mkl.set_num_threads(1)
+            # print('importing mkl, setting num threads')
+            # import mkl
+            # mkl.set_num_threads(1)
 
             # todo pass along worker id to ensure unique
             algo.run_worker(master_redis_cfg, relay_redis_cfg)

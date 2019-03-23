@@ -1,6 +1,6 @@
-# print('importing mkl, setting num threads')
-# import mkl
-# mkl.set_num_threads(1)
+print('importing mkl, setting num threads')
+import mkl
+mkl.set_num_threads(1)
 
 import copy
 import gc
@@ -10,7 +10,7 @@ import psutil
 import time
 from collections import namedtuple
 
-# print('importing torch')
+print('importing torch')
 import numpy as np
 import torch
 # from memory_profiler import profile
@@ -70,11 +70,10 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
     tlogger.start(log_dir)
 
     import matplotlib.pyplot as plt
-    torch.set_grad_enabled(False)
-    torch.set_num_threads(0)
 
     # redis master
     master = MasterClient(master_redis_cfg)
+    torch.set_grad_enabled(False)
 
     rs = np.random.RandomState()
     tstart = time.time()
@@ -355,7 +354,6 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
 def run_worker(master_redis_cfg, relay_redis_cfg):
     logger.info('run_worker: {}'.format(locals()))
     torch.set_grad_enabled(False)
-    torch.set_num_threads(0)
 
     # redis client
     worker = WorkerClient(master_redis_cfg, relay_redis_cfg)
