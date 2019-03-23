@@ -14,8 +14,8 @@ fi
 
 tmux new -s $NAME -d
 tmux send-keys -t $NAME '. scripts/local_env_setup.sh' C-m
-tmux send-keys -t $NAME 'python -m cProfile -o profile_exp/profile_master.txt -m es_distributed.main master --master_socket_path /tmp/es_redis_master.sock --algo '$ALGO' --exp_file '"$EXP_FILE" C-m
+tmux send-keys -t $NAME 'python -m cProfile -o profile_exp/profile_master.txt -m esdistributed.main master --master_socket_path /tmp/es_redis_master.sock --algo '$ALGO' --exp_file '"$EXP_FILE" C-m
 tmux split-window -t $NAME
 tmux send-keys -t $NAME '. scripts/local_env_setup.sh' C-m
-tmux send-keys -t $NAME 'python -m cProfile -o profile_exp/profile_worker.txt -m es_distributed.main workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo '"$ALGO"' '"$WORKERS" C-m
+tmux send-keys -t $NAME 'python -m cProfile -o profile_exp/profile_worker.txt -m esdistributed.main workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo '"$ALGO"' '"$WORKERS" C-m
 tmux a -t $NAME

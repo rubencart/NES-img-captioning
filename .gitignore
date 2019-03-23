@@ -11,6 +11,7 @@ logs/
 snapshots/
 tmp/
 p3env/
+_p3env/
 
 profile_exp/profile_master.txt
 profile_exp/profile_worker.txt

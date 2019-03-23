@@ -6,14 +6,12 @@
 
 import errno
 import json
-import logging
 import os
-import sys
 
-import click
+
 # from memory_profiler import profile
 
-# from es_distributed.dist import RelayClient
+# from esdistributed.dist import RelayClient
 # from .es import run_master, run_worker, SharedNoiseTable
 
 
@@ -42,7 +40,7 @@ def import_algo(name):
     # elif name == 'ns-es' or name == "nsr-es":
     #     from . import nses as algo
     if name == 'ga':
-        import es_distributed.ga as algo
+        import src.ga as algo
     # elif name == 'rs':
     #     from . import rs as algo
     else:

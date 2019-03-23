@@ -1,4 +1,5 @@
 import copy
+import gc
 import json
 import logging
 import os
@@ -6,16 +7,20 @@ import psutil
 import time
 from collections import namedtuple
 
+print('importing mkl, setting num threads')
+import mkl
+mkl.set_num_threads(1)
+
+print('importing torch')
 import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
 # from memory_profiler import profile
 
-from es_distributed.dist import MasterClient, WorkerClient
-# from es_distributed.main import mkdir_p
-from es_distributed.policies import CompressedModel
-from es_distributed.utils import plot_stats, save_snapshot, readable_bytes
+from dist import MasterClient, WorkerClient
+from policies import CompressedModel
+from utils import plot_stats, save_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(
 
 def setup(exp):
     # todo
-    from . import policies
+    import policies
     config = Config(**exp['config'])
     Policy = getattr(policies, exp['policy']['type'])  # (**exp['policy']['args'])
 
@@ -78,10 +83,21 @@ def setup(exp):
 # - snelste lijkt 2 workers --> hele master / worker setup nog nodig?
 # - memory problemen door CompressedModel? Misschien zonder hele serializatie proberen?
 # - meer CPUs wel veel sneller? Misschien toch GPU overwegen voor snellere FW?
+
+# from meeting
+# - VCS --> slides graham
+# - gc.collect()
+# - mkl.set_num_threads(1) !!!!
+# - start workers from CL
+# - leave seeds altogether
+
+# next things:
+# - make possible to start from 1 net .pt file, to pretrain with SGD
+# - get rid of tlogger (just use logger but also dump to file like tlogger)
 def run_master(master_redis_cfg, log_dir, exp, plot):
 
     logger.info('run_master: {}'.format(locals()))
-    from . import tabular_logger as tlogger
+    import tabular_logger as tlogger
     logger.info('Tabular logging to {}'.format(log_dir))
     tlogger.start(log_dir)
 
@@ -142,6 +158,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     population_size = exp['population_size']
     truncation = exp['truncation']
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
+
+    # todo! multiple eval runs don't make sense: same elite, same input --> same output!
+    # different in gym / RL setting: nondeterministic
     min_eval_runs = int(population_size * config.eval_prob) / 2
 
     # todo use best so far as elite instead of best of last gen?
@@ -165,6 +184,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
             # todo max generations
             # todo check how many times training set has been gone through
             for _, batch_data in enumerate(trainloader, 0):
+                gc.collect()
+
                 iteration += 1
                 total_iteration = ((epoch - 1) * len(trainloader) + iteration)
 
@@ -294,6 +315,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 if not best_parents_so_far[1] or (scores.max() > best_parents_so_far[0]):
                     best_parents_so_far = (scores.max(), copy.deepcopy(parents))
+                    bad_generations = 0
                 elif config.patience:
                     logger.info('BAD GENERATION')
                     bad_generations += 1
@@ -306,6 +328,10 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         parents = best_parents_so_far[1]
                         # todo default_best_parents_so_far() --> also with a lot of other stuff
                         best_parents_so_far = (float('-inf'), [])
+
+                        batch_size *= 2
+                        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                                  shuffle=True, num_workers=num_workers)
 
                 logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
                 # input('PRESS ENTER')
@@ -405,7 +431,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
 
 # @profile_exp(stream=open('profile_exp/memory_profile_worker.log', 'w+'))
-def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
+def run_worker(master_redis_cfg, relay_redis_cfg):
     logger.info('run_worker: {}'.format(locals()))
     torch.set_grad_enabled(False)
 
@@ -424,6 +450,8 @@ def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2)
     # while i < 100:
     #     i += 1
     while True:
+
+        gc.collect()
         policy = Policy()
         time.sleep(0.01)
         mem_usages = []
