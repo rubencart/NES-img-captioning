@@ -112,8 +112,9 @@ def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
         new_pid = os.fork()
         if new_pid == 0:
 
-            # import mkl
-            # mkl.set_num_threads(1)
+            print('importing mkl, setting num threads')
+            import mkl
+            mkl.set_num_threads(1)
 
             # todo pass along worker id to ensure unique
             algo.run_worker(master_redis_cfg, relay_redis_cfg)

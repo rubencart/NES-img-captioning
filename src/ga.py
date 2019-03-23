@@ -1,3 +1,7 @@
+print('importing mkl, setting num threads')
+import mkl
+mkl.set_num_threads(1)
+
 import copy
 import gc
 import logging
@@ -6,21 +10,14 @@ import psutil
 import time
 from collections import namedtuple
 
-from setup import init_trainldr, setup
-
-print('importing mkl, setting num threads')
-import mkl
-mkl.set_num_threads(1)
-
 print('importing torch')
 import numpy as np
 import torch
-import torchvision
-import torchvision.transforms as transforms
 # from memory_profiler import profile
 
 from dist import MasterClient, WorkerClient
 from policies import CompressedModel
+from setup import init_trainldr, setup
 from utils import plot_stats, save_snapshot, mkdir_p
 
 logger = logging.getLogger(__name__)
@@ -60,7 +57,7 @@ Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(
 def run_master(master_redis_cfg, exp, log_dir, plot):
 
     (config, Policy, epoch, iteration, elite, parents,
-     score_stats, time_stats, acc_stats, norm_stats, trainloader) = setup(exp)
+     score_stats, time_stats, acc_stats, norm_stats, noise_std_stats, trainloader) = setup(exp)
 
     logger.info('run_master: {}'.format(locals()))
 
@@ -92,7 +89,6 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
     truncation = exp['truncation']
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
 
-    # todo use best so far as elite instead of best of last gen?
     policy = Policy()
     policy.set_model(elite)
 
@@ -100,7 +96,9 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
     best_parents_so_far = (float('-inf'), [])
     bad_generations = 0
     current_noise_stdev = config.noise_stdev
-    noise_std_stats = []
+
+    # todo for early stopping
+    best_elite_so_far = None
 
     batch_size = config.batch_size
 
@@ -312,7 +310,7 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
 
                 if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
 
-                    filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
+                    filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
                                              epoch, iteration, parents, policy, len(trainloader))
 
                     # todo adjust tlogger to log like logger (time, pid)
@@ -346,7 +344,7 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                        worker_mem=(mem_stats[2], 'Worker mem usage'),
                        virtmem=(mem_stats[1], 'Virt mem usage'),
                        noise_std=(noise_std_stats, 'Noise stdev'))
-        filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats,
+        filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
                                  epoch, iteration, parents, policy, len(trainloader))
 
         logger.info('Saved snapshot {}'.format(filename))

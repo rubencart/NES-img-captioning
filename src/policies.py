@@ -202,7 +202,7 @@ class MnistNet(PolicyNet):
 
 
 class CompressedModel:
-    def __init__(self, start_rng: float = None, other_rng: list = None, from_param_file: str = None):
+    def __init__(self, start_rng: int = None, other_rng: list = None, from_param_file: str = None):
         if start_rng is None and from_param_file is None:
             self.start_rng, self.from_param_file = random_state(), None
         elif start_rng is None and from_param_file is not None:

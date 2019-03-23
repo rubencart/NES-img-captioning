@@ -46,7 +46,9 @@ def setup(exp):
         _time_stats = []
         _acc_stats = [[], []]
         _norm_stats = []
-        return _epoch, _iteration, _elite, _parents, _score_stats, _time_stats, _acc_stats, _norm_stats
+        _noise_std_stats = []
+        return (_epoch, _iteration, _elite, _parents, _score_stats, _time_stats, _acc_stats,
+                _norm_stats, _noise_std_stats)
 
     if 'continue_from_population' in exp and exp['continue_from_population'] is not None:
         with open(exp['continue_from_population']) as f:
@@ -64,20 +66,22 @@ def setup(exp):
         time_stats = infos['time_stats']
         acc_stats = infos['acc_stats']
         norm_stats = infos['norm_stats']
+        std_stats = infos['noise_std_stats'] if 'noise_std_stats' in infos else _from_zero()[-1]
 
     elif 'continue_from_single' in exp and exp['continue_from_single'] is not None:
         parents = [(i, CompressedModel(from_param_file=exp['continue_from_single']))
                    for i in range(exp['truncation'])]
 
         elite = parents[0][1]
-        (epoch, iteration, _, _, score_stats, time_stats, acc_stats, norm_stats) = _from_zero()
+        (epoch, iteration, _, _, score_stats, time_stats, acc_stats, norm_stats, std_stats) = _from_zero()
 
     else:
-        (epoch, iteration, elite, parents, score_stats, time_stats, acc_stats, norm_stats) = _from_zero()
+        (epoch, iteration, elite, parents, score_stats,
+         time_stats, acc_stats, norm_stats, std_stats) = _from_zero()
 
     trainloader = init_trainldr(exp, config=config)
     return (config, Policy, epoch, iteration, elite, parents, score_stats,
-            time_stats, acc_stats, norm_stats, trainloader)
+            time_stats, acc_stats, norm_stats, std_stats, trainloader)
 
 
 def init_trainldr(exp, config=None, batch_size=None, workers=None):
