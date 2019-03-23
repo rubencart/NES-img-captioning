@@ -1,6 +1,6 @@
 {
   "config": {
-    "eval_prob": 0.02,
+    "eval_prob": 0.01,
     "l2coeff": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 3,
@@ -8,6 +8,7 @@
     "patience": 20,
     "stdev_decr_divisor": 1.5
   },
+  "dataset": "mnist",
   "population_size": 400,
   "truncation": 30,
   "num_elites": 1,
@@ -16,5 +17,5 @@
     "args": {}
   },
   "_comment": "continue_from_population: snapshots/es_master_33749/info_e1_i12_118.json",
-  "_comment2": "continue_from_single: snapshots/es_master_33749/info_e1_i12_118.json"
+  "continue_from_single": "snapshots/sgd_69966/params_acc97.pth"
 }

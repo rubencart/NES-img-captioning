@@ -12,7 +12,6 @@ import time
 import psutil
 
 from dist import RelayClient
-from utils import mkdir_p
 
 
 def run():
@@ -69,20 +68,14 @@ def master(algo, exp_file, master_socket_path, log_dir, plot):
     import mkl
     mkl.set_num_threads(1)
 
-    # todo exp = experiment, json file
-    # if exp_str:
-    #     exp = json.loads(exp_str)
     if exp_file:
         with open(exp_file, 'r') as f:
             exp = json.loads(f.read())
     else:
         assert False
 
-    # todo to utils
-    log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
-    mkdir_p(log_dir)
     algo = import_algo(algo)
-    algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp=exp, plot=plot)
+    algo.run_master({'unix_socket_path': master_socket_path}, exp=exp, log_dir=log_dir, plot=plot)
 
 
 # @profile_exp(stream=open('memory_profiler.log', 'w+'))
@@ -99,7 +92,6 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
 
     # Start the workers
     algo = import_algo(algo)
-    # noise = algo.SharedNoiseTable()  # Workers share the same noise
 
     num_workers = num_workers if num_workers else os.cpu_count() - 2
     worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)

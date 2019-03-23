@@ -1,11 +1,12 @@
 import copy
 import gc
-import json
 import logging
 import os
 import psutil
 import time
 from collections import namedtuple
+
+from setup import init_trainldr, setup
 
 print('importing mkl, setting num threads')
 import mkl
@@ -20,7 +21,7 @@ import torchvision.transforms as transforms
 
 from dist import MasterClient, WorkerClient
 from policies import CompressedModel
-from utils import plot_stats, save_snapshot
+from utils import plot_stats, save_snapshot, mkdir_p
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,6 @@ ga_task_fields = ['elite', 'population', 'ob_mean', 'ob_std',
                   'timestep_limit', 'batch_data', 'parents', 'noise_stdev']
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
-config_fields = [
-    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
-    'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers',
-    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience'
-]
-Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit'])
 
 result_fields = [
@@ -46,39 +41,6 @@ result_fields = [
 Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 
-def setup(exp):
-    # todo
-    import policies
-    config = Config(**exp['config'])
-    Policy = getattr(policies, exp['policy']['type'])  # (**exp['policy']['args'])
-
-    # todo continue from 1 model instead of set of parents should also be possible
-    if 'continue_from' in exp and exp['continue_from'] is not None:
-        with open(exp['continue_from']) as f:
-            infos = json.load(f)
-        epoch = infos['epoch'] - 1
-        iteration = infos['iter']   # todo -1 ?
-        parents = [(i, CompressedModel(p_dict['start_rng'], p_dict['other_rng']))
-                   for (i, p_dict) in enumerate(infos['parents'])]
-        elite = parents[0][1]
-        score_stats = infos['score_stats']
-        time_stats = infos['time_stats']
-        acc_stats = infos['acc_stats']
-        norm_stats = infos['norm_stats']
-    else:
-        epoch = 0
-        iteration = 0
-        elite = CompressedModel()
-        parents = [(model_id, None) for model_id in range(exp['truncation'])]
-        score_stats = [[], [], []]
-        time_stats = []
-        acc_stats = [[], []]
-        norm_stats = []
-
-    return (config, Policy, epoch, iteration, elite, parents,
-            score_stats, time_stats, acc_stats, norm_stats)
-
-
 # todo cpu profile_exp on server! --> a lot of waiting in workers??
 # - snelste lijkt 2 workers --> hele master / worker setup nog nodig?
 # - memory problemen door CompressedModel? Misschien zonder hele serializatie proberen?
@@ -86,66 +48,37 @@ def setup(exp):
 
 # from meeting
 # - VCS --> slides graham
-# - gc.collect()
-# - mkl.set_num_threads(1) !!!!
+# x gc.collect(), doesn't help
+# x mkl.set_num_threads(1), test on server
 # - start workers from CL
 # - leave seeds altogether
 
 # next things:
-# - make possible to start from 1 net .pt file, to pretrain with SGD
+# x make possible to start from 1 net .pt file, to pretrain with SGD
+# - implement test on test set!
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
-def run_master(master_redis_cfg, log_dir, exp, plot):
+def run_master(master_redis_cfg, exp, log_dir, plot):
+
+    (config, Policy, epoch, iteration, elite, parents,
+     score_stats, time_stats, acc_stats, norm_stats, trainloader) = setup(exp)
 
     logger.info('run_master: {}'.format(locals()))
+
+    # todo to utils
+    log_dir = os.path.expanduser(log_dir) if log_dir else 'logs/es_master_{}'.format(os.getpid())
+    mkdir_p(log_dir)
+
     import tabular_logger as tlogger
     logger.info('Tabular logging to {}'.format(log_dir))
     tlogger.start(log_dir)
 
     import matplotlib.pyplot as plt
 
-    # config, env, sess, policy = setup(exp, single_threaded=False)
-    (config, Policy, epoch, iteration, elite, parents,
-     score_stats, time_stats, acc_stats, norm_stats) = setup(exp)
-
     # redis master
     master = MasterClient(master_redis_cfg)
-
-    # noise = SharedNoiseTable()
-    rs = np.random.RandomState()
-
-    # todo parameterize trainloaders
-    # transform = transforms.Compose(
-    #     [transforms.ToTensor(),
-    #      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    # trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-    #                                         download=True, transform=transform)
-    # testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-    #                                        download=True, transform=transform)
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
-    # MNIST has 60k training images
-    trainset = torchvision.datasets.MNIST(root='./data', train=True,
-                                          download=True, transform=transform)
-
-    # batch_size = config.batch_size if config.batch_size else 256
-    batch_size = config.batch_size
-
-    # num_workers? https://discuss.pytorch.org/t/guidelines-for-assigning-num-workers-to-dataloader/813/2
-    # 0 means this process will load data
-    num_workers = config.num_dataloader_workers if config.num_dataloader_workers else 1  # os.cpu_count()
-
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                              shuffle=True, num_workers=num_workers)
-    # testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-    #                                          shuffle=False, num_workers=num_workers)
-
-    # classes = ('plane', 'car', 'bird', 'cat',
-    #            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
     torch.set_grad_enabled(False)
 
+    rs = np.random.RandomState()
     tstart = time.time()
 
     # master, virt, worker
@@ -159,10 +92,6 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     truncation = exp['truncation']
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
 
-    # todo! multiple eval runs don't make sense: same elite, same input --> same output!
-    # different in gym / RL setting: nondeterministic
-    min_eval_runs = int(population_size * config.eval_prob) / 2
-
     # todo use best so far as elite instead of best of last gen?
     policy = Policy()
     policy.set_model(elite)
@@ -173,6 +102,8 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
     current_noise_stdev = config.noise_stdev
     noise_std_stats = []
 
+    batch_size = config.batch_size
+
     # lower_memory_usage = False
 
     max_nb_epochs = config.max_nb_epochs if config.max_nb_epochs else 0
@@ -182,21 +113,12 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
             epoch += 1
 
             # todo max generations
-            # todo check how many times training set has been gone through
             for _, batch_data in enumerate(trainloader, 0):
                 gc.collect()
 
                 iteration += 1
                 total_iteration = ((epoch - 1) * len(trainloader) + iteration)
-
                 step_tstart = time.time()
-
-                # todo what is ob_stat?
-                # if policy.needs_ob_stat:
-                #     ob_stat = RunningStat(
-                #         env.observation_space.shape,
-                #         eps=1e-2  # eps to prevent dividing by zero at the beginning when computing mean/stdev
-                #     )
 
                 curr_task_id = master.declare_task(GATask(
                     elite=elite,
@@ -213,16 +135,16 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
 
                 nb_models_to_evaluate = population_size
                 elite_evaluated = False
-                eval_runs = 0
+                eval_ran = False
 
                 mem_usages = []
                 worker_mem_usage = {}
-                while nb_models_to_evaluate > 0 or not elite_evaluated or not eval_runs >= min_eval_runs:
+                while nb_models_to_evaluate > 0 or not elite_evaluated or not eval_ran:
 
                     if nb_models_to_evaluate <= 0 and not elite_evaluated:
                         logger.warning('Only the elite still has to be evaluated')
 
-                    if nb_models_to_evaluate <= 0 and not eval_runs >= min_eval_runs:
+                    if nb_models_to_evaluate <= 0 and not eval_ran:
                         logger.warning('Waiting for eval runs')
 
                     # Wait for a result
@@ -244,9 +166,9 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     if result.eval_return is not None:
                         # This was an eval job
                         # Store the result only for current tasks
-                        if task_id == curr_task_id and eval_runs < min_eval_runs:
+                        if task_id == curr_task_id and not eval_ran:
                             eval_rets.append(result.eval_return)
-                            eval_runs += 1
+                            eval_ran = True
 
                     elif result.evaluated_model_id is not None:
                         # assert result.returns_n2.dtype == np.float32
@@ -321,7 +243,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                     bad_generations += 1
                     if bad_generations > config.patience:
                         # todo tlogger like logger
-                        logger.warning('MAX PATIENCE REACHED, SETTING LOWER NOISE STD DEV')
+                        logger.warning('Max patience reached; setting lower noise stdev & bigger batch_size')
                         # todo also set parents to best parents
                         current_noise_stdev /= config.stdev_decr_divisor
                         bad_generations = 0
@@ -330,8 +252,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                         best_parents_so_far = (float('-inf'), [])
 
                         batch_size *= 2
-                        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                                  shuffle=True, num_workers=num_workers)
+                        trainloader = init_trainldr(exp, batch_size=batch_size)
 
                 logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
                 # input('PRESS ENTER')
@@ -372,6 +293,7 @@ def run_master(master_redis_cfg, log_dir, exp, plot):
                 # each other in param space (distance between param_vectors)
                 tlogger.record_tabular("Norm", norm)
                 tlogger.record_tabular("NoiseStd", current_noise_stdev)
+                tlogger.record_tabular("BatchSize", batch_size)
 
                 if eval_rets:
                     tlogger.record_tabular("MaxAcc", acc_stats[1][-1])

@@ -12,34 +12,42 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from main import mkdir_p
+from utils import mkdir_p
 
 logger = logging.getLogger(__name__)
 
 
 class PolicyNet(nn.Module):
-    def __init__(self, rng_state):
+    def __init__(self, rng_state=None, from_param_file=None):
         super(PolicyNet, self).__init__()
 
         self.rng_state = rng_state
-        torch.manual_seed(rng_state)
+        self.from_param_file = from_param_file
+
+        if rng_state:
+            torch.manual_seed(rng_state)
         self.evolve_states = []
         self.add_tensors = {}
 
     def _initialize_params(self):
+        if self.from_param_file:
+            self.load_state_dict(torch.load(self.from_param_file))
+
         for name, tensor in self.named_parameters():
             if tensor.size() not in self.add_tensors:
                 self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
-            if 'weight' in name:
-                # todo kaiming normal or:
-                # We use Xavier initialization (Glorot & Bengio, 2010) as our policy initialization
-                # function φ where all bias weights are set to zero, and connection weights are drawn
-                # from a standard normal distribution with variance 1/Nin, where Nin is the number of
-                # incoming connections to a neuron
-                # nn.init.kaiming_normal_(tensor)
-                nn.init.xavier_normal_(tensor)
-            else:
-                tensor.data.zero_()
+
+            if not self.from_param_file:
+                if 'weight' in name:
+                    # todo kaiming normal or:
+                    # We use Xavier initialization (Glorot & Bengio, 2010) as our policy initialization
+                    # function φ where all bias weights are set to zero, and connection weights are drawn
+                    # from a standard normal distribution with variance 1/Nin, where Nin is the number of
+                    # incoming connections to a neuron
+                    # nn.init.kaiming_normal_(tensor)
+                    nn.init.xavier_normal_(tensor)
+                else:
+                    tensor.data.zero_()
 
     def evolve(self, sigma, rng_state):
         # Evolve params 1 step
@@ -54,15 +62,15 @@ class PolicyNet(nn.Module):
             tensor.data.add_(to_add)
 
     def compress(self):
-        return CompressedModel(self.rng_state, self.evolve_states)
+        return CompressedModel(self.rng_state, self.evolve_states, self.from_param_file)
 
     def forward(self, x):
         pass
 
 
 class Cifar10Net(PolicyNet):
-    def __init__(self, rng_state):
-        super(Cifar10Net, self).__init__(rng_state)
+    def __init__(self, rng_state=None, from_param_file=None):
+        super(Cifar10Net, self).__init__(rng_state, from_param_file)
 
         # 60K params
         self.conv1 = nn.Conv2d(3, 10, 5)
@@ -163,8 +171,8 @@ class BlockSlidesNet32(nn.Module):
 
 
 class MnistNet(PolicyNet):
-    def __init__(self, rng_state):
-        super(MnistNet, self).__init__(rng_state)
+    def __init__(self, rng_state=None, from_param_file=None):
+        super(MnistNet, self).__init__(rng_state, from_param_file)
 
         # todo compare fitness incr rate with and without weight norm + time per generation
         # self.conv1 = nn.utils.weight_norm(nn.Conv2d(1, 10, 5, 1))
@@ -194,8 +202,16 @@ class MnistNet(PolicyNet):
 
 
 class CompressedModel:
-    def __init__(self, start_rng: float = None, other_rng: list = None):
-        self.start_rng = start_rng if start_rng is not None else random_state()
+    def __init__(self, start_rng: float = None, other_rng: list = None, from_param_file: str = None):
+        if start_rng is None and from_param_file is None:
+            self.start_rng, self.from_param_file = random_state(), None
+        elif start_rng is None and from_param_file is not None:
+            self.start_rng, self.from_param_file = None, from_param_file
+        elif start_rng is not None and from_param_file is None:
+            self.start_rng, self.from_param_file = start_rng, None
+        else:
+            raise ValueError('start_rng and from_param_file cannot be both set')
+
         self.other_rng = other_rng if other_rng is not None else []
 
     def evolve(self, sigma, rng_state=None):
@@ -204,14 +220,15 @@ class CompressedModel:
 
     def uncompress(self, to_class_name=MnistNet):
         # evolve through all steps
-        start_rng, other_rng = self.start_rng, self.other_rng
-        m = to_class_name(start_rng)
-        for sigma, rng in other_rng:
+        m = to_class_name(self.start_rng, self.from_param_file)
+        for sigma, rng in self.other_rng:
             m.evolve(sigma, rng)
         return m
 
     def __str__(self):
-        result = '[( {start_rng} )'.format(start_rng=self.start_rng)
+        start = self.start_rng if self.start_rng else self.from_param_file
+
+        result = '[( {start} )'.format(start=start)
         for _, rng in self.other_rng:
             result += '( {rng} )'.format(rng=rng)
         return result + ']'
@@ -364,7 +381,7 @@ class MnistPolicy(Policy):
         # self.model = None
 
     def set_model(self, compressed_model):
-        assert isinstance(compressed_model, CompressedModel)
+        assert isinstance(compressed_model, CompressedModel), '{}'.format(type(compressed_model))
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
         assert isinstance(uncompressed_model, PolicyNet)
