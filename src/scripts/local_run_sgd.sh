@@ -1,4 +1,6 @@
 #!/bin/sh
 
+DATASET=$1
+
 . src/scripts/local_env_setup.sh
-python src/mnist_sgd.py
+python src/sgd.py --dataset "$DATASET"

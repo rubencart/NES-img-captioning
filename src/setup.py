@@ -131,8 +131,11 @@ def init_cifar10_loaders(config, batch_size, workers):
 
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transform)
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                           download=True, transform=transform)
+    comp_testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                                download=True, transform=transform)
+    n1, n2 = len(comp_testset) // 2, len(comp_testset) - (len(comp_testset) // 2)
+    valset, testset = torch.utils.data.random_split(comp_testset, (n1, n2))
+
     if config:
         bs = config.batch_size
         num_workers = config.num_dataloader_workers if config.num_dataloader_workers else 1
@@ -143,8 +146,11 @@ def init_cifar10_loaders(config, batch_size, workers):
 
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
                                               shuffle=True, num_workers=num_workers)
+
+    valloader = torch.utils.data.DataLoader(valset, batch_size=len(valset),
+                                            shuffle=True, num_workers=num_workers)
     # todo batch size?
     testloader = torch.utils.data.DataLoader(testset, batch_size=len(testset),
                                              shuffle=True, num_workers=num_workers)
 
-    return trainloader, None, testloader
+    return trainloader, valloader, testloader

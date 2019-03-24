@@ -72,12 +72,11 @@ class Cifar10Net(PolicyNet):
     def __init__(self, rng_state=None, from_param_file=None):
         super(Cifar10Net, self).__init__(rng_state, from_param_file)
 
-        # 60K params
+        # 100K params
         self.conv1 = nn.Conv2d(3, 10, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(10, 30, 5)
         self.fc1 = nn.Linear(30 * 5 * 5, 120)
-        # self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(120, 10)
 
         # 291466 params
@@ -101,7 +100,6 @@ class Cifar10Net(PolicyNet):
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 30 * 5 * 5)
         x = F.relu(self.fc1(x))
-        # x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
         # def _conv_conv_pool(conv1, conv2, pool, x):

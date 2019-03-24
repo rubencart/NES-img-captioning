@@ -1,22 +1,21 @@
 {
   "config": {
-    "calc_obstat_prob": 0.0,
-    "episodes_per_batch": 5000,
-    "eval_prob": 0.01,
+    "eval_prob": 0.005,
     "l2coeff": 0.005,
-    "noise_stdev": 0.01,
-    "snapshot_freq": 20,
-    "timesteps_per_batch": 10000,
-    "return_proc_mode": "centered_rank",
-    "episode_cutoff_mode": 5000,
-    "batch_size": 512,
-    "num_dataloader_workers": 2
+    "noise_stdev": 0.005,
+    "snapshot_freq": 3,
+    "batch_size": 2048,
+    "patience": 20,
+    "stdev_decr_divisor": 1.5
   },
-  "population_size": 500,
-  "truncation": 30,
+  "dataset": "cifar10",
+  "population_size": 800,
+  "truncation": 40,
   "num_elites": 1,
   "policy": {
     "type": "Cifar10Policy",
     "args": {}
-  }
+  },
+  "_continue_from_population": "snapshots/es_master_83645/info_e1_i30:118.json",
+  "continue_from_single": "snapshots/sgd_10542/params_acc46.pth"
 }
