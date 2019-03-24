@@ -1,21 +1,21 @@
 {
   "config": {
-    "eval_prob": 0.01,
+    "eval_prob": 0.002,
     "l2coeff": 0.005,
-    "noise_stdev": 0.005,
+    "noise_stdev": 0.002,
     "snapshot_freq": 3,
-    "batch_size": 512,
+    "batch_size": 2048,
     "patience": 20,
     "stdev_decr_divisor": 1.5
   },
   "dataset": "mnist",
-  "population_size": 500,
-  "truncation": 30,
+  "population_size": 800,
+  "truncation": 40,
   "num_elites": 1,
   "policy": {
     "type": "MnistPolicy",
     "args": {}
   },
-  "continue_from_population": "snapshots/es_master_83645/info_e1_i30:118.json",
-  "_continue_from_single": "snapshots/sgd_69966/params_acc97.pth"
+  "_continue_from_population": "snapshots/es_master_83645/info_e1_i30:118.json",
+  "continue_from_single": "snapshots/sgd_69966/params_acc97.pth"
 }

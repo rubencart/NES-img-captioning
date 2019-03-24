@@ -17,13 +17,13 @@ import torch
 
 from dist import MasterClient, WorkerClient
 from policies import CompressedModel
-from setup import init_trainldr, setup
+from setup import init_loaders, setup
 from utils import plot_stats, save_snapshot, mkdir_p
 
 logger = logging.getLogger(__name__)
 
 # todo clean
-ga_task_fields = ['elite', 'population', 'ob_mean', 'ob_std',
+ga_task_fields = ['elite', 'population', 'ob_mean', 'ob_std', 'val_data',
                   'timestep_limit', 'batch_data', 'parents', 'noise_stdev']
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
@@ -52,12 +52,14 @@ Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(
 
 # next things:
 # x make possible to start from 1 net .pt file, to pretrain with SGD
-# - implement test on test set!
+# x implement test on test set!
+# - keep overall best elite ( a la early stopping )
+# - abstract all local vars into iteration named tuple or something
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 def run_master(master_redis_cfg, exp, log_dir, plot):
 
-    (config, Policy, epoch, iteration, elite, parents,
-     score_stats, time_stats, acc_stats, norm_stats, noise_std_stats, trainloader) = setup(exp)
+    (config, Policy, epoch, iteration, elite, parents, score_stats, time_stats, acc_stats,
+     norm_stats, noise_std_stats, trainloader, valloader, testloader) = setup(exp)
 
     logger.info('run_master: {}'.format(locals()))
 
@@ -99,9 +101,11 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
     current_noise_stdev = config.noise_stdev
 
     # todo for early stopping
-    best_elite_so_far = None
+    best_elite_so_far = (float('-inf'), None)
 
     batch_size = config.batch_size
+    orig_trainloader_lth = len(trainloader)
+    bs_stats = []
 
     # lower_memory_usage = False
 
@@ -116,11 +120,12 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                 gc.collect()
 
                 iteration += 1
-                total_iteration = ((epoch - 1) * len(trainloader) + iteration)
+                total_iteration = ((epoch - 1) * orig_trainloader_lth + iteration)
                 step_tstart = time.time()
 
                 curr_task_id = master.declare_task(GATask(
                     elite=elite,
+                    val_data=next(iter(valloader)),
                     parents=parents,
                     batch_data=batch_data,
                     noise_stdev=current_noise_stdev,
@@ -245,20 +250,28 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                         logger.warning('Max patience reached; setting lower noise stdev & bigger batch_size')
                         # todo also set parents to best parents
                         current_noise_stdev /= config.stdev_decr_divisor
+                        batch_size *= 2
+                        trainloader, *_ = init_loaders(exp, batch_size=batch_size)
+
                         bad_generations = 0
                         parents = best_parents_so_far[1]
                         # todo default_best_parents_so_far() --> also with a lot of other stuff
-                        best_parents_so_far = (float('-inf'), [])
-
-                        batch_size *= 2
-                        trainloader = init_trainldr(exp, batch_size=batch_size)
+                        # best_parents_so_far = (float('-inf'),  best_parents_so_far[1])
 
                 logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
                 # input('PRESS ENTER')
 
+                # BEST ELITE SO FAR:
+                elite_acc = max(eval_rets) if eval_rets else 0
+                _prev_acc, _prev_elite = best_elite_so_far
+                if elite_acc > _prev_acc:
+                    best_elite_so_far = (elite_acc, elite)
+
                 score_stats[0].append(scores.min())
                 score_stats[1].append(scores.mean())
                 score_stats[2].append(scores.max())
+
+                bs_stats.append(batch_size)
 
                 step_tend = time.time()
                 time_stats.append(step_tend - step_tstart)
@@ -267,8 +280,9 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                 norm_stats.append(norm)
 
                 # todo also keep conf interv
-                acc_stats[0].append(max([fit for fit, _ in eval_rets]) if eval_rets else 0)
-                acc_stats[1].append(max([acc for _, acc in eval_rets]) if eval_rets else 0)
+                # acc_stats[0].append(max([fit for fit, _ in eval_rets]) if eval_rets else 0)
+                # acc_stats[1].append(max([acc for _, acc in eval_rets]) if eval_rets else 0)
+                acc_stats[1].append(elite_acc)
 
                 mem_usage = max(mem_usages) if mem_usages else 0
                 mem_stats[0].append(mem_usage)
@@ -312,7 +326,8 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                 if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
 
                     filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
-                                             epoch, iteration, parents, policy, len(trainloader))
+                                             epoch, iteration, parents, policy, orig_trainloader_lth,
+                                             best_parents_so_far, best_elite_so_far, bs_stats)
 
                     # todo adjust tlogger to log like logger (time, pid)
                     logger.info('Saved snapshot {}'.format(filename))
@@ -346,7 +361,8 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                        virtmem=(mem_stats[1], 'Virt mem usage'),
                        noise_std=(noise_std_stats, 'Noise stdev'))
         filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
-                                 epoch, iteration, parents, policy, len(trainloader))
+                                 epoch, iteration, parents, policy, orig_trainloader_lth,
+                                 best_parents_so_far, best_elite_so_far, bs_stats)
 
         logger.info('Saved snapshot {}'.format(filename))
 
@@ -387,21 +403,13 @@ def run_worker(master_redis_cfg, relay_redis_cfg):
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-            # policy.set_model(model)
-
-            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
-
-            fitness = policy.rollout_(data=task_data.batch_data, compressed_model=model)
-
-            mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
-
-            accuracy = policy.accuracy_on_(data=task_data.batch_data, compressed_model=model)
+            accuracy = policy.accuracy_on_(data=task_data.val_data, compressed_model=model)
 
             mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
             worker.push_result(task_id, Result(
                 worker_id=worker_id,
-                eval_return=(fitness, accuracy),
+                eval_return=accuracy,
                 mem_usage=max(mem_usages)
             ))
         else:

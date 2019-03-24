@@ -56,7 +56,7 @@ def import_algo(name):
     # elif name == 'ns-es' or name == "nsr-es":
     #     from . import nses as algo
     if name == 'ga':
-        import ga_master as algo
+        import ga as algo
     # elif name == 'rs':
     #     from . import rs as algo
     else:

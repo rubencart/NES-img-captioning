@@ -16,7 +16,8 @@ def mkdir_p(path):
 
 
 def save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
-                  epoch, iteration, parents, policy, trainloader_length):
+                  epoch, iteration, parents, policy, trainloader_length,
+                  best_parents, best_elite, bs_stats):
     snapshot_dir = 'snapshots/es_master_{}'.format(os.getpid())
     filename = 'info_e{e}_i{i}:{n}.json'.format(e=epoch, i=iteration, n=trainloader_length)
     mkdir_p(snapshot_dir)
@@ -31,6 +32,10 @@ def save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stat
         'epoch': epoch,
         'parents': [parent.__dict__ for (_, parent) in parents if parent],
         'noise_std_stats': noise_std_stats,
+        'trainloader_lth': trainloader_length,
+        'best_elite': best_elite,
+        'best_parents': best_parents,
+        'bs_stats': bs_stats,
     }
 
     with open(os.path.join(snapshot_dir, filename), 'w') as f:

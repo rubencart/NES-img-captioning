@@ -19,17 +19,6 @@ ALL_DATASETS = {
     'mnist': torchvision.datasets.MNIST,
 }
 
-ALL_TRANSFORMS = {
-    'cifar10': transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ]),
-    'mnist': transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ]),
-}
-
 
 def setup(exp):
     import policies
@@ -67,6 +56,12 @@ def setup(exp):
         acc_stats = infos['acc_stats']
         norm_stats = infos['norm_stats']
         std_stats = infos['noise_std_stats'] if 'noise_std_stats' in infos else _from_zero()[-1]
+        # todo
+        best_elite = infos['best_elite'] if 'noise_std_stats' in infos else None
+        trainloader_length = infos['trainloader_lth'] if 'noise_std_stats' in infos else None
+        best_parents = infos['best_parents'] if 'noise_std_stats' in infos else None
+        bs_stats = infos['batch_size_stats'] if 'batch_size_stats' in infos else []
+        batch_size = bs_stats[-1] if bs_stats else None
 
     elif 'continue_from_single' in exp and exp['continue_from_single'] is not None:
         parents = [(i, CompressedModel(from_param_file=exp['continue_from_single']))
@@ -79,17 +74,34 @@ def setup(exp):
         (epoch, iteration, elite, parents, score_stats,
          time_stats, acc_stats, norm_stats, std_stats) = _from_zero()
 
-    trainloader = init_trainldr(exp, config=config)
+    trainloader, valloader, testloader = init_loaders(exp, config=config)
     return (config, Policy, epoch, iteration, elite, parents, score_stats,
-            time_stats, acc_stats, norm_stats, std_stats, trainloader)
+            time_stats, acc_stats, norm_stats, std_stats, trainloader, valloader, testloader)
 
 
-def init_trainldr(exp, config=None, batch_size=None, workers=None):
+def init_loaders(exp, config=None, batch_size=None, workers=None):
     dataset = exp['dataset']
-    uninit_dataset = ALL_DATASETS[dataset]
-    transform = ALL_TRANSFORMS[dataset]
 
-    dataset = uninit_dataset(root='./data', train=True, download=True, transform=transform)
+    if dataset == 'mnist':
+        return init_mnist_loaders(config, batch_size, workers)
+    elif dataset == 'cifar10':
+        return init_cifar10_loaders(config, batch_size, workers)
+    else:
+        raise ValueError('dataset must be mnist|cifar10, now: {}'.format(dataset))
+
+
+def init_mnist_loaders(config, batch_size, workers):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+
+    trainset = torchvision.datasets.MNIST(root='./data', train=True,
+                                          download=True, transform=transform)
+    comp_testset = torchvision.datasets.MNIST(root='./data', train=False,
+                                              download=True, transform=transform)
+    n1, n2 = len(comp_testset) // 2, len(comp_testset) - (len(comp_testset) // 2)
+    valset, testset = torch.utils.data.random_split(comp_testset, (n1, n2))
 
     if config:
         bs = config.batch_size
@@ -99,6 +111,40 @@ def init_trainldr(exp, config=None, batch_size=None, workers=None):
         bs = batch_size
         num_workers = workers if workers else 1
 
-    loader = torch.utils.data.DataLoader(dataset, batch_size=bs,
-                                         shuffle=True, num_workers=num_workers)
-    return loader
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
+                                              shuffle=True, num_workers=num_workers)
+    # todo batch size?
+    valloader = torch.utils.data.DataLoader(valset, batch_size=len(valset),
+                                            shuffle=True, num_workers=num_workers)
+
+    testloader = torch.utils.data.DataLoader(testset, batch_size=len(testset),
+                                             shuffle=True, num_workers=num_workers)
+
+    return trainloader, valloader, testloader
+
+
+def init_cifar10_loaders(config, batch_size, workers):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                            download=True, transform=transform)
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                           download=True, transform=transform)
+    if config:
+        bs = config.batch_size
+        num_workers = config.num_dataloader_workers if config.num_dataloader_workers else 1
+    else:
+        assert isinstance(batch_size, int)
+        bs = batch_size
+        num_workers = workers if workers else 1
+
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
+                                              shuffle=True, num_workers=num_workers)
+    # todo batch size?
+    testloader = torch.utils.data.DataLoader(testset, batch_size=len(testset),
+                                             shuffle=True, num_workers=num_workers)
+
+    return trainloader, None, testloader
