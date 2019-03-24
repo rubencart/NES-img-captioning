@@ -33,8 +33,8 @@ def save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stat
         'parents': [parent.__dict__ for (_, parent) in parents if parent],
         'noise_std_stats': noise_std_stats,
         'trainloader_lth': trainloader_length,
-        'best_elite': best_elite,
-        'best_parents': best_parents,
+        'best_elite': (best_elite[0], best_elite[1].__dict__),
+        'best_parents': (best_parents[0], [parent.__dict__ for (_, parent) in best_parents[1] if parent]),
         'bs_stats': bs_stats,
     }
 
@@ -42,7 +42,7 @@ def save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stat
         json.dump(infos, f)
 
     net_filename = 'elite_params_e{e}_i{i}:{n}_r{r}.pth' \
-        .format(e=epoch, i=iteration, n=trainloader_length, r=round(acc_stats[0][-1], 2))
+        .format(e=epoch, i=iteration, n=trainloader_length, r=round(acc_stats[1][-1], 2))
     policy.save(path=snapshot_dir, filename=net_filename)
 
     return os.path.join(snapshot_dir, filename)

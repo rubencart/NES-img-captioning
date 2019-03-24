@@ -1,8 +1,8 @@
 {
   "config": {
-    "eval_prob": 0.002,
+    "eval_prob": 0.005,
     "l2coeff": 0.005,
-    "noise_stdev": 0.002,
+    "noise_stdev": 0.005,
     "snapshot_freq": 3,
     "batch_size": 2048,
     "patience": 20,

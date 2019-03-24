@@ -140,6 +140,7 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                 nb_models_to_evaluate = population_size
                 elite_evaluated = False
                 eval_ran = False
+                waiting_for_eval_run = False
 
                 mem_usages = []
                 worker_mem_usage = {}
@@ -149,7 +150,9 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                         logger.warning('Only the elite still has to be evaluated')
 
                     if nb_models_to_evaluate <= 0 and not eval_ran:
-                        logger.warning('Waiting for eval runs')
+                        if not waiting_for_eval_run:
+                            logger.warning('Waiting for eval runs')
+                            waiting_for_eval_run = True
 
                     # Wait for a result
                     task_id, result = master.pop_result()
@@ -173,6 +176,7 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                         if task_id == curr_task_id and not eval_ran:
                             eval_rets.append(result.eval_return)
                             eval_ran = True
+                            waiting_for_eval_run = False
 
                     elif result.evaluated_model_id is not None:
                         # assert result.returns_n2.dtype == np.float32
