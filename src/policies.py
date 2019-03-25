@@ -239,10 +239,10 @@ def random_state():
 
 class Policy:
     def __init__(self):
-        # todo adjust to pytorch
         # self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
         # self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
         self.policy_net = None
+        self.mode = None
 
     # def rollout(self, data):
     #     assert self.policy_net is not None, 'set model first!'
@@ -260,9 +260,16 @@ class Policy:
     #     del inputs, labels, outputs, loss, criterion
     #     return result
 
-    def rollout_(self, data, compressed_model):
-        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
+    def rollout(self, data, model, mode):
+        assert mode in ['seeds', 'nets'], '{}'.format(mode)
 
+        if mode == 'seeds':
+            return self._rollout_compr(data, model)
+        else:
+            return self._rollout_net(data, model)
+
+    def _rollout_compr(self, data, compressed_model):
+        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
         assert compressed_model is not None, 'Pass model!'
         policy_net: PolicyNet = self._uncompress_model(compressed_model)
 
@@ -281,7 +288,7 @@ class Policy:
         del inputs, labels, outputs, loss, criterion, policy_net
         return result
 
-    def rollout_net(self, data, policy_net):
+    def _rollout_net(self, data, policy_net):
         # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
         assert policy_net is not None, 'Pass model!'
         assert isinstance(policy_net, PolicyNet), '{}'.format(type(policy_net))
@@ -316,7 +323,15 @@ class Policy:
     #     del inputs, labels, outputs, prediction, correct
     #     return accuracy
 
-    def accuracy_on_(self, data, compressed_model):
+    def accuracy_on(self, data, model, mode):
+        assert mode in ['seeds', 'nets'], '{}'.format(mode)
+
+        if mode == 'seeds':
+            return self._accuracy_on_compr(data, model)
+        else:
+            return self._accuracy_on_net(data, model)
+
+    def _accuracy_on_compr(self, data, compressed_model):
         assert compressed_model is not None, 'Pass model!'
         policy_net: PolicyNet = self._uncompress_model(compressed_model)
 
@@ -333,7 +348,7 @@ class Policy:
         del inputs, labels, outputs, prediction, correct, policy_net
         return accuracy
 
-    def accuracy_on_net(self, data, policy_net):
+    def _accuracy_on_net(self, data, policy_net):
         assert policy_net is not None, 'Pass model!'
         assert isinstance(policy_net, PolicyNet), '{}'.format(type(policy_net))
 
@@ -350,6 +365,18 @@ class Policy:
         del inputs, labels, outputs, prediction, correct
         return accuracy
 
+    def set_model(self, model, mode):
+        assert mode in ['seeds', 'nets'], '{}'.format(mode)
+        self.mode = mode
+
+        if mode == 'seeds':
+            assert isinstance(model, CompressedModel)
+            self._set_compr_model(model)
+        else:
+            assert isinstance(model, PolicyNet)
+            self._set_net_model(model)
+        # return policy
+
     def save(self, path, filename):
         assert self.policy_net is not None, 'set model first!'
         mkdir_p(path)
@@ -363,10 +390,10 @@ class Policy:
     def nb_learnable_params():
         pass
 
-    def set_compr_model(self, compressed_model):
+    def _set_compr_model(self, compressed_model):
         pass
 
-    def set_net_model(self, model):
+    def _set_net_model(self, model):
         assert isinstance(model, PolicyNet), '{}'.format(type(model))
         self.policy_net = model
 
@@ -377,10 +404,6 @@ class Policy:
         pass
 
     def _uncompress_model(self, compressed_model):
-        pass
-
-    def reinitialize_params(self):
-        # todo rescale weights manually (can we use weight norm?)
         pass
 
     def parameter_vector(self):
@@ -394,7 +417,7 @@ class Cifar10Policy(Policy):
         # self.model = Cifar10Classifier(random_state())
         # self.model = None
 
-    def set_compr_model(self, compressed_model):
+    def _set_compr_model(self, compressed_model):
         assert isinstance(compressed_model, CompressedModel)
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
@@ -429,7 +452,7 @@ class MnistPolicy(Policy):
         # self.model = Cifar10Classifier(random_state())
         # self.model = None
 
-    def set_compr_model(self, compressed_model):
+    def _set_compr_model(self, compressed_model):
         assert isinstance(compressed_model, CompressedModel), '{}'.format(type(compressed_model))
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)

@@ -4,7 +4,6 @@ import logging
 import os
 
 import psutil
-from collections import namedtuple
 
 import numpy as np
 import torch
@@ -17,16 +16,9 @@ from policies import Policy
 from setup import setup, Config
 from snapshot import save_snapshot
 from statistics import Statistics
+from utils import GATask, Result
 
 logger = logging.getLogger(__name__)
-
-ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev']
-GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
-
-
-result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
-                 'eval_return', 'mem_usage']
-Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 
 # todo cpu profile_exp on server! --> a lot of waiting in workers??

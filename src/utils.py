@@ -1,8 +1,22 @@
 import errno
-import json
 import os
+from collections import namedtuple
 
-import numpy as np
+
+ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev']
+GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
+
+
+result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
+                 'eval_return', 'mem_usage']
+Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
+
+config_fields = [
+    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
+    'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers', 'log_dir',
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience'
+]
+Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 
 
 def mkdir_p(path):
@@ -13,66 +27,6 @@ def mkdir_p(path):
             pass
         else:
             raise
-
-
-# todo seeds - non seeds proof
-def save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
-                  epoch, iteration, parents, policy, trainloader_length,
-                  best_parents, best_elite, bs_stats):
-    snapshot_dir = 'snapshots/es_master_{}'.format(os.getpid())
-    filename = 'info_e{e}_i{i}:{n}.json'.format(e=epoch, i=iteration, n=trainloader_length)
-    mkdir_p(snapshot_dir)
-    assert not os.path.exists(os.path.join(snapshot_dir, filename))
-
-    infos = {
-        'acc_stats': acc_stats,
-        'time_stats': time_stats,
-        'norm_stats': norm_stats,
-        'score_stats': score_stats,
-        'iter': iteration,
-        'epoch': epoch,
-        'parents': [parent.__dict__ for (_, parent) in parents if parent],
-        'noise_std_stats': noise_std_stats,
-        'trainloader_lth': trainloader_length,
-        'best_elite': (best_elite[0], best_elite[1].__dict__),
-        'best_parents': (best_parents[0], [parent.__dict__ for (_, parent) in best_parents[1] if parent]),
-        'bs_stats': bs_stats,
-    }
-
-    with open(os.path.join(snapshot_dir, filename), 'w') as f:
-        json.dump(infos, f)
-
-    net_filename = 'elite_params_e{e}_i{i}:{n}_r{r}.pth' \
-        .format(e=epoch, i=iteration, n=trainloader_length, r=round(acc_stats[1][-1], 2))
-    policy.save(path=snapshot_dir, filename=net_filename)
-
-    return os.path.join(snapshot_dir, filename)
-
-
-def plot_stats(log_dir, plt, score_stats=None, **kwargs):
-    # import matplotlib
-    # import matplotlib.pyplot as plt
-    # if sys.platform == 'darwin':
-    #     matplotlib.use('TkAgg')
-    mkdir_p(log_dir)
-
-    if score_stats:
-        fig = plt.figure()
-        x = np.arange(len(score_stats[1]))
-        plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
-        plt.plot(x, score_stats[1], color='blue')
-        plt.title('Training loss')
-        # plt.savefig(log_dir + '/loss_plot_{i}.png'.format(i=i))
-        plt.savefig(log_dir + '/loss_plot.png')
-        plt.close(fig)
-
-    for (name, (lst, label)) in kwargs.items():
-        fig = plt.figure()
-        plt.plot(np.arange(len(lst)), lst)
-        plt.title(label)
-        # plt.savefig(log_dir + '/time_plot_{i}.png'.format(i=i))
-        plt.savefig(log_dir + '/{}_plot.png'.format(name))
-        plt.close(fig)
 
 
 # To plot against scores:

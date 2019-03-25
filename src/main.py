@@ -1,4 +1,8 @@
 import os
+
+from ga_master import GAMaster
+from ga_worker import GAWorker
+
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
@@ -56,7 +60,7 @@ def import_algo(name):
     # elif name == 'ns-es' or name == "nsr-es":
     #     from . import nses as algo
     if name == 'ga':
-        import ga as algo
+        import ga_master as algo
     # elif name == 'rs':
     #     from . import rs as algo
     else:
@@ -78,8 +82,10 @@ def master(algo, exp_file, master_socket_path, log_dir, plot):
     else:
         assert False
 
-    algo = import_algo(algo)
-    algo.run_master({'unix_socket_path': master_socket_path}, exp=exp, log_dir=log_dir, plot=plot)
+    # todo
+    # algo = import_algo(algo)
+    ga_master = GAMaster()
+    ga_master.run_master({'unix_socket_path': master_socket_path}, exp=exp, plot=plot)  # log_dir=log_dir
 
 
 # @profile_exp(stream=open('memory_profiler.log', 'w+'))
@@ -95,7 +101,8 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # mkl.set_num_threads(1)
 
     # Start the workers
-    algo = import_algo(algo)
+    # todo
+    # algo = import_algo(algo)
 
     num_workers = num_workers if num_workers else os.cpu_count() - 2
     worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
@@ -120,8 +127,11 @@ def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
             # import mkl
             # mkl.set_num_threads(1)
 
+            # todo
+            ga_worker = GAWorker()
+
             # todo pass along worker id to ensure unique
-            algo.run_worker(master_redis_cfg, relay_redis_cfg)
+            ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)
             return
         else:
             worker_ids.append(new_pid)
