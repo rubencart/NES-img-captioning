@@ -5,7 +5,7 @@ import torch
 import torchvision
 from torchvision.transforms import transforms
 
-from policies import CompressedModel
+from policies import CompressedModel, Cifar10Policy, MnistPolicy
 
 config_fields = [
     'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
@@ -19,78 +19,131 @@ ALL_DATASETS = {
     'mnist': torchvision.datasets.MNIST,
 }
 
+POLICIES = {
+    'cifar10': Cifar10Policy,
+    'mnist': MnistPolicy,
+}
+
 
 def setup(exp):
-    import policies
-    config = Config(**exp['config'])
-    Policy = getattr(policies, exp['policy']['type'])  # (**exp['policy']['args'])
+    assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
-    def _from_zero():
-        _epoch = 0
-        _iteration = 0
-        _parents = [(model_id, None) for model_id in range(exp['truncation'])]
-        # first elite = random
-        _elite = CompressedModel()
-        _score_stats = [[], [], []]
-        _time_stats = []
-        _acc_stats = [[], []]
-        _norm_stats = []
-        _noise_std_stats = []
-        return (_epoch, _iteration, _elite, _parents, _score_stats, _time_stats, _acc_stats,
-                _norm_stats, _noise_std_stats)
+    config = Config(**exp['config'])
+    Policy = POLICIES[exp['policy']['type']]
+    policy = Policy()
 
     if 'continue_from_population' in exp and exp['continue_from_population'] is not None:
         with open(exp['continue_from_population']) as f:
             infos = json.load(f)
-        epoch = infos['epoch'] - 1
-        iteration = infos['iter'] - 1
 
+        (epoch, iteration, score_stats, time_stats, acc_stats, norm_stats,
+         std_stats) = _load_stats_from_infos(infos)
+
+        parents, elite = _load_parents_from_pop(infos, exp['mode'])
+    else:
+        (epoch, iteration, score_stats, time_stats, acc_stats, norm_stats, std_stats) = _init_stats()
+
+        if 'continue_from_single' in exp and exp['continue_from_single'] is not None:
+            parents, elite = _load_parents_from_single(exp['continue_from_single'], exp['mode'],
+                                                       exp['truncation'], policy)
+        else:
+            parents, elite = _init_parents(exp, policy)
+
+    trainloader, valloader, testloader = init_loaders(exp, config=config)
+
+    return (config, policy, epoch, iteration, elite, parents, score_stats,
+            time_stats, acc_stats, norm_stats, std_stats, trainloader, valloader, testloader)
+
+
+def _load_parents_from_pop(infos, mode, policy):
+    if mode == 'seeds':
         parents = [(i, CompressedModel(start_rng=p_dict['start_rng'],
                                        other_rng=p_dict['other_rng'],
                                        from_param_file=p_dict['from_param_file']))
                    for (i, p_dict) in enumerate(infos['parents'])]
-
-        elite = parents[0][1]
-        score_stats = infos['score_stats']
-        time_stats = infos['time_stats']
-        acc_stats = infos['acc_stats']
-        norm_stats = infos['norm_stats']
-        std_stats = infos['noise_std_stats'] if 'noise_std_stats' in infos else _from_zero()[-1]
-        # todo
-        best_elite = infos['best_elite'] if 'noise_std_stats' in infos else None
-        trainloader_length = infos['trainloader_lth'] if 'noise_std_stats' in infos else None
-        best_parents = infos['best_parents'] if 'noise_std_stats' in infos else None
-        bs_stats = infos['batch_size_stats'] if 'batch_size_stats' in infos else []
-        batch_size = bs_stats[-1] if bs_stats else None
-
-    elif 'continue_from_single' in exp and exp['continue_from_single'] is not None:
-        parents = [(i, CompressedModel(from_param_file=exp['continue_from_single']))
-                   for i in range(exp['truncation'])]
-
-        elite = parents[0][1]
-        (epoch, iteration, _, _, score_stats, time_stats, acc_stats, norm_stats, std_stats) = _from_zero()
-
     else:
-        (epoch, iteration, elite, parents, score_stats,
-         time_stats, acc_stats, norm_stats, std_stats) = _from_zero()
+        # todo serial / deserial
+        # see https://github.com/pytorch/tutorials/blob/0eec7facdb659269be33289f5add6e5acf4493c9
+        # /beginner_source/saving_loading_models.py#L289
+        raise NotImplementedError
+        NetClass = policy.get_net_class()
+        parents = [(i, NetClass(from_param_file=p_dict['from_param_file']))
+                   for (i, p_dict) in enumerate(infos['parents'])]
 
-    trainloader, valloader, testloader = init_loaders(exp, config=config)
-    return (config, Policy, epoch, iteration, elite, parents, score_stats,
-            time_stats, acc_stats, norm_stats, std_stats, trainloader, valloader, testloader)
+    return parents, parents[0][1]
+
+
+def _load_parents_from_single(param_file, mode, truncation, policy):
+    if mode == 'seeds':
+        parents = [(i, CompressedModel(from_param_file=param_file))
+                   for i in range(truncation)]
+    else:
+        # todo get_net_class nicest solution?
+        parents = [(i, policy.get_net_class()(from_param_file=param_file))
+                   for i in range(truncation)]
+
+    return parents, parents[0][1]
+
+
+def _init_parents(mode, truncation, policy):
+    if mode == 'seeds':
+        # important that this stays None:
+        # - if None: workers get None as parent to evaluate so initialize POP_SIZE random initial parents,
+        #       of which the best TRUNC get selected ==> first gen: POP_SIZE random parents
+        # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
+        #       TRUNC random parents == less random!
+        parents = [(model_id, None) for model_id in range(truncation)]
+        elite = CompressedModel()
+    else:
+        parents = [(model_id, None) for model_id in range(truncation)]
+        elite = policy.generate_net()
+
+    return parents, elite
+
+
+def _load_stats_from_infos(infos):
+    epoch = infos['epoch'] - 1
+    iteration = infos['iter'] - 1
+    score_stats = infos['score_stats']
+    time_stats = infos['time_stats']
+    acc_stats = infos['acc_stats']
+    norm_stats = infos['norm_stats']
+
+    # todo
+    std_stats = infos['noise_std_stats'] if 'noise_std_stats' in infos else _init_stats()[-1]
+    best_elite = infos['best_elite'] if 'noise_std_stats' in infos else None
+    trainloader_length = infos['trainloader_lth'] if 'noise_std_stats' in infos else None
+    best_parents = infos['best_parents'] if 'noise_std_stats' in infos else None
+    bs_stats = infos['batch_size_stats'] if 'batch_size_stats' in infos else []
+    batch_size = bs_stats[-1] if bs_stats else None
+
+    return epoch, iteration, score_stats, time_stats, acc_stats, norm_stats, std_stats
+
+
+def _init_stats():
+    _epoch = 0
+    _iteration = 0
+    _score_stats = [[], [], []]
+    _time_stats = []
+    _acc_stats = [[], []]
+    _norm_stats = []
+    _noise_std_stats = []
+    return (_epoch, _iteration, _score_stats, _time_stats, _acc_stats,
+            _norm_stats, _noise_std_stats)
 
 
 def init_loaders(exp, config=None, batch_size=None, workers=None):
     dataset = exp['dataset']
 
     if dataset == 'mnist':
-        return init_mnist_loaders(config, batch_size, workers)
+        return _init_mnist_loaders(config, batch_size, workers)
     elif dataset == 'cifar10':
-        return init_cifar10_loaders(config, batch_size, workers)
+        return _init_cifar10_loaders(config, batch_size, workers)
     else:
         raise ValueError('dataset must be mnist|cifar10, now: {}'.format(dataset))
 
 
-def init_mnist_loaders(config, batch_size, workers):
+def _init_mnist_loaders(config, batch_size, workers):
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
@@ -123,7 +176,7 @@ def init_mnist_loaders(config, batch_size, workers):
     return trainloader, valloader, testloader
 
 
-def init_cifar10_loaders(config, batch_size, workers):
+def _init_cifar10_loaders(config, batch_size, workers):
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))

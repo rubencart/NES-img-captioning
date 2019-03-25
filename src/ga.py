@@ -17,7 +17,7 @@ import torch
 
 from dist import MasterClient, WorkerClient
 from policies import CompressedModel
-from setup import init_loaders, setup
+from setup import init_loaders, setup, setup_nets
 from utils import plot_stats, save_snapshot, mkdir_p
 
 logger = logging.getLogger(__name__)
@@ -48,17 +48,23 @@ Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(
 # x gc.collect(), doesn't help
 # x mkl.set_num_threads(1), test on server
 # - start workers from CL
+
 # - leave seeds altogether
+#   - serialize/deser parents, elite,...
+#   - initialize
+#   - adjust ga
+# - safe mutations
 
 # next things:
 # x make possible to start from 1 net .pt file, to pretrain with SGD
 # x implement test on test set!
-# - keep overall best elite ( a la early stopping )
+# x keep overall best elite ( a la early stopping )
 # - abstract all local vars into iteration named tuple or something
+# - check plots (2733), what happens? should be killed when > 90! maybe we can log this?
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 def run_master(master_redis_cfg, exp, log_dir, plot):
 
-    (config, Policy, epoch, iteration, elite, parents, score_stats, time_stats, acc_stats,
+    (config, policy, epoch, iteration, elite, parents, score_stats, time_stats, acc_stats,
      norm_stats, noise_std_stats, trainloader, valloader, testloader) = setup(exp)
 
     logger.info('run_master: {}'.format(locals()))
@@ -92,8 +98,8 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
     truncation = exp['truncation']
     num_elites = exp['num_elites']      # todo use num_elites instead of 1
 
-    policy = Policy()
-    policy.set_model(elite)
+    # policy = Policy()
+    policy.set_compr_model(elite)
 
     # todo also to and from info.json
     best_parents_so_far = (float('-inf'), [])
@@ -120,7 +126,8 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                 gc.collect()
 
                 iteration += 1
-                total_iteration = ((epoch - 1) * orig_trainloader_lth + iteration)
+                # todo is this correct?
+                # total_iteration = ((epoch - 1) * orig_trainloader_lth + iteration)
                 step_tstart = time.time()
 
                 curr_task_id = master.declare_task(GATask(
@@ -131,8 +138,8 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                     noise_stdev=current_noise_stdev,
                 ))
 
-                tlogger.log('********** Iteration {} **********'.format(total_iteration))
-                logger.info('Searching {nb} params for NW'.format(nb=Policy.nb_learnable_params()))
+                tlogger.log('********** Iteration {} **********'.format(iteration))
+                logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
 
                 curr_task_results, eval_rets, worker_ids, scored_models = [], [], [], []
                 num_results_skipped = 0
@@ -327,7 +334,7 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
                 tlogger.record_tabular("MemUsage", psutil.virtual_memory().percent)
                 tlogger.dump_tabular()
 
-                if config.snapshot_freq != 0 and total_iteration % config.snapshot_freq == 0:
+                if config.snapshot_freq != 0 and iteration % config.snapshot_freq == 0:
 
                     filename = save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
                                              epoch, iteration, parents, policy, orig_trainloader_lth,
@@ -349,9 +356,9 @@ def run_master(master_redis_cfg, exp, log_dir, plot):
 
                 # set policy to new elite
                 elite = parents[0][1]
-                policy.set_model(elite)
+                policy.set_compr_model(elite)
 
-            iteration = 0
+            # iteration = 0
 
     except KeyboardInterrupt:
         if plot:
@@ -382,7 +389,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg):
 
     exp = worker.get_experiment()
     # config, env, sess, policy = setup(exp, single_threaded=True)
-    config, Policy, *_ = setup(exp)
+    config, policy, *_ = setup(exp)
 
     rs = np.random.RandomState()
     worker_id = rs.randint(2 ** 31)
@@ -394,7 +401,7 @@ def run_worker(master_redis_cfg, relay_redis_cfg):
     while True:
 
         gc.collect()
-        policy = Policy()
+        # policy = Policy()
         time.sleep(0.01)
         mem_usages = []
 

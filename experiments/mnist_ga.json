@@ -1,4 +1,5 @@
 {
+  "mode":  "nets",
   "config": {
     "eval_prob": 0.005,
     "l2coeff": 0.005,

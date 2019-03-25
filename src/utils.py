@@ -15,6 +15,7 @@ def mkdir_p(path):
             raise
 
 
+# todo seeds - non seeds proof
 def save_snapshot(acc_stats, time_stats, norm_stats, score_stats, noise_std_stats,
                   epoch, iteration, parents, policy, trainloader_length,
                   best_parents, best_elite, bs_stats):

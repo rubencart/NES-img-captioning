@@ -16,6 +16,7 @@ from utils import mkdir_p
 parser = argparse.ArgumentParser()
 parser.add_argument('--save_to_path', type=str, default='snapshots/sgd_{pid}/', help='')
 parser.add_argument('--save_to_file', type=str, default='params_acc{acc}.pth', help='')
+parser.add_argument('--epochs', type=int, default=5, help='')
 parser.add_argument('--dataset', choices=['mnist', 'cifar10'],
                     type=str, default='mnist', help='')
 args = parser.parse_args()
@@ -61,7 +62,7 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=128,
                                          shuffle=True, num_workers=4)
 
 try:
-    for epoch in range(4):  # loop over the dataset multiple times
+    for epoch in range(args.epochs):  # loop over the dataset multiple times
         print('Training...: {}'.format(epoch))
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):

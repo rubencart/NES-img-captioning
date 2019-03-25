@@ -72,7 +72,7 @@ class Cifar10Net(PolicyNet):
     def __init__(self, rng_state=None, from_param_file=None):
         super(Cifar10Net, self).__init__(rng_state, from_param_file)
 
-        # 100K params
+        # 100K params, max ~65 acc?
         self.conv1 = nn.Conv2d(3, 10, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(10, 30, 5)
@@ -252,7 +252,6 @@ class Policy:
     #     inputs, labels = data
     #     outputs = self.policy_net(inputs)
     #
-    #     # todo for now use cross entropy loss as fitness
     #     criterion = nn.CrossEntropyLoss()
     #     loss = criterion(outputs, labels)
     #     # print(loss) --> tensor(2.877)
@@ -280,6 +279,26 @@ class Policy:
         result = -float(loss.item())
 
         del inputs, labels, outputs, loss, criterion, policy_net
+        return result
+
+    def rollout_net(self, data, policy_net):
+        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
+        assert policy_net is not None, 'Pass model!'
+        assert isinstance(policy_net, PolicyNet), '{}'.format(type(policy_net))
+
+        torch.set_grad_enabled(False)
+        policy_net.eval()
+
+        inputs, labels = data
+        outputs = policy_net(inputs)
+
+        # todo for now use cross entropy loss as fitness
+        criterion = nn.CrossEntropyLoss()
+        loss = criterion(outputs, labels)
+        # print(loss) --> tensor(2.877)
+        result = -float(loss.item())
+
+        del inputs, labels, outputs, loss, criterion
         return result
 
     # def accuracy_on(self, data):
@@ -314,8 +333,24 @@ class Policy:
         del inputs, labels, outputs, prediction, correct, policy_net
         return accuracy
 
+    def accuracy_on_net(self, data, policy_net):
+        assert policy_net is not None, 'Pass model!'
+        assert isinstance(policy_net, PolicyNet), '{}'.format(type(policy_net))
+
+        torch.set_grad_enabled(False)
+        policy_net.eval()
+
+        inputs, labels = data
+        outputs = policy_net(inputs)
+
+        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        correct = prediction.eq(labels.view_as(prediction)).sum().item()
+        accuracy = float(correct) / labels.size()[0]
+
+        del inputs, labels, outputs, prediction, correct
+        return accuracy
+
     def save(self, path, filename):
-        # todo check self-critical --> also save iteration,... not only params?
         assert self.policy_net is not None, 'set model first!'
         mkdir_p(path)
         assert not os.path.exists(os.path.join(path, filename))
@@ -328,7 +363,17 @@ class Policy:
     def nb_learnable_params():
         pass
 
-    def set_model(self, compressed_model):
+    def set_compr_model(self, compressed_model):
+        pass
+
+    def set_net_model(self, model):
+        assert isinstance(model, PolicyNet), '{}'.format(type(model))
+        self.policy_net = model
+
+    def generate_net(self):
+        pass
+
+    def get_net_class(self):
         pass
 
     def _uncompress_model(self, compressed_model):
@@ -349,7 +394,7 @@ class Cifar10Policy(Policy):
         # self.model = Cifar10Classifier(random_state())
         # self.model = None
 
-    def set_model(self, compressed_model):
+    def set_compr_model(self, compressed_model):
         assert isinstance(compressed_model, CompressedModel)
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=Cifar10Net)
@@ -371,6 +416,12 @@ class Cifar10Policy(Policy):
         torch.set_grad_enabled(False)
         return count
 
+    def generate_net(self):
+        return Cifar10Net(random_state())
+
+    def get_net_class(self):
+        return Cifar10Net
+
 
 class MnistPolicy(Policy):
     def __init__(self):
@@ -378,7 +429,7 @@ class MnistPolicy(Policy):
         # self.model = Cifar10Classifier(random_state())
         # self.model = None
 
-    def set_model(self, compressed_model):
+    def set_compr_model(self, compressed_model):
         assert isinstance(compressed_model, CompressedModel), '{}'.format(type(compressed_model))
         # model: compressed model
         uncompressed_model = compressed_model.uncompress(to_class_name=MnistNet)
@@ -399,3 +450,9 @@ class MnistPolicy(Policy):
         count = sum(p.numel() for p in model.parameters() if p.requires_grad)
         torch.set_grad_enabled(False)
         return count
+
+    def generate_net(self):
+        return MnistNet(random_state())
+
+    def get_net_class(self):
+        return MnistNet
