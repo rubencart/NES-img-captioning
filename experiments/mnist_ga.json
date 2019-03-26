@@ -13,5 +13,6 @@
   "truncation": 30,
   "num_elites": 1,
   "_continue_from_population": "snapshots/es_master_83645/info_e1_i30:118.json",
-  "_continue_from_single": "snapshots/sgd_69966/params_acc97.pth"
+  "_continue_from_single": "snapshots/sgd_69966/params_acc97.pth",
+  "_comment": "noise stdev 0.00333 seems to work well"
 }

@@ -50,6 +50,8 @@ logger = logging.getLogger(__name__)
 #   - serial / deserial complete
 #
 # x policies: subclass seed/nets
+# - dump exp.json, logs & snapshots in one dir
+# - log best 5: logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
 # - check plots (2733), what happens? should be killed when > 90! maybe we can log this?
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 # - assertions, param checks,...
@@ -156,15 +158,14 @@ class GAMaster(object):
 
                     # todo iteration or experiment or...?
                     parents, scores = self._selection(it.task_results(), experiment.truncation())
-                    it.set_parents(parents)
-
                     elite = parents[0][1]
 
                     # elite twice in parents: once to have an unmodified copy in next gen,
                     # once for possible offspring
-                    parents.append(copy.deepcopy(elite))
+                    parents.append((len(parents), copy.deepcopy(elite)))
 
                     policy.set_model(elite)
+                    it.set_parents(parents)
                     it.set_elite(elite)
 
                     reset_parents = it.record_parents(parents, scores.max())
