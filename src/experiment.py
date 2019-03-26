@@ -12,20 +12,22 @@ class Experiment(object):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config, policy_class):
+    def __init__(self, exp, config):
         self._exp = exp
         self._population_size = exp['population_size']
         self._truncation = exp['truncation']
         self._num_elites = exp['num_elites']  # todo use num_elites instead of 1
         self._mode = exp['mode']
 
-        self._policy_type = policy_class
+        # self._policy_type = policy_class
 
         self.trainloader, self.valloader, self.testloader = self.init_loaders(exp, config=config)
         self._orig_trainloader_lth = len(self.trainloader)
 
-        self._log_dir = 'logs/es_master_{}'.format(os.getpid())
+        self._log_dir = 'logs/es_{}_master_{}'.format(self._mode, os.getpid())
+        self._snapshot_dir = 'snapshots/es_{}_master_{}'.format(self._mode, os.getpid())
         mkdir_p(self._log_dir)
+        mkdir_p(self._snapshot_dir)
 
     def to_dict(self):
         return {
@@ -36,6 +38,7 @@ class Experiment(object):
     def reset_trainloader(self, batch_size):
         self.trainloader = self.init_loaders(self._exp, batch_size=batch_size)
 
+    # todo to dedicated classes
     @staticmethod
     def init_loaders(exp, config=None, batch_size=None, workers=None):
         dataset = exp['dataset']
@@ -72,10 +75,10 @@ class Experiment(object):
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
                                                   shuffle=True, num_workers=num_workers)
         # todo batch size?
-        valloader = torch.utils.data.DataLoader(valset, batch_size=len(valset),
+        valloader = torch.utils.data.DataLoader(valset, batch_size=bs,
                                                 shuffle=True, num_workers=num_workers)
 
-        testloader = torch.utils.data.DataLoader(testset, batch_size=len(testset),
+        testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
                                                  shuffle=True, num_workers=num_workers)
 
         return trainloader, valloader, testloader
@@ -105,10 +108,10 @@ class Experiment(object):
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
                                                   shuffle=True, num_workers=num_workers)
 
-        valloader = torch.utils.data.DataLoader(valset, batch_size=len(valset),
+        valloader = torch.utils.data.DataLoader(valset, batch_size=bs,
                                                 shuffle=True, num_workers=num_workers)
         # todo batch size?
-        testloader = torch.utils.data.DataLoader(testset, batch_size=len(testset),
+        testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
                                                  shuffle=True, num_workers=num_workers)
 
         return trainloader, valloader, testloader
@@ -127,3 +130,6 @@ class Experiment(object):
 
     def log_dir(self):
         return self._log_dir
+
+    def snapshot_dir(self):
+        return self._snapshot_dir

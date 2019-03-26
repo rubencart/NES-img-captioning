@@ -5,8 +5,6 @@ import psutil
 
 import matplotlib.pyplot as plt
 
-from utils import mkdir_p
-
 
 class Statistics(object):
     """
@@ -80,7 +78,6 @@ class Statistics(object):
         # import matplotlib.pyplot as plt
         # if sys.platform == 'darwin':
         #     matplotlib.use('TkAgg')
-        mkdir_p(log_dir)
 
         if score_stats:
             fig = plt.figure()
@@ -99,9 +96,9 @@ class Statistics(object):
             plt.close(fig)
 
     def log_stats(self, tlogger):
-        tlogger.record_tabular('RewMax', self._score_stats[0][-1])
+        tlogger.record_tabular('RewMax', self._score_stats[2][-1])
         tlogger.record_tabular('RewMean', self._score_stats[1][-1])
-        tlogger.record_tabular('RewMin', self._score_stats[2][-1])
+        tlogger.record_tabular('RewMin', self._score_stats[0][-1])
         tlogger.record_tabular('RewStd', self._score_stds[-1])
 
         # todo apart from norm, would also be interesting to see how far params are from

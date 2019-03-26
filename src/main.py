@@ -1,8 +1,4 @@
 import os
-
-from ga_master import GAMaster
-from ga_worker import GAWorker
-
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
@@ -21,6 +17,8 @@ import time
 import psutil
 
 from dist import RelayClient
+from ga_master import GAMaster
+from ga_worker import GAWorker
 
 
 def run():
@@ -93,6 +91,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # Start the relay
     master_redis_cfg = {'host': master_host, 'port': master_port}
     relay_redis_cfg = {'unix_socket_path': relay_socket_path}
+
     if os.fork() == 0:
         RelayClient(master_redis_cfg, relay_redis_cfg).run()
         return

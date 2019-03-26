@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from dist import WorkerClient
-from policies import Policy, CompressedModel
+from policies import Policy
 from setup import setup, Config
 from utils import GATask, Result
 
@@ -28,9 +28,12 @@ class GAWorker(object):
         worker = WorkerClient(master_redis_cfg, relay_redis_cfg)
 
         exp = worker.get_experiment()
+        assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
+
         setup_tuple = setup(exp)
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
+        # experiment: Experiment = setup_tuple[6]
 
         rs = np.random.RandomState()
         worker_id = rs.randint(2 ** 31)
@@ -46,12 +49,15 @@ class GAWorker(object):
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
+            # input('...')
+
             if rs.rand() < config.eval_prob:
-                model = copy.deepcopy(task_data.elite)
 
                 mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+                policy.set_model(task_data.elite)
+                mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                accuracy = policy.accuracy_on(data=task_data.val_data, model=model, mode=exp['mode'])
+                accuracy = policy.accuracy_on(data=task_data.val_data)
 
                 mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
@@ -60,39 +66,42 @@ class GAWorker(object):
                     eval_return=accuracy,
                     mem_usage=max(mem_usages)
                 ))
+
+                # del model
             else:
                 # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
 
                 index = rs.randint(len(task_data.parents))
-                parent_id, compressed_parent = task_data.parents[index]
+                parent_id, parent = task_data.parents[index]
 
-                if compressed_parent is None:
+                mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
+                if parent is None:
                     # 0'th iteration: first models still have to be generated
-                    model = CompressedModel()
+                    model = policy.generate_model()
+                    policy.set_model(model)
                 else:
-                    model = copy.deepcopy(compressed_parent)
-                    # elite doesn't have to be evolved
-                    # todo THIS IS WRONG!!!!!
+                    policy.set_model(parent)
+                    # elite at idx 0 doesn't have to be evolved (last elem of parents list is an
+                    # exact copy of the elite, which will be evolved)
                     if index != 0:
-                        model.evolve(config.noise_stdev)
-                        assert isinstance(model, CompressedModel)
+                        policy.evolve_model(task_data.noise_stdev)
 
                 mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                # policy.set_model(model)
-
-                mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
-
-                fitness = policy.rollout(data=task_data.batch_data, model=model, mode=exp['mode'])
+                fitness = policy.rollout(data=task_data.batch_data)
 
                 mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
                 worker.push_result(task_id, Result(
                     worker_id=worker_id,
                     evaluated_model_id=parent_id,
-                    evaluated_model=model,
+                    evaluated_model=policy.get_model(),
                     fitness=np.array([fitness], dtype=np.float32),
                     mem_usage=max(mem_usages)
                 ))
 
+                # del model
+
             # del task_data
+            gc.collect()

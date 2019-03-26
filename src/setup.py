@@ -1,34 +1,21 @@
 import json
 
-import torchvision
-
 from experiment import Experiment
 from iteration import Iteration
-from policies import CompressedModel, Cifar10Policy, MnistPolicy, PolicyNet, Policy
+from policies import CompressedModel, SuppDataset, PolicyFactory
 from statistics import Statistics
 from utils import Config
-
-ALL_DATASETS = {
-    'cifar10': torchvision.datasets.CIFAR10,
-    'mnist': torchvision.datasets.MNIST,
-}
-
-POLICIES = {
-    'cifar10': Cifar10Policy,
-    'mnist': MnistPolicy,
-}
 
 
 def setup(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
-    Policy = POLICIES[exp['policy']['type']]
-    policy = Policy()
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], )
 
     statistics = Statistics()
     iteration = Iteration(config)
-    experiment = Experiment(exp, config, Policy)
+    experiment = Experiment(exp, config)
 
     if 'continue_from_population' in exp and exp['continue_from_population'] is not None:
         with open(exp['continue_from_population']) as f:
@@ -40,16 +27,16 @@ def setup(exp):
         parents, elite = _load_parents_from_pop(infos, exp['mode'], policy)
     else:
         if 'continue_from_single' in exp and exp['continue_from_single'] is not None:
-            parents, elite = _load_parents_from_single(exp['continue_from_single'], exp['mode'],
+            parents, elite = _load_parents_from_single(exp['continue_from_single'],
                                                        exp['truncation'], policy)
         else:
-            parents, elite = _init_parents(exp['mode'], exp['truncation'], policy)
+            parents, elite = _init_parents(exp['truncation'], policy)
 
     # todo parents also in iteration?
     iteration.set_parents(parents)
     iteration.set_elite(elite)
 
-    policy.set_model(elite, exp['mode'])
+    policy.init_model(elite)
     return config, policy, elite, parents, statistics, iteration, experiment
 
 
@@ -71,29 +58,18 @@ def _load_parents_from_pop(infos, mode, policy):
     return parents, parents[0][1]
 
 
-def _load_parents_from_single(param_file, mode, truncation, policy):
-    if mode == 'seeds':
-        parents = [(i, CompressedModel(from_param_file=param_file))
-                   for i in range(truncation)]
-    else:
-        # todo get_net_class nicest solution?
-        parents = [(i, policy.get_net_class()(from_param_file=param_file))
-                   for i in range(truncation)]
-
+def _load_parents_from_single(param_file, truncation, policy):
+    parents = [(i, policy.generate_model(from_param_file=param_file))
+               for i in range(truncation)]
     return parents, parents[0][1]
 
 
-def _init_parents(mode, truncation, policy):
-    if mode == 'seeds':
-        # important that this stays None:
-        # - if None: workers get None as parent to evaluate so initialize POP_SIZE random initial parents,
-        #       of which the best TRUNC get selected ==> first gen: POP_SIZE random parents
-        # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
-        #       TRUNC random parents == less random!
-        parents = [(model_id, None) for model_id in range(truncation)]
-        elite = CompressedModel()
-    else:
-        parents = [(model_id, None) for model_id in range(truncation)]
-        elite = policy.generate_net()
-
+def _init_parents(truncation, policy):
+    # important that this stays None:
+    # - if None: workers get None as parent to evaluate so initialize POP_SIZE random initial parents,
+    #       of which the best TRUNC get selected ==> first gen: POP_SIZE random parents
+    # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
+    #       TRUNC random parents == less random!
+    parents = [(model_id, None) for model_id in range(truncation)]
+    elite = policy.generate_model()
     return parents, elite

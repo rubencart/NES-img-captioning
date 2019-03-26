@@ -9,11 +9,11 @@ class Podium(object):
     DEFAULT_BEST_ELITE = (float('-inf'), None)
     DEFAULT_BEST_PARENTS = (float('-inf'), None)
 
-    def __init__(self, config):
+    def __init__(self, patience):
         self._best_elite = self.DEFAULT_BEST_ELITE
         self._best_parents = self.DEFAULT_BEST_PARENTS
 
-        self._patience = config.patience
+        self._patience = patience
 
     def record_elite(self, elite, acc):
         _prev_acc, _prev_elite = self._best_elite
@@ -31,6 +31,7 @@ class Podium(object):
         elif self._patience:
             logger.info('BAD GENERATION')
             return False
+        return True
 
     def best_elite(self):
         return self._best_elite

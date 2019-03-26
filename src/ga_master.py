@@ -1,4 +1,4 @@
-
+import copy
 import gc
 import logging
 import os
@@ -32,10 +32,12 @@ logger = logging.getLogger(__name__)
 # x mkl.set_num_threads(1), test on server
 # - start workers from CL
 
-# - leave seeds altogether
+# x Elite also evaluate
+# - To_add telkens nieuwe?
+
+# x leave seeds altogether
 #   - serialize parents, elite,...: snapshot
-#   - initialize: TEST
-#   - adjust ga
+# - multiple elites!
 # - safe mutations
 
 # next things:
@@ -47,7 +49,7 @@ logger = logging.getLogger(__name__)
 #   - ga master / worker classes
 #   - serial / deserial complete
 #
-# - policies: subclass seed/nets
+# x policies: subclass seed/nets
 # - check plots (2733), what happens? should be killed when > 90! maybe we can log this?
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 # - assertions, param checks,...
@@ -128,13 +130,13 @@ class GAMaster(object):
                         # https://psutil.readthedocs.io/en/latest/#memory
                         master_mem_usage = psutil.Process(os.getpid()).memory_info().rss
                         stats.record_it_master_mem_usage(master_mem_usage)
-                        stats.record_it_worker_mem_usage({result.worker_id: result.mem_usage})
+                        stats.record_it_worker_mem_usage(result.worker_id, result.mem_usage)
 
                         it.record_worker_id(result.worker_id)
 
                         if result.eval_return is not None:
                             # this was an eval job, store the result only for current tasks
-                            if task_id == curr_task_id and not it.elite_evaluated():
+                            if task_id == curr_task_id and not it.eval_ran():
                                 it.record_eval_return(result.eval_return)
                                 it.set_waiting_for_eval_run(False)
 
@@ -150,13 +152,19 @@ class GAMaster(object):
 
                                 if result.evaluated_model_id == 0:
                                     it.set_elite_evaluated(True)
+                                    it.set_waiting_for_elite_eval(False)
 
                     # todo iteration or experiment or...?
                     parents, scores = self._selection(it.task_results(), experiment.truncation())
                     it.set_parents(parents)
 
                     elite = parents[0][1]
-                    policy.set_model(elite, experiment.mode())
+
+                    # elite twice in parents: once to have an unmodified copy in next gen,
+                    # once for possible offspring
+                    parents.append(copy.deepcopy(elite))
+
+                    policy.set_model(elite)
                     it.set_elite(elite)
 
                     reset_parents = it.record_parents(parents, scores.max())
@@ -202,7 +210,7 @@ class GAMaster(object):
         scored_models.sort(key=lambda x: x[2], reverse=True)
         scores = np.array([fitness for (_, _, fitness) in scored_models])
 
-        # pick parents for next generation, give new index
-        parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation])]
+        # pick parents for next generation, give new index              todo -1 or not
+        parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation - 1])]
 
         return parents, scores

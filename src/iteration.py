@@ -56,12 +56,20 @@ class Iteration(object):
             'noise_stdev': self._noise_stdev,
             'batch_size': self._batch_size,
 
-            'parents': [parent.__dict__ for (_, parent) in self._parents if parent],
-
-            'best_elite': (self._podium.best_elite()[0], self._podium.best_elite()[1].__dict__),
-            'best_parents': (self._podium.best_parents()[0],
-                             [parent.__dict__ for (_, parent) in self._podium.best_parents()[1] if parent]),
+            # todo state_dicts not json serializable?
+            # 'parents': [parent.__dict__ for (_, parent) in self._parents if parent],
+            #
+            # 'best_elite': (self._podium.best_elite()[0], self._podium.best_elite()[1].__dict__),
+            # 'best_parents': (self._podium.best_parents()[0],
+            #                  [parent.__dict__ for (_, parent) in self._podium.best_parents()[1] if parent]),
         }
+
+    # todo here or in experiment or in policy or...?
+    # def serialized_parents(self):
+    #     return [(i, parent.serialize() if parent else None) for i, parent in self._parents]
+    #
+    # def serialized_elite(self):
+    #     return self._elite.serialize() if self._elite else None
 
     def log_stats(self, tlogger):
         tlogger.record_tabular('NoiseStd', self._noise_stdev)
@@ -93,7 +101,9 @@ class Iteration(object):
 
                 self._bad_generations = 0
                 return self._podium.best_parents()  # best_parents_so_far[1]
-        return None
+        else:
+            self._bad_generations = 0
+            return None
 
     def set_elite(self, elite):
         self._elite = elite
