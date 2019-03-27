@@ -13,7 +13,7 @@ from dist import MasterClient
 from experiment import Experiment
 from iteration import Iteration
 from policies import Policy
-from setup import setup, Config
+from setup import setup_master, Config
 from snapshot import save_snapshot
 from statistics import Statistics
 from utils import GATask, Result
@@ -50,18 +50,19 @@ logger = logging.getLogger(__name__)
 #   - serial / deserial complete
 #
 # x policies: subclass seed/nets
-# - dump exp.json, logs & snapshots in one dir
+# x dump exp.json, logs & snapshots in one dir
+# - label axes (name + units) in plots!!!!
 # - log best 5: logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
-# - check plots (2733), what happens? should be killed when > 90! maybe we can log this?
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 # - assertions, param checks,...
+# - check plots (2733), what happens? should be killed when > 90! maybe we can log this?
 
 class GAMaster(object):
 
     def run_master(self, master_redis_cfg, exp, plot):
         logger.info('run_master: {}'.format(locals()))
 
-        setup_tuple = setup(exp)
+        setup_tuple = setup_master(exp)
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
         # elite: Tuple = setup_tuple[2]
@@ -171,7 +172,7 @@ class GAMaster(object):
                     reset_parents = it.record_parents(parents, scores.max())
                     if reset_parents:
                         parents = reset_parents
-                        experiment.reset_trainloader(it.batch_size())
+                        experiment.increase_loader_batch_size(it.batch_size())
 
                     elite_acc = it.max_eval_return()
                     it.record_elite(elite, elite_acc)

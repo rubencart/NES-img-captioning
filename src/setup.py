@@ -1,21 +1,34 @@
 import json
 
-from experiment import Experiment
+from experiment import ExperimentFactory
 from iteration import Iteration
-from policies import CompressedModel, SuppDataset, PolicyFactory
+from policies import CompressedModel, SuppDataset, PolicyFactory, Net
 from statistics import Statistics
 from utils import Config
 
 
-def setup(exp):
+def setup_worker(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
-    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], )
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
+                                  net=Net(exp['net']))
 
+    _, elite = _init_parents(exp['truncation'], policy)
+    policy.init_model(elite)
+    return config, policy
+
+
+def setup_master(exp):
+    assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
+
+    config = Config(**exp['config'])
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
+                                  net=Net(exp['net']))
+
+    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config)
     statistics = Statistics()
     iteration = Iteration(config)
-    experiment = Experiment(exp, config)
 
     if 'continue_from_population' in exp and exp['continue_from_population'] is not None:
         with open(exp['continue_from_population']) as f:

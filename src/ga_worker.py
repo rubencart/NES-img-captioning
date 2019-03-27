@@ -1,4 +1,4 @@
-import copy
+
 import gc
 import logging
 import os
@@ -11,7 +11,7 @@ import torch
 
 from dist import WorkerClient
 from policies import Policy
-from setup import setup, Config
+from setup import Config, setup_worker
 from utils import GATask, Result
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class GAWorker(object):
         exp = worker.get_experiment()
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
-        setup_tuple = setup(exp)
+        setup_tuple = setup_worker(exp)
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
         # experiment: Experiment = setup_tuple[6]

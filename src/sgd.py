@@ -8,9 +8,9 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
 
-from policies import MnistNet, random_state, Cifar10Net
 
 # https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html#sphx-glr-beginner-blitz-cifar10-tutorial-py
+from nets import random_state, MnistNet, Cifar10Net
 from utils import mkdir_p
 
 parser = argparse.ArgumentParser()
@@ -22,7 +22,7 @@ parser.add_argument('--dataset', choices=['mnist', 'cifar10'],
 args = parser.parse_args()
 
 if args.dataset == 'mnist':
-    net = MnistNet(random_state())
+    net = MnistNet(rng_state=random_state(), grad=True)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
@@ -35,7 +35,7 @@ if args.dataset == 'mnist':
                                          download=True, transform=transform)
 
 else:
-    net = Cifar10Net(random_state())
+    net = Cifar10Net(rng_state=random_state(), grad=True)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -60,6 +60,8 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
 # 60k / 128 = 470 batches
 testloader = torch.utils.data.DataLoader(testset, batch_size=128,
                                          shuffle=True, num_workers=4)
+
+print('Searching {} params for net...'.format(net.nb_learnable_params))
 
 try:
     for epoch in range(args.epochs):  # loop over the dataset multiple times
