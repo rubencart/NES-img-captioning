@@ -65,11 +65,9 @@ class GAMaster(object):
         setup_tuple = setup_master(exp)
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
-        # elite: Tuple = setup_tuple[2]
-        # parents: Tuple = setup_tuple[3]
-        stats: Statistics = setup_tuple[4]
-        it: Iteration = setup_tuple[5]
-        experiment: Experiment = setup_tuple[6]
+        stats: Statistics = setup_tuple[2]
+        it: Iteration = setup_tuple[3]
+        experiment: Experiment = setup_tuple[4]
 
         import tabular_logger as tlogger
         logger.info('Tabular logging to {}'.format(experiment.log_dir()))
@@ -177,6 +175,9 @@ class GAMaster(object):
                     elite_acc = it.max_eval_return()
                     it.record_elite(elite, elite_acc)
 
+                    # it.serialized_parents()
+                    # input('...')
+
                     stats.record_score_stats(scores)
                     stats.record_bs_stats(it.batch_size())
                     stats.record_step_time_stats()
@@ -215,4 +216,5 @@ class GAMaster(object):
         # pick parents for next generation, give new index              todo -1 or not
         parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation - 1])]
 
+        logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
         return parents, scores

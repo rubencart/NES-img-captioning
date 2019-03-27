@@ -38,7 +38,7 @@ class Statistics(object):
         self._it_master_mem_usages = []
 
     def init_from_infos(self, infos):
-        self.__init__()
+        # self.__init__()
 
         self._score_stats = infos['score_stats'] if 'score_stats' in infos else self._score_stats
         self._score_stds = infos['score_stds'] if 'score_stds' in infos else self._score_stds

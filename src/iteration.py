@@ -1,22 +1,29 @@
 import logging
+from collections import namedtuple
 
+from nets import ABCModel
 from podium import Podium
+from policies import Policy
 
 logger = logging.getLogger(__name__)
+
+Checkpoint = namedtuple('Checkpoint', ['elite', 'best_elite', 'parents', 'best_parents'])
 
 
 class Iteration(object):
 
     def __init__(self, config):
         # CAUTION: todo maybe get these from infos as well when available?
+
+        # ACROSS SOME ITERATIONS
         self._noise_stdev = config.noise_stdev
         self._batch_size = config.batch_size
-
         self._bad_generations = 0
         self._epoch = 0
         self._iteration = 0
-        self._nb_models_to_evaluate = 0
 
+        # WITHIN ONE ITERATION
+        self._nb_models_to_evaluate = 0
         self._task_results = []
         self._eval_returns = []
         self._worker_ids = []
@@ -25,15 +32,18 @@ class Iteration(object):
         self._waiting_for_elite_eval = False
 
         # todo to experiment.py?
+        # ENTIRE EXPERIMENT
         self._stdev_decr_divisor = config.stdev_decr_divisor
         self._patience = config.patience
 
-        self._parents = None  # [(i, None) for i in range(truncation)], todo to init_from_infos?
-        self._elite = None
+        # MODELS
+        # [(int, ABCModel),]
+        self._parents = []
+        self._elite: ABCModel = None
         self._podium = Podium(config.patience)
 
-    def init_from_infos(self, infos, config):
-        self.__init__(config)
+    def init_from_infos(self, infos: dict, models_checkpt: Checkpoint, policy: Policy):
+        # self.__init__(config)
 
         self._epoch = infos['epoch'] - 1 if 'epoch' in infos else self._epoch
         self._iteration = infos['iter'] - 1 if 'iter' in infos else self._iteration
@@ -41,13 +51,19 @@ class Iteration(object):
         self._noise_stdev = infos['noise_stdev'] if 'noise_stdev' in infos else self._noise_stdev
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
 
-        # todo deserialize! now they are set as dicts, see also setup.py
-        best_elite = infos['best_elite'] if 'best_elite' in infos else None
-        self._podium.set_best_elite(best_elite)
-        best_parents = infos['best_parents'] if 'noise_std_stats' in infos else None
-        self._podium.set_best_parents(best_parents)
+        self._elite = policy.from_serialized(models_checkpt.elite)
+        self._parents = [(i, policy.from_serialized(parent)) for i, parent in models_checkpt.parents]
 
-        # todo parents, elite from dict, now this is done in setup.py
+        self._podium.init_from_checkpt(models_checkpt, policy)
+
+    def init_parents(self, truncation, policy):
+        # important that this stays None:
+        # - if None: workers get None as parent to evaluate so initialize POP_SIZE random initial parents,
+        #       of which the best TRUNC get selected ==> first gen: POP_SIZE random parents
+        # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
+        #       TRUNC random parents == less random!
+        self._parents = [(model_id, None) for model_id in range(truncation)]
+        self._elite = policy.generate_model()
 
     def to_dict(self):
         return {
@@ -55,21 +71,21 @@ class Iteration(object):
             'epoch': self._epoch,
             'noise_stdev': self._noise_stdev,
             'batch_size': self._batch_size,
-
-            # todo state_dicts not json serializable?
-            # 'parents': [parent.__dict__ for (_, parent) in self._parents if parent],
-            #
-            # 'best_elite': (self._podium.best_elite()[0], self._podium.best_elite()[1].__dict__),
-            # 'best_parents': (self._podium.best_parents()[0],
-            #                  [parent.__dict__ for (_, parent) in self._podium.best_parents()[1] if parent]),
+            'bad_generations': self._bad_generations,
         }
 
-    # todo here or in experiment or in policy or...?
-    # def serialized_parents(self):
-    #     return [(i, parent.serialize() if parent else None) for i, parent in self._parents]
-    #
-    # def serialized_elite(self):
-    #     return self._elite.serialize() if self._elite else None
+    def serialized_parents(self):
+        assert self._elite is not None
+        assert len(self._parents) > 0
+
+        to_save = {
+            'elite': self._elite.serialize(),
+            'parents': [(i, parent.serialize()) for i, parent in self._parents]
+        }
+        to_save.update(self._podium.serialized())
+
+        # logger.info('Serialized: {}'.format(to_save))
+        return to_save
 
     def log_stats(self, tlogger):
         tlogger.record_tabular('NoiseStd', self._noise_stdev)

@@ -1,4 +1,5 @@
-from abc import ABC
+import copy
+from abc import ABC, abstractmethod
 
 import numpy as np
 import torch
@@ -6,7 +7,18 @@ from torch import nn
 import torch.nn.functional as F
 
 
-class PolicyNet(nn.Module, ABC):
+class ABCModel:
+
+    @abstractmethod
+    def serialize(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def from_serialized(self, serialized):
+        raise NotImplementedError
+
+
+class PolicyNet(nn.Module, ABCModel, ABC):
     def __init__(self, rng_state=None, from_param_file=None, grad=False):
         super(PolicyNet, self).__init__()
 
@@ -74,11 +86,12 @@ class PolicyNet(nn.Module, ABC):
     # def compress(self):
     #     return CompressedModel(self.rng_state, self.evolve_states, self.from_param_file)
 
-    # def serialize(self):
-    #     return copy.deepcopy(self.state_dict())
+    def serialize(self):
+        return copy.deepcopy(self.state_dict())
 
-    # def deserialize(self, serialized):
-    #     self.load_state_dict(serialized)
+    def from_serialized(self, serialized):
+        assert isinstance(serialized, dict)
+        self.load_state_dict(serialized)
 
     # def forward(self, x):
     #     pass
@@ -220,7 +233,7 @@ class MnistNet(PolicyNet):
         return x
 
 
-class CompressedModel:
+class CompressedModel(ABCModel):
     def __init__(self, start_rng: int = None, other_rng: list = None, from_param_file: str = None):
         if start_rng is None and from_param_file is None:
             self.start_rng, self.from_param_file = random_state(), None
@@ -237,18 +250,21 @@ class CompressedModel:
         # evolve params 1 step
         self.other_rng.append((sigma, rng_state if rng_state is not None else random_state()))
 
-    def uncompress(self, to_class_name=MnistNet):
+    def uncompress(self, to_class_name):
         # evolve through all steps
         m = to_class_name(self.start_rng, self.from_param_file)
         for sigma, rng in self.other_rng:
             m.evolve(sigma, rng)
         return m
 
-    # def serialize(self):
-    #     return self
+    def serialize(self):
+        return self.__dict__
 
-    # def deserialize(self, serialized):
-    #     self = serialized
+    def from_serialized(self, serialized):
+        assert isinstance(serialized, CompressedModel)
+        self.start_rng = serialized.start_rng
+        self.other_rng = serialized.other_rng
+        self.from_param_file = serialized.from_param_file
 
     def __str__(self):
         start = self.start_rng if self.start_rng else self.from_param_file

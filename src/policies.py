@@ -3,6 +3,7 @@ from enum import Enum
 import logging
 import os
 from abc import ABC
+from typing import Union
 
 import torchvision
 import torch
@@ -30,17 +31,17 @@ DATASETS = {
     SuppDataset.MNIST: torchvision.datasets.MNIST,
 }
 
+NETS = {
+    Net.CIFAR10: Cifar10Net,
+    Net.CIFAR10_SMALL: Cifar10Net_Small,
+    Net.MNIST: MnistNet,
+}
+
 
 class Policy(ABC):
     def __init__(self, dataset: SuppDataset, net: Net):
         self.policy_net = None
         self.serial_net = None
-
-        self.nets = {
-            Net.CIFAR10: Cifar10Net,
-            Net.CIFAR10_SMALL: Cifar10Net_Small,
-            Net.MNIST: MnistNet,
-        }
 
         assert isinstance(dataset, SuppDataset)
         self.dataset = dataset
@@ -54,7 +55,7 @@ class Policy(ABC):
         torch.save(self.policy_net.state_dict(), os.path.join(path, filename))
 
     def get_net_class(self):
-        return self.nets[self.net]
+        return NETS[self.net]
 
     def parameter_vector(self):
         assert self.policy_net is not None, 'set model first!'
@@ -67,8 +68,10 @@ class Policy(ABC):
         assert self.policy_net is not None, 'set model first!'
         return self.policy_net.get_nb_learnable_params()
 
-    # def load(self, filename):
-    #     raise NotImplementedError
+    def from_serialized(self, serialized: Union[CompressedModel, dict]):
+        model = self.generate_model()
+        model.from_serialized(serialized)
+        return model
 
     def rollout(self, data):
         raise NotImplementedError
@@ -100,7 +103,7 @@ class NetsPolicy(Policy, ABC):
         self.serial_net = model.state_dict()
 
     def set_model(self, model):
-        assert isinstance(model, PolicyNet) or isinstance(model, dict)
+        assert isinstance(model, PolicyNet) or isinstance(model, dict), '{}'.format(type(model))
         if isinstance(model, PolicyNet):
             self._set_serialized_net_model(model.state_dict())
         else:

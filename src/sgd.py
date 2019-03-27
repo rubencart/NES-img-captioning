@@ -51,7 +51,8 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 net.to(device)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.Adam(net.parameters())
 
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
