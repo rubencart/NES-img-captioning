@@ -36,26 +36,19 @@ logger = logging.getLogger(__name__)
 # - To_add telkens nieuwe?
 
 # x leave seeds altogether
-#   - serialize parents, elite,...: snapshot
 # - multiple elites!
 # - safe mutations
 
 # next things:
-# x make possible to start from 1 net .pt file, to pretrain with SGD
 # x implement test on test set!
 # x keep overall best elite ( a la early stopping )
-# - abstract all local vars into iteration named tuple or something
-#   - do parent/elite initializing in iteration instead of setup
-#   - ga master / worker classes
-#   - serial / deserial complete
 #
 # x policies: subclass seed/nets
-# x dump exp.json, logs & snapshots in one dir
+# - start from 1 .pt file!
+# x delete previous .tars when saving one! Takes a lot of disk space
 # - label axes (name + units) in plots!!!!
-# - log best 5: logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 # - assertions, param checks,...
-# - check plots (2733), what happens? should be killed when > 90! maybe we can log this?
 
 class GAMaster(object):
 
