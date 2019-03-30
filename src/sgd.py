@@ -14,7 +14,7 @@ from nets import random_state, MnistNet, Cifar10Net
 from utils import mkdir_p
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--save_to_path', type=str, default='snapshots/sgd_{pid}/', help='')
+parser.add_argument('--save_to_path', type=str, default='logs/sgd_{ds}_{pid}/', help='')
 parser.add_argument('--save_to_file', type=str, default='params_acc{acc}.pth', help='')
 parser.add_argument('--epochs', type=int, default=5, help='')
 parser.add_argument('--dataset', choices=['mnist', 'cifar10'],
@@ -51,8 +51,8 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 net.to(device)
 
 criterion = nn.CrossEntropyLoss()
-# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-optimizer = optim.Adam(net.parameters())
+optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.9)
+# optimizer = optim.Adam(net.parameters())
 
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
@@ -118,7 +118,7 @@ with torch.no_grad():
 print('Accuracy of the network on the test images: %d %%' % (
         100 * correct / total))
 
-path = args.save_to_path.format(pid=os.getpid())
+path = args.save_to_path.format(ds=args.dataset, pid=os.getpid())
 file = args.save_to_file.format(acc=round(100 * correct / total))
 mkdir_p(path)
 print('Saving params to file: {}'.format(os.path.join(path + file)))

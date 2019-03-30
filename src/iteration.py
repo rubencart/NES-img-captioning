@@ -65,6 +65,11 @@ class Iteration(object):
         self._parents = [(model_id, None) for model_id in range(truncation)]
         self._elite = policy.generate_model()
 
+    def init_from_single(self, param_file_name, truncation, policy):
+        self._parents = [(i, policy.generate_model(from_param_file=param_file_name))
+                         for i in range(truncation)]
+        self._elite = policy.generate_model(from_param_file=param_file_name)
+
     def to_dict(self):
         return {
             'iter': self._iteration,

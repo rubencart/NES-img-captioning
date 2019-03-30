@@ -42,30 +42,13 @@ def setup_master(exp):
         statistics.init_from_infos(infos)
         iteration.init_from_infos(infos, models_checkpt, policy)
 
-    elif 'continue_from_single' in exp and exp['continue_from_single'] is not None:
-        # todo
-        parents, elite = _load_parents_from_single(exp['continue_from_single'],
-                                                   exp['truncation'], policy)
+    elif 'from_single' in exp and exp['from_single'] is not None:
+
+        # single_state_dict = torch.load(exp['from_single'])
+        iteration.init_from_single(exp['from_single'], exp['truncation'], policy)
+
     else:
         iteration.init_parents(exp['truncation'], policy)
 
     policy.init_model(iteration.elite())
     return config, policy, statistics, iteration, experiment
-
-
-def _load_parents_from_single(param_file, truncation, policy):
-    parents = [(i, policy.generate_model(from_param_file=param_file))
-               for i in range(truncation)]
-    return parents, parents[0][1]
-
-
-# todo to iteration?
-# def _init_parents(truncation, policy):
-#     # important that this stays None:
-#     # - if None: workers get None as parent to evaluate so initialize POP_SIZE random initial parents,
-#     #       of which the best TRUNC get selected ==> first gen: POP_SIZE random parents
-#     # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
-#     #       TRUNC random parents == less random!
-#     parents = [(model_id, None) for model_id in range(truncation)]
-#     elite = policy.generate_model()
-#     return parents, elite
