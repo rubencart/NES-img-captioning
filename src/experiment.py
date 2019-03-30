@@ -20,6 +20,8 @@ class Experiment(ABC):
         self._population_size = exp['population_size']
         self._truncation = exp['truncation']
         self._num_elites = exp['num_elites']  # todo use num_elites instead of 1
+        self._dataset = exp['dataset']
+        self._net = exp['net']
 
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
@@ -27,7 +29,8 @@ class Experiment(ABC):
         self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config)
         self._orig_trainloader_lth = len(self.trainloader)
 
-        self._log_dir = 'logs/es_{}_{}'.format(self._mode, os.getpid())
+        self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
+                                                     self._net, self._mode, os.getpid())
         mkdir_p(self._log_dir)
         with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
             json.dump(exp, f)

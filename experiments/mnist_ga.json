@@ -14,8 +14,8 @@
   "truncation": 30,
   "num_elites": 1,
   "from_population": {
-    "infos": "logs/es_nets_86222/z_info_e1_i5-938.json",
-    "models": "logs/es_nets_86222/z_parents_params_e1_i5-938_r0.14.pth"
+    "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
+    "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
   },
   "_continue_from_single": "snapshots/sgd_69966/params_acc97.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
