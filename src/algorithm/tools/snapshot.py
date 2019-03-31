@@ -5,11 +5,11 @@ import re
 
 import torch
 
-from experiment import Experiment
-from iteration import Iteration
-from policies import Policy
-from statistics import Statistics
-from utils import mkdir_p
+from algorithm.tools.experiment import Experiment
+from algorithm.tools.iteration import Iteration
+from algorithm.policies import Policy
+from algorithm.tools.statistics import Statistics
+from algorithm.tools.utils import mkdir_p
 
 logger = logging.getLogger(__name__)
 
