@@ -127,25 +127,13 @@ class Cifar10Experiment(Experiment):
 class MSCocoExperiment(Experiment):
     def __init__(self, exp, config):
         super().__init__(exp, config)
+        self.opt = exp['caption_options']
 
     def init_loaders(self, config=None, batch_size=None, workers=None):
         # TODO MSCOCO as torchvision.dataset?????
 
         from captioning.dataloader import DataLoader
-
-        opt = exp['caption_options']
-
-        # todo input json etc in opt
-        # - use_att
-        # - use_box
-        # - norm_att_feat
-        # - norm_box_feat
-        # - input_json
-        # - input_fc_dir
-        # - input_att_dir
-        # - input_box_dir
-        # - input_label_h5
-        loader = DataLoader(opt={})
+        loader = DataLoader(opt=self.opt)
 
         trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')
         valloader = MSCocoDataLdrWrapper(loader=loader, split='val')

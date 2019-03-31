@@ -178,9 +178,13 @@ class PolicyFactory:
     @staticmethod
     def create(dataset: SuppDataset, mode, net: Net):
         from classification.policies import SeedsClfPolicy, NetsClfPolicy
+        from captioning.policies import NetsGenPolicy, SeedsGenPolicy
 
         if dataset == SuppDataset.MNIST or dataset == SuppDataset.CIFAR10:
             if mode == 'seeds':
                 return SeedsClfPolicy(dataset, net)
             else:
                 return NetsClfPolicy(dataset, net)
+
+        elif dataset == SuppDataset.MSCOCO:
+            return SeedsGenPolicy(dataset, net) if mode == 'seeds' else NetsGenPolicy(dataset, net)

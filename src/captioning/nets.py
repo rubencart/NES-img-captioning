@@ -13,9 +13,10 @@ import torch.nn.functional as F
 
 
 # from .CaptionModel import CaptionModel
+from algorithm.nets import PolicyNet
 
 
-class CaptionModel(nn.Module):
+class CaptionModel(PolicyNet):
     def __init__(self):
         super(CaptionModel, self).__init__()
 

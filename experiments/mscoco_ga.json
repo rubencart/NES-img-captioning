@@ -13,15 +13,17 @@
   "population_size": 800,
   "truncation": 40,
   "num_elites": 1,
+
   "caption_options": {
-    "use_att": "",
-    "use_box":  "",
-    "norm_att_feat": "",
-    "norm_box_feat":  "",
-    "input_json": "",
-    "input_fc_dir":  "",
-    "input_att_dir": "",
-    "input_box_dir":  "",
-    "input_label_h5": ""
+    "input_json": "data/cocotalk.json",
+    "input_fc_dir":  "data/cocobu_fc",
+    "input_att_dir": "data/cocobu_att",
+    "input_label_h5": "data/cocotalk_label.h5",
+
+    "use_att": false,
+    "use_box":  false,
+    "norm_att_feat": 0,
+    "norm_box_feat":  0,
+    "input_box_dir":  ""
   }
 }
