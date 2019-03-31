@@ -6,8 +6,8 @@ import torch
 import torchvision
 from torchvision.transforms import transforms
 
-from policies import SuppDataset
-from utils import mkdir_p
+from algorithm.policies import SuppDataset
+from algorithm.tools.utils import mkdir_p
 
 
 class Experiment(ABC):

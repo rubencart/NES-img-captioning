@@ -9,9 +9,11 @@ import torchvision
 import torch
 from torch import nn
 
-from caption_nets import FCModel
-from nets import PolicyNet, CompressedModel, random_state, Cifar10Net, MnistNet, Cifar10Net_Small
-from utils import mkdir_p
+from algorithm.nets import CompressedModel, PolicyNet
+# from captioning.nets import FCModel
+# from classification.nets import Cifar10Net  # , Cifar10Net, MnistNet, Cifar10Net_Small
+from algorithm.tools.utils import mkdir_p, random_state
+# from classification.policies import SeedsClfPolicy, NetsClfPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +37,6 @@ DATASETS = {
     SuppDataset.MSCOCO: None  # todo
 }
 
-NETS = {
-    Net.CIFAR10: Cifar10Net,
-    Net.CIFAR10_SMALL: Cifar10Net_Small,
-    Net.MNIST: MnistNet,
-    Net.FC_CAPTION: FCModel,
-}
-
 
 class Policy(ABC):
     def __init__(self, dataset: SuppDataset, net: Net):
@@ -52,6 +47,16 @@ class Policy(ABC):
         self.dataset = dataset
         self.net = net
 
+        from classification.nets import Cifar10Net, Cifar10Net_Small, MnistNet
+        from captioning.nets import FCModel
+
+        self.NETS = {
+            Net.CIFAR10: Cifar10Net,
+            Net.CIFAR10_SMALL: Cifar10Net_Small,
+            Net.MNIST: MnistNet,
+            Net.FC_CAPTION: FCModel,
+        }
+
     def save(self, path, filename):
         # todo! also save serial?
         assert self.policy_net is not None, 'set model first!'
@@ -60,7 +65,7 @@ class Policy(ABC):
         torch.save(self.policy_net.state_dict(), os.path.join(path, filename))
 
     def get_net_class(self):
-        return NETS[self.net]
+        return self.NETS[self.net]
 
     def parameter_vector(self):
         assert self.policy_net is not None, 'set model first!'
@@ -102,7 +107,7 @@ class Policy(ABC):
 
 class NetsPolicy(Policy, ABC):
 
-    def init_model(self, model: PolicyNet = None):
+    def init_model(self, model=None):
         assert isinstance(model, PolicyNet), '{}'.format(type(model))
         self.policy_net = model
         self.serial_net = model.state_dict()
@@ -169,93 +174,11 @@ class SeedsPolicy(Policy, ABC):
         self.serial_net = copy.deepcopy(compressed_model)
 
 
-class ClfPolicy(Policy, ABC):
-    def rollout(self, data):
-        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
-        assert self.policy_net is not None, 'Set model first!'
-        assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
-
-        torch.set_grad_enabled(False)
-        self.policy_net.eval()
-
-        inputs, labels = data
-        outputs = self.policy_net(inputs)
-
-        criterion = nn.CrossEntropyLoss()
-        loss = criterion(outputs, labels)
-        # print(loss) --> tensor(2.877)
-        result = -float(loss.item())
-
-        del inputs, labels, outputs, loss, criterion
-        return result
-
-    def accuracy_on(self, data):
-        assert self.policy_net is not None, 'Set model first!'
-        assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
-
-        torch.set_grad_enabled(False)
-        self.policy_net.eval()
-
-        inputs, labels = data
-        outputs = self.policy_net(inputs)
-
-        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        correct = prediction.eq(labels.view_as(prediction)).sum().item()
-        accuracy = float(correct) / labels.size()[0]
-
-        del inputs, labels, outputs, prediction, correct
-        return accuracy
-
-
-class GenPolicy(Policy, ABC):
-    def rollout(self, data):
-        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
-        assert self.policy_net is not None, 'Set model first!'
-        assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
-
-        torch.set_grad_enabled(False)
-        self.policy_net.eval()
-
-        inputs, labels = data
-        outputs = self.policy_net(inputs)
-
-        criterion = nn.CrossEntropyLoss()
-        loss = criterion(outputs, labels)
-        # print(loss) --> tensor(2.877)
-        result = -float(loss.item())
-
-        del inputs, labels, outputs, loss, criterion
-        return result
-
-    def accuracy_on(self, data):
-        assert self.policy_net is not None, 'Set model first!'
-        assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
-
-        torch.set_grad_enabled(False)
-        self.policy_net.eval()
-
-        inputs, labels = data
-        outputs = self.policy_net(inputs)
-
-        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        correct = prediction.eq(labels.view_as(prediction)).sum().item()
-        accuracy = float(correct) / labels.size()[0]
-
-        del inputs, labels, outputs, prediction, correct
-        return accuracy
-
-
-class NetsClfPolicy(ClfPolicy, NetsPolicy):
-    pass
-
-
-class SeedsClfPolicy(ClfPolicy, SeedsPolicy):
-    pass
-
-
 class PolicyFactory:
     @staticmethod
     def create(dataset: SuppDataset, mode, net: Net):
+        from classification.policies import SeedsClfPolicy, NetsClfPolicy
+
         if dataset == SuppDataset.MNIST or dataset == SuppDataset.CIFAR10:
             if mode == 'seeds':
                 return SeedsClfPolicy(dataset, net)

@@ -17,8 +17,8 @@ import time
 import psutil
 
 from dist import RelayClient
-from ga_master import GAMaster
-from ga_worker import GAWorker
+from algorithm.ga_master import GAMaster
+from algorithm.ga_worker import GAWorker
 
 
 def run():
@@ -58,7 +58,7 @@ def import_algo(name):
     # elif name == 'ns-es' or name == "nsr-es":
     #     from . import nses as algo
     if name == 'ga':
-        import ga_master as algo
+        from algorithm import ga_master as algo
     # elif name == 'rs':
     #     from . import rs as algo
     else:

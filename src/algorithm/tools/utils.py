@@ -3,6 +3,7 @@ import errno
 import os
 from collections import namedtuple
 
+import numpy as np
 
 ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev']
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
@@ -68,3 +69,9 @@ def readable_bytes(num, suffix='B'):
             return '%3.1f%s%s' % (num, unit, suffix)
         num /= 1024.0
     return '%.1f%s%s' % (num, 'Yi', suffix)
+
+
+def random_state():
+    rs = np.random.RandomState()
+    return rs.randint(0, 2 ** 31 - 1)
+

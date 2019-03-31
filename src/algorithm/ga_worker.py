@@ -10,9 +10,9 @@ import numpy as np
 import torch
 
 from dist import WorkerClient
-from policies import Policy
-from setup import Config, setup_worker
-from utils import GATask, Result
+from algorithm.policies import Policy
+from algorithm.tools.setup import Config, setup_worker
+from algorithm.tools.utils import GATask, Result
 
 logger = logging.getLogger(__name__)
 

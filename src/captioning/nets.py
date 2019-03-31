@@ -1,13 +1,16 @@
+"""
+Code from https://github.com/ruotianluo/self-critical.pytorch
+"""
 
 # from __future__ import absolute_import
 # from __future__ import division
 # from __future__ import print_function
+from functools import reduce
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import *
-import misc.utils as utils
+
 
 # from .CaptionModel import CaptionModel
 
@@ -176,6 +179,8 @@ class CaptionModel(nn.Module):
 
         # all beams are sorted by their log-probabilities
         done_beams_table = [sorted(done_beams_table[i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]
+
+        # todo reduce
         done_beams = reduce(lambda a, b: a + b, done_beams_table)
         return done_beams
 
