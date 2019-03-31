@@ -1,0 +1,27 @@
+{
+  "mode":  "nets",
+  "config": {
+    "eval_prob": 0.02,
+    "noise_stdev": 0.01,
+    "snapshot_freq": 5,
+    "batch_size": 2048,
+    "patience": 20,
+    "stdev_decr_divisor": 1.0
+  },
+  "dataset": "mscoco",
+  "net": "fc_caption",
+  "population_size": 800,
+  "truncation": 40,
+  "num_elites": 1,
+  "caption_options": {
+    "use_att": "",
+    "use_box":  "",
+    "norm_att_feat": "",
+    "norm_box_feat":  "",
+    "input_json": "",
+    "input_fc_dir":  "",
+    "input_att_dir": "",
+    "input_box_dir":  "",
+    "input_label_h5": ""
+  }
+}
