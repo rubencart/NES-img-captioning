@@ -1,0 +1,18 @@
+{
+  "mode":  "nets",
+  "config": {
+    "eval_prob": 0.02,
+    "noise_stdev": 0.01,
+    "snapshot_freq": 5,
+    "batch_size": 2048,
+    "patience": 20,
+    "stdev_decr_divisor": 1.0
+  },
+  "dataset": "cifar10",
+  "net": "cifar10",
+  "population_size": 800,
+  "truncation": 40,
+  "num_elites": 1,
+  "_continue_from_population": "snapshots/es_master_83645/info_e1_i30:118.json",
+  "_continue_from_single": "snapshots/sgd_10542/params_acc46.pth"
+}

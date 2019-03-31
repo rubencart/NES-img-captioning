@@ -1,0 +1,70 @@
+
+import errno
+import os
+from collections import namedtuple
+
+
+ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev']
+GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
+
+
+result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
+                 'eval_return', 'mem_usage']
+Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
+
+config_fields = [
+    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
+    'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers', 'log_dir',
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience'
+]
+Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
+
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+# To plot against scores:
+# fig = plt.figure()
+# plt.plot(x[:150], score_stats[1][:150], color='blue')
+# plt.plot(np.arange(150), np.array(numstds[:150])*80 - 2.4, color='red')
+# plt.savefig('tmp/1/both')
+# plt.close(fig)
+def extract_stds_from_log(filename):
+    # eg 'logs/logs/es_master_16799/log.txt'
+    with open(filename) as f:
+        content = f.readlines()
+    content = [x.strip() for x in content]
+    # print(content[:15])
+    # --> ['********** Iteration 1 **********',
+    #  '----------------------------------',
+    #  '| RewMax              | -2.26    |',
+    #  '| RewMean             | -2.42    |',
+    #  '| RewMin              | -2.77    |',
+    #  '| RewStd              | 0.0852   |',
+    #  '| Norm                | 13.6     |',
+    #  '| NoiseStd            | 0.01     |',
+    #  '| MaxAcc              | 0.146    |',
+    #  '| UniqueWorkers       | 2        |',
+    #  '| UniqueWorkersFrac   | 0.00388  |',
+    #  '| TimeElapsedThisIter | 6.9      |',
+    #  '| TimeElapsed         | 7.05     |',
+    #  '| MemUsage            | 4.7      |',
+    #  '----------------------------------']
+    stds = [c for (i, c) in enumerate(content) if (i - 7) % 15 == 0]
+    numstds = [float(s[24:-1].strip()) for s in stds]
+    return numstds
+
+
+def readable_bytes(num, suffix='B'):
+    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
+        if abs(num) < 1024.0:
+            return '%3.1f%s%s' % (num, unit, suffix)
+        num /= 1024.0
+    return '%.1f%s%s' % (num, 'Yi', suffix)
