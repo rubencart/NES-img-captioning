@@ -9,19 +9,11 @@ import torchvision
 import torch
 from torch import nn
 
-<<<<<<< HEAD:src/algorithm/policies.py
-from algorithm.nets import CompressedModel
-from captioning.nets import FCModel
-from classification.nets import PolicyNet, Cifar10Net, MnistNet, Cifar10Net_Small
-from algorithm.tools.utils import mkdir_p, random_state
-from classification.policies import SeedsClfPolicy, NetsClfPolicy
-=======
 from algorithm.nets import CompressedModel, PolicyNet
 # from captioning.nets import FCModel
 # from classification.nets import Cifar10Net  # , Cifar10Net, MnistNet, Cifar10Net_Small
 from algorithm.tools.utils import mkdir_p, random_state
 # from classification.policies import SeedsClfPolicy, NetsClfPolicy
->>>>>>> d30c45c29de3208621bfa4689d7ea024ac190c45:src/algorithm/policies.py
 
 logger = logging.getLogger(__name__)
 

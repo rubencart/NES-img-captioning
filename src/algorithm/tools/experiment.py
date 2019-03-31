@@ -159,6 +159,9 @@ class MSCocoDataLdrWrapper:
         self.loader = loader
         self.split = split
 
+    def __iter__(self):
+        return self
+
     def __next__(self):
         return self.loader.get_batch(self.split)
 
