@@ -1,18 +1,21 @@
 {
   "mode":  "nets",
   "config": {
-    "eval_prob": 0.02,
-    "noise_stdev": 0.01,
+    "eval_prob": 0.01,
+    "noise_stdev": 0.005,
     "snapshot_freq": 5,
-    "batch_size": 2048,
-    "patience": 20,
-    "stdev_decr_divisor": 1.0
+    "batch_size": 4096,
+    "patience": 30,
+    "stdev_decr_divisor": 1.5
   },
   "dataset": "cifar10",
   "net": "cifar10",
   "population_size": 800,
-  "truncation": 40,
+  "truncation": 30,
   "num_elites": 1,
-  "_continue_from_population": "snapshots/es_master_83645/info_e1_i30:118.json",
+  "from_population": {
+	  "infos": "logs/es_cifar10_cifar10_nets_12168/z_info_e8_i180-25.json",
+	  "models": "logs/es_cifar10_cifar10_nets_12168/z_parents_params_e8_i180-25_r0.28.tar"
+  },
   "_continue_from_single": "snapshots/sgd_10542/params_acc46.pth"
 }
