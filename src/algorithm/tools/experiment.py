@@ -45,7 +45,7 @@ class Experiment(ABC):
     def increase_loader_batch_size(self, batch_size):
         self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
 
-    def _init_loaders(self, dataset, transform, config, batch_size, workers):
+    def _init_torchvision_loaders(self, dataset, transform, config, batch_size, workers):
         trainset = dataset(root='./data', train=True,
                            download=True, transform=transform)
         valset, testset = self._split_testset(dataset, transform)
@@ -108,7 +108,7 @@ class MnistExperiment(Experiment):
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-        return self._init_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
+        return self._init_torchvision_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
 
 
 class Cifar10Experiment(Experiment):
@@ -121,14 +121,54 @@ class Cifar10Experiment(Experiment):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        return self._init_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
+        return self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
+
+
+class MSCocoExperiment(Experiment):
+    def __init__(self, exp, config):
+        super().__init__(exp, config)
+
+    def init_loaders(self, config=None, batch_size=None, workers=None):
+        # TODO MSCOCO as torchvision.dataset?????
+
+        from captioning.dataloader import DataLoader
+
+        opt = exp['caption_options']
+
+        # todo input json etc in opt
+        # - use_att
+        # - use_box
+        # - norm_att_feat
+        # - norm_box_feat
+        # - input_json
+        # - input_fc_dir
+        # - input_att_dir
+        # - input_box_dir
+        # - input_label_h5
+        loader = DataLoader(opt={})
+
+        trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')
+        valloader = MSCocoDataLdrWrapper(loader=loader, split='val')
+        testloader = MSCocoDataLdrWrapper(loader=loader, split='test')
+
+        return trainloader, valloader, testloader
+
+
+class MSCocoDataLdrWrapper:
+    def __init__(self, loader, split):
+        self.loader = loader
+        self.split = split
+
+    def __next__(self):
+        return self.loader.get_batch(self.split)
 
 
 class ExperimentFactory:
-
     @staticmethod
     def create(dataset: SuppDataset, exp, config):
         if dataset == SuppDataset.MNIST:
             return MnistExperiment(exp, config)
         elif dataset == SuppDataset.CIFAR10:
             return Cifar10Experiment(exp, config)
+        elif dataset == SuppDataset.MSCOCO:
+            return MSCocoExperiment(exp, config)
