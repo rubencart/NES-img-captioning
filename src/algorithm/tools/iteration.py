@@ -1,9 +1,9 @@
 import logging
 from collections import namedtuple
 
-from nets import ABCModel
-from podium import Podium
-from policies import Policy
+from algorithm.nets import ABCModel
+from algorithm.tools.podium import Podium
+from algorithm.policies import Policy
 
 logger = logging.getLogger(__name__)
 

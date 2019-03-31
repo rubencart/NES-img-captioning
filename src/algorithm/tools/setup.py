@@ -2,11 +2,11 @@ import json
 
 import torch
 
-from experiment import ExperimentFactory
-from iteration import Iteration, Checkpoint
-from policies import SuppDataset, PolicyFactory, Net
-from statistics import Statistics
-from utils import Config
+from algorithm.tools.experiment import ExperimentFactory
+from algorithm.tools.iteration import Iteration, Checkpoint
+from algorithm.policies import SuppDataset, PolicyFactory, Net
+from algorithm.tools.statistics import Statistics
+from algorithm.tools.utils import Config
 
 
 def setup_worker(exp):

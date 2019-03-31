@@ -10,13 +10,13 @@ import torch
 # from memory_profiler import profile
 
 from dist import MasterClient
-from experiment import Experiment
-from iteration import Iteration
-from policies import Policy
-from setup import setup_master, Config
-from snapshot import save_snapshot
-from statistics import Statistics
-from utils import GATask, Result
+from algorithm.tools.experiment import Experiment
+from algorithm.tools.iteration import Iteration
+from algorithm.policies import Policy
+from algorithm.tools.setup import setup_master, Config
+from algorithm.tools.snapshot import save_snapshot
+from algorithm.tools.statistics import Statistics
+from algorithm.tools.utils import GATask, Result
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class GAMaster(object):
         it: Iteration = setup_tuple[3]
         experiment: Experiment = setup_tuple[4]
 
-        import tabular_logger as tlogger
+        from algorithm.tools import tabular_logger as tlogger
         logger.info('Tabular logging to {}'.format(experiment.log_dir()))
         tlogger.start(experiment.log_dir())
 
