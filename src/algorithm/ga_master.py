@@ -40,12 +40,10 @@ logger = logging.getLogger(__name__)
 # - safe mutations
 
 # next things:
-# x implement test on test set!
+# x implement test on val set!
 # x keep overall best elite ( a la early stopping )
 #
-# x policies: subclass seed/nets
-# - start from 1 .pt file!
-# x delete previous .tars when saving one! Takes a lot of disk space
+# - options for capt models --> find nicer way! spaghetti with setup now
 # - label axes (name + units) in plots!!!!
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 # - assertions, param checks,...
@@ -91,6 +89,7 @@ class GAMaster(object):
                     stats.set_step_tstart()
 
                     curr_task_id = master.declare_task(GATask(
+                        # policy=policy,
                         elite=it.elite(),
                         val_data=next(iter(experiment.valloader)),
                         parents=it.parents(),

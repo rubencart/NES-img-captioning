@@ -33,6 +33,7 @@ class GAWorker(object):
         setup_tuple = setup_worker(exp)
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
+        # policy = None
         # experiment: Experiment = setup_tuple[6]
 
         rs = np.random.RandomState()
@@ -50,6 +51,8 @@ class GAWorker(object):
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
             # input('...')
+            # if not policy:
+            #     policy = task_data.policy
 
             if rs.rand() < config.eval_prob:
 

@@ -5,6 +5,7 @@ Code from https://github.com/ruotianluo/self-critical.pytorch
 # from __future__ import absolute_import
 # from __future__ import division
 # from __future__ import print_function
+from collections import namedtuple
 from functools import reduce
 
 import torch
@@ -17,8 +18,8 @@ from algorithm.nets import PolicyNet
 
 
 class CaptionModel(PolicyNet):
-    def __init__(self):
-        super(CaptionModel, self).__init__()
+    def __init__(self, rng_state=None, from_param_file=None, grad=False):
+        super(CaptionModel, self).__init__(rng_state, from_param_file, grad)
 
     # implements beam search
     # calls beam_step and returns the final set of beams
@@ -218,9 +219,17 @@ class LSTMCore(nn.Module):
         return output, state
 
 
+_capt_model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
+                          'drop_prob_lm', 'seq_length', 'fc_feat_size']
+CaptModelOptions = namedtuple('CaptModelOptions', field_names=_capt_model_opt_fields,
+                              defaults=(None,) * len(_capt_model_opt_fields))
+
+
 class FCModel(CaptionModel):
-    def __init__(self, opt):
-        super(FCModel, self).__init__()
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
+        super(FCModel, self).__init__(rng_state, from_param_file, grad)
+        opt = options
+
         self.vocab_size = opt.vocab_size
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_type = opt.rnn_type

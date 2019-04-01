@@ -1,7 +1,7 @@
 import logging
 from collections import namedtuple
 
-from algorithm.nets import ABCModel
+from algorithm.nets import SerializableModel
 from algorithm.tools.podium import Podium
 from algorithm.policies import Policy
 
@@ -39,7 +39,7 @@ class Iteration(object):
         # MODELS
         # [(int, ABCModel),]
         self._parents = []
-        self._elite: ABCModel = None
+        self._elite: SerializableModel = None
         self._podium = Podium(config.patience)
 
     def init_from_infos(self, infos: dict, models_checkpt: Checkpoint, policy: Policy):

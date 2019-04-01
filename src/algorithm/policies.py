@@ -39,7 +39,11 @@ DATASETS = {
 
 
 class Policy(ABC):
-    def __init__(self, dataset: SuppDataset, net: Net):
+    def __init__(self, dataset: SuppDataset, net: Net, options=None):
+        if options:
+            from captioning.nets import CaptModelOptions
+            self.options = CaptModelOptions(**options)
+
         self.policy_net = None
         self.serial_net = None
 
@@ -129,11 +133,11 @@ class NetsPolicy(Policy, ABC):
 
     def generate_model(self, from_param_file=None, start_rng=None):
         if from_param_file:
-            return self.get_net_class()(from_param_file=from_param_file)  # .state_dict()
+            return self.get_net_class()(from_param_file=from_param_file, options=self.options)
         elif start_rng:
-            return self.get_net_class()(rng_state=start_rng)  # .state_dict()
+            return self.get_net_class()(rng_state=start_rng, options=self.options)
         else:
-            return self.get_net_class()(rng_state=random_state())  # .state_dict()
+            return self.get_net_class()(rng_state=random_state(), options=self.options)
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
@@ -176,7 +180,7 @@ class SeedsPolicy(Policy, ABC):
 
 class PolicyFactory:
     @staticmethod
-    def create(dataset: SuppDataset, mode, net: Net):
+    def create(dataset: SuppDataset, mode, net: Net, exp):
         from classification.policies import SeedsClfPolicy, NetsClfPolicy
         from captioning.policies import NetsGenPolicy, SeedsGenPolicy
 
@@ -187,4 +191,7 @@ class PolicyFactory:
                 return NetsClfPolicy(dataset, net)
 
         elif dataset == SuppDataset.MSCOCO:
-            return SeedsGenPolicy(dataset, net) if mode == 'seeds' else NetsGenPolicy(dataset, net)
+            if mode == 'seeds':
+                return SeedsGenPolicy(dataset, net, exp['caption_model_options'])
+            else:
+                return NetsGenPolicy(dataset, net, exp['caption_model_options'])

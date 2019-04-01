@@ -5,7 +5,7 @@ from collections import namedtuple
 
 import numpy as np
 
-ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev']
+ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev']  # , 'policy'
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
 
