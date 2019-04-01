@@ -26,7 +26,7 @@ class Experiment(ABC):
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
 
-        self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config)
+        self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
         self._orig_trainloader_lth = len(self.trainloader)
 
         self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
@@ -102,7 +102,7 @@ class MnistExperiment(Experiment):
     def __init__(self, exp, config):
         super().__init__(exp, config)
 
-    def init_loaders(self, config=None, batch_size=None, workers=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
@@ -115,7 +115,7 @@ class Cifar10Experiment(Experiment):
     def __init__(self, exp, config):
         super().__init__(exp, config)
 
-    def init_loaders(self, config=None, batch_size=None, workers=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -129,11 +129,11 @@ class MSCocoExperiment(Experiment):
         super().__init__(exp, config)
         self.opt = exp['caption_options']
 
-    def init_loaders(self, config=None, batch_size=None, workers=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         # TODO MSCOCO as torchvision.dataset?????
 
         from captioning.dataloader import DataLoader
-        loader = DataLoader(opt=self.opt)
+        loader = DataLoader(opt=exp['caption_options'])
 
         trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')
         valloader = MSCocoDataLdrWrapper(loader=loader, split='val')
