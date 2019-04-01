@@ -10,8 +10,9 @@
   },
   "dataset": "cifar10",
   "net": "cifar10",
-  "population_size": 800,
+  "population_size": 1000,
   "truncation": 30,
+  "num_best_in_parents": 20,
   "num_elites": 1,
   "_from_population": {
 	  "infos": "logs/es_cifar10_cifar10_nets_12168/z_info_e8_i180-25.json",

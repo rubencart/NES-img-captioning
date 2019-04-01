@@ -16,10 +16,10 @@ import torch
 import sys
 
 sys.path.append('cider')
-from pyciderevalcap.ciderD.ciderD import CiderD
+from cider.pyciderevalcap.ciderD.ciderD import CiderD
 
-sys.path.append('coco-caption')
-from pycocoevalcap.bleu.bleu import Bleu
+sys.path.append('cococaption')
+from cococaption.pycocoevalcap.bleu.bleu import Bleu
 
 CiderD_scorer = None
 Bleu_scorer = None

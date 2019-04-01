@@ -1,6 +1,3 @@
 [submodule "cider"]
 	path = cider
 	url = git@github.com:rubencart/cider.git
-[submodule "coco-caption"]
-	path = coco-caption
-	url = git@github.com:rubencart/coco-caption.git
