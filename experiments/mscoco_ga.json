@@ -23,11 +23,12 @@
     "use_box": false,
     "norm_att_feat": 0,
     "norm_box_feat": 0,
-    "input_box_dir": ""
+    "input_box_dir": "",
+
+    "seq_per_img": 5,
+    "train_only": 1
   },
   "caption_model_options": {
-    "train_only": 1,
-    "seq_per_img": 5,
     "input_encoding_size":  512,
     "rnn_type": "gru",
     "rnn_size": 512,
