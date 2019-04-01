@@ -365,9 +365,6 @@ class FCModel(CaptionModel):
                     it = fc_feats.data.new(batch_size).long().zero_()
                 xt = self.embed(it)
 
-            print(xt)
-            print(state)
-            input('...')
             output, state = self.core(xt, state)
             logprobs = F.log_softmax(self.logit(output), dim=1)
 
