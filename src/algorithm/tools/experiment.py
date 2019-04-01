@@ -1,6 +1,7 @@
 import json
 import os
 from abc import ABC
+from collections import namedtuple
 
 import torch
 import torchvision
@@ -124,16 +125,21 @@ class Cifar10Experiment(Experiment):
         return self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
 
 
+opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
+              'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img']
+Opt = namedtuple('Opt', field_names=opt_fields, defaults=(None,) * len(opt_fields))
+
+
 class MSCocoExperiment(Experiment):
     def __init__(self, exp, config):
+        self.opt = Opt(**exp['caption_options'])
         super().__init__(exp, config)
-        self.opt = exp['caption_options']
 
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         # TODO MSCOCO as torchvision.dataset?????
 
         from captioning.dataloader import DataLoader
-        loader = DataLoader(opt=exp['caption_options'])
+        loader = DataLoader(opt=self.opt, config=config)
 
         trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')
         valloader = MSCocoDataLdrWrapper(loader=loader, split='val')

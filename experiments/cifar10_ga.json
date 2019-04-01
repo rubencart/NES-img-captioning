@@ -2,11 +2,11 @@
   "mode":  "nets",
   "config": {
     "eval_prob": 0.01,
-    "noise_stdev": 0.01,
+    "noise_stdev": 0.005,
     "snapshot_freq": 5,
     "batch_size": 1024,
     "patience": 30,
-    "stdev_decr_divisor": 2
+    "stdev_decr_divisor": 1.5
   },
   "dataset": "cifar10",
   "net": "cifar10",
