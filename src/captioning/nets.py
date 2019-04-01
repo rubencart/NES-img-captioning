@@ -246,6 +246,8 @@ class FCModel(CaptionModel):
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
+        # todo both necessary?
+        self._initialize_params()
         self.init_weights()
 
     def init_weights(self):
@@ -363,6 +365,9 @@ class FCModel(CaptionModel):
                     it = fc_feats.data.new(batch_size).long().zero_()
                 xt = self.embed(it)
 
+            print(xt)
+            print(state)
+            input('...')
             output, state = self.core(xt, state)
             logprobs = F.log_softmax(self.logit(output), dim=1)
 
