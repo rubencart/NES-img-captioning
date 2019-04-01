@@ -2,11 +2,11 @@
   "mode":  "nets",
   "config": {
     "eval_prob": 0.01,
-    "noise_stdev": 0.005,
+    "noise_stdev": 0.01,
     "snapshot_freq": 5,
     "batch_size": 1024,
     "patience": 30,
-    "stdev_decr_divisor": 1.5
+    "stdev_decr_divisor": 2
   },
   "dataset": "cifar10",
   "net": "cifar10",
@@ -18,5 +18,5 @@
 	  "infos": "logs/es_cifar10_cifar10_nets_12168/z_info_e8_i180-25.json",
 	  "models": "logs/es_cifar10_cifar10_nets_12168/z_parents_params_e8_i180-25_r0.28.tar"
   },
-  "_continue_from_single": "snapshots/sgd_10542/params_acc46.pth"
+  "from_single": "logs/sgd_cifar10_7860/params_acc78.pth"
 }
