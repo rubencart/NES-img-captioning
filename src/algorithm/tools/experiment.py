@@ -125,15 +125,32 @@ class Cifar10Experiment(Experiment):
         return self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
 
 
-opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
-              'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img']
-Opt = namedtuple('Opt', field_names=opt_fields, defaults=(None,) * len(opt_fields))
+_opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
+               'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img']
+CaptionOptions = namedtuple('Opt', field_names=_opt_fields, defaults=(None,) * len(_opt_fields))
 
 
 class MSCocoExperiment(Experiment):
     def __init__(self, exp, config):
-        self.opt = Opt(**exp['caption_options'])
+        self.opt = CaptionOptions(**exp['caption_options'])
+
+        # Deal with feature things before anything
+        # self.options.use_att = utils.if_use_att(self.options.caption_model)
+        # if self.options.use_box:
+        #     self.options.att_feat_size = self.options.att_feat_size + 5
+
+        # self.options.vocab_size = loader.vocab_size
+        # self.options.seq_length = loader.seq_length
+
         super().__init__(exp, config)
+
+        self.vocab_size = self.trainloader.loader.vocab_size
+        self.seq_length = self.trainloader.loader.seq_length
+
+        exp['caption_model_options'].update({
+            'vocab_size': self.vocab_size,
+            'seq_length': self.seq_length,
+        })
 
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         # TODO MSCOCO as torchvision.dataset?????

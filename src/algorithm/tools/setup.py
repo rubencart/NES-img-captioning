@@ -14,9 +14,8 @@ def setup_worker(exp):
 
     config = Config(**exp['config'])
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                  net=Net(exp['net']))
+                                  net=Net(exp['net']), exp=exp)
 
-    # _, elite = _init_parents(exp['truncation'], policy)
     elite = policy.generate_model()
     policy.init_model(elite)
     return config, policy
@@ -26,10 +25,9 @@ def setup_master(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
-    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                  net=Net(exp['net']))
-
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config)
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
+                                  net=Net(exp['net']), exp=exp)
     statistics = Statistics()
     iteration = Iteration(config)
 

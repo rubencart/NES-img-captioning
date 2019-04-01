@@ -8,7 +8,7 @@ from torch import nn
 from algorithm.tools.utils import random_state
 
 
-class ABCModel:
+class SerializableModel:
 
     @abstractmethod
     def serialize(self):
@@ -19,7 +19,7 @@ class ABCModel:
         raise NotImplementedError
 
 
-class PolicyNet(nn.Module, ABCModel, ABC):
+class PolicyNet(nn.Module, SerializableModel, ABC):
     def __init__(self, rng_state=None, from_param_file=None, grad=False):
         super(PolicyNet, self).__init__()
 
@@ -98,7 +98,7 @@ class PolicyNet(nn.Module, ABCModel, ABC):
     #     pass
 
 
-class CompressedModel(ABCModel):
+class CompressedModel(SerializableModel):
     def __init__(self, start_rng: int = None, other_rng: list = None, from_param_file: str = None):
         if start_rng is None and from_param_file is None:
             self.start_rng, self.from_param_file = random_state(), None

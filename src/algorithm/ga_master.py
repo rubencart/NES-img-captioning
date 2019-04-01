@@ -91,6 +91,7 @@ class GAMaster(object):
                     stats.set_step_tstart()
 
                     curr_task_id = master.declare_task(GATask(
+                        # policy=policy,
                         elite=it.elite(),
                         val_data=next(iter(experiment.valloader)),
                         parents=it.parents(),

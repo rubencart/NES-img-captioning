@@ -6,7 +6,7 @@ from algorithm.nets import PolicyNet
 
 
 class Cifar10Net_Small(PolicyNet):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False):
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
         super(Cifar10Net_Small, self).__init__(rng_state, from_param_file, grad=grad)
 
         # 100K params, max ~65 acc?
@@ -28,7 +28,7 @@ class Cifar10Net_Small(PolicyNet):
 
 
 class Cifar10Net(PolicyNet):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False):
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
         super(Cifar10Net, self).__init__(rng_state, from_param_file, grad=grad)
 
         # 291466 params
@@ -111,7 +111,7 @@ class BlockSlidesNet32(nn.Module):
 
 
 class MnistNet(PolicyNet):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False):
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
         super(MnistNet, self).__init__(rng_state=rng_state, from_param_file=from_param_file, grad=grad)
 
         # todo compare fitness incr rate with and without weight norm + time per generation
