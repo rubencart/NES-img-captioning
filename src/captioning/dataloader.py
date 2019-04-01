@@ -238,7 +238,12 @@ class DataLoader(data.Dataset):
                 ix)
 
     def __len__(self):
+        # todo is this correct?
         return len(self.info['images'])
+
+    def length_of_split(self, split):
+        assert split in ['train', 'val', 'test'], 'now: {}'.format(split)
+        return len(self.split_ix[split])
 
 
 class SubsetSampler(torch.utils.data.sampler.Sampler):

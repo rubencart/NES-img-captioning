@@ -157,7 +157,11 @@ class MSCocoDataLdrWrapper:
         return self
 
     def __next__(self):
+        # todo stopiter
         return self.loader.get_batch(self.split)
+
+    def __len__(self):
+        return self.loader.length_of_split(self.split)
 
 
 class ExperimentFactory:
