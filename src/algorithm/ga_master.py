@@ -92,6 +92,14 @@ class GAMaster(object):
 
                     print('***************************************')
                     print(sys.getsizeof(it.parents()))
+                    print(sys.getsizeof(GATask(
+                        # policy=policy,
+                        elite=it.elite(),
+                        val_data=next(iter(experiment.valloader)),
+                        parents=it.parents(),
+                        batch_data=batch_data,
+                        noise_stdev=it.get_noise_stdev(),
+                    )))
                     print('***************************************')
 
                     curr_task_id = master.declare_task(GATask(

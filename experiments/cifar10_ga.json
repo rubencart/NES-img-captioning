@@ -14,9 +14,9 @@
   "truncation": 30,
   "num_best_in_parents": 20,
   "num_elites": 1,
-  "_from_population": {
-	  "infos": "logs/es_cifar10_cifar10_nets_12168/z_info_e8_i180-25.json",
-	  "models": "logs/es_cifar10_cifar10_nets_12168/z_parents_params_e8_i180-25_r0.28.tar"
-  },
-  "from_single": "logs/sgd_cifar10_7860/params_acc78.pth"
+  "from_population": {
+         "infos": "logs/es_cifar10_cifar10_nets_4915/z_info_e1_i22-49.json",
+         "models": "logs/es_cifar10_cifar10_nets_4915/z_parents_params_e1_i22-49_r0.78.tar"
+   },
+  "_from_single": "logs/sgd_cifar10_7860/params_acc78.pth"
 }

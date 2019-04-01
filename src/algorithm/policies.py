@@ -43,6 +43,8 @@ class Policy(ABC):
         if options:
             from captioning.nets import CaptModelOptions
             self.options = CaptModelOptions(**options)
+        else:
+            self.options = None
 
         self.policy_net = None
         self.serial_net = None
