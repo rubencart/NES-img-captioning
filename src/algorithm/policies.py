@@ -46,7 +46,7 @@ class Policy(ABC):
         else:
             self.options = None
 
-        self.policy_net = None
+        self.policy_net: PolicyNet = None
         self.serial_net = None
 
         assert isinstance(dataset, SuppDataset)
@@ -77,17 +77,20 @@ class Policy(ABC):
         assert self.policy_net is not None, 'set model first!'
         return nn.utils.parameters_to_vector(self.policy_net.parameters())
 
-    def get_serial_model(self):
-        return copy.deepcopy(self.serial_net)
+    # def get_serial_model(self):
+    #     return copy.deepcopy(self.serial_net)
 
     def nb_learnable_params(self):
         assert self.policy_net is not None, 'set model first!'
         return self.policy_net.get_nb_learnable_params()
 
-    def from_serialized(self, serialized: Union[CompressedModel, dict]):
+    def from_serialized(self, serialized):
         model = self.generate_model()
         model.from_serialized(serialized)
         return model
+
+    def serialized(self, path=''):
+        return self.policy_net.serialize(path=path)
 
     def rollout(self, data):
         raise NotImplementedError
@@ -110,28 +113,49 @@ class Policy(ABC):
     def get_model(self):
         raise NotImplementedError
 
+    # def save_to_disk(self, log_dir):
+    #     dir = 'tmp_offspring'
+    #     filename = 'offspring_params_i{i}.pth'
+    #     path_to_offspring = os.path.join(log_dir, dir, filename)
+    #
+    #     torch.save(self._po.serialize(), path_to_elite)
+    #     return path_to_elite
+
 
 class NetsPolicy(Policy, ABC):
+    # TODO inconsistent: init model from PolicyNet but afterwards only with paths --> unify
+    # TODO cleanup serial_net & policy_net
 
     def init_model(self, model=None):
         assert isinstance(model, PolicyNet), '{}'.format(type(model))
         self.policy_net = model
-        self.serial_net = model.state_dict()
+        # self.serial_net = model.state_dict()
 
     def set_model(self, model):
-        assert isinstance(model, PolicyNet) or isinstance(model, dict), '{}'.format(type(model))
+        assert isinstance(model, PolicyNet) or isinstance(model, dict) \
+               or isinstance(model, str), '{}'.format(type(model))
         if isinstance(model, PolicyNet):
-            self._set_serialized_net_model(model.state_dict())
+            self._set_from_statedict_model(model.state_dict())
+        elif isinstance(model, dict):
+            self._set_from_statedict_model(model)
         else:
-            self._set_serialized_net_model(model)
+            self._set_from_path_model(model)
 
-    def _set_serialized_net_model(self, serialized):
+    def _set_from_path_model(self, serialized):
+        # assert isinstance(serialized, dict), '{}'.format(type(serialized))
+        assert self.policy_net is not None, 'Set model first!'
+
+        # copied = copy.deepcopy(serialized)
+        self.policy_net.from_serialized(serialized)
+        # self.serial_net = serialized
+
+    def _set_from_statedict_model(self, serialized):
         assert isinstance(serialized, dict), '{}'.format(type(serialized))
         assert self.policy_net is not None, 'Set model first!'
 
         copied = copy.deepcopy(serialized)
         self.policy_net.load_state_dict(copied)
-        self.serial_net = copied
+        # self.serial_net = copied
 
     def generate_model(self, from_param_file=None, start_rng=None):
         if from_param_file:
@@ -144,7 +168,7 @@ class NetsPolicy(Policy, ABC):
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
         self.policy_net.evolve(sigma)
-        self.serial_net = copy.deepcopy(self.policy_net.state_dict())
+        # self.serial_net = copy.deepcopy(self.policy_net.state_dict())
 
     def get_model(self):
         return self.policy_net

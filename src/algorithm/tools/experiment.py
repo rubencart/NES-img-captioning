@@ -32,6 +32,8 @@ class Experiment(ABC):
 
         self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
                                                      self._net, self._mode, os.getpid())
+        exp.update({'log_dir': self._log_dir})
+
         mkdir_p(self._log_dir)
         with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
             json.dump(exp, f)
@@ -95,7 +97,7 @@ class Experiment(ABC):
     def snapshot_dir(self):
         return self._log_dir
 
-    def init_loaders(self, config=None, batch_size=None, workers=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         raise NotImplementedError
 
 

@@ -17,6 +17,6 @@
     "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
     "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
   },
-  "from_single": "logs/sgd_mnist_21563/params_acc52.pth",
+  "_from_single": "logs/sgd_mnist_21563/params_acc52.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
 }

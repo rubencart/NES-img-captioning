@@ -1,9 +1,13 @@
 import logging
+import os
+
+import torch
 from collections import namedtuple
 
 from algorithm.nets import SerializableModel
 from algorithm.tools.podium import Podium
 from algorithm.policies import Policy
+from algorithm.tools.utils import mkdir_p
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +16,7 @@ Checkpoint = namedtuple('Checkpoint', ['elite', 'best_elite', 'parents', 'best_p
 
 class Iteration(object):
 
-    def __init__(self, config):
+    def __init__(self, config, exp):
         # CAUTION: todo maybe get these from infos as well when available?
 
         # ACROSS SOME ITERATIONS
@@ -36,11 +40,17 @@ class Iteration(object):
         self._stdev_decr_divisor = config.stdev_decr_divisor
         self._patience = config.patience
 
+        self._log_dir = exp['log_dir']
+        self._parents_dir = os.path.join(self._log_dir, 'tmp')
+        mkdir_p(self._parents_dir)
+        self._elite_path = os.path.join(self._parents_dir, 'elite_params.pth')
+        # self._parent_path = os.path.join(_parents_dir, 'i{i}_parent_params.pth')
+
         # MODELS
         # [(int, ABCModel),]
         self._parents = []
-        self._elite: SerializableModel = None
-        self._podium = Podium(config.patience)
+        self._elite = None
+        self._podium = Podium(config.patience, self._parents_dir)
 
     def init_from_infos(self, infos: dict, models_checkpt: Checkpoint, policy: Policy):
         # self.__init__(config)
@@ -51,6 +61,7 @@ class Iteration(object):
         self._noise_stdev = infos['noise_stdev'] if 'noise_stdev' in infos else self._noise_stdev
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
 
+        # todo! check if still works
         self._elite = policy.from_serialized(models_checkpt.elite)
         self._parents = [(i, policy.from_serialized(parent)) for i, parent in models_checkpt.parents]
 
@@ -63,9 +74,11 @@ class Iteration(object):
         # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
         #       TRUNC random parents == less random!
         self._parents = [(model_id, None) for model_id in range(truncation)]
-        self._elite = policy.generate_model()
+        # self._elite = policy.generate_model()
+        self._elite = policy.generate_model().serialize(path=self._elite_path)
 
     def init_from_single(self, param_file_name, truncation, policy):
+        # todo! check if still works
         self._parents = [(i, policy.generate_model(from_param_file=param_file_name))
                          for i in range(truncation)]
         self._elite = policy.generate_model(from_param_file=param_file_name)
@@ -77,20 +90,62 @@ class Iteration(object):
             'noise_stdev': self._noise_stdev,
             'batch_size': self._batch_size,
             'bad_generations': self._bad_generations,
+
+            # TODO when saving a snapshot maybe we do want the param files and
+            # not just the path to them...
+            'parents': self._parents,
+            'elite': self._elite,
+
+            'best_elite': self.best_elite(),
+            'best_parents': self.best_parents(),
         }
 
-    def serialized_parents(self):
-        assert self._elite is not None
-        assert len(self._parents) > 0
+    # def serialized_parents(self):
+    #     assert self._elite is not None
+    #     assert len(self._parents) > 0
+    #
+    #     to_save = {
+    #         'elite': self._elite.serialize(path=self._elite_path),
+    #         'parents': [(i, parent.serialize(path=self._parent_path.format(i=i))) for i, parent in self._parents]
+    #     }
+    #     return to_save
 
-        to_save = {
-            'elite': self._elite.serialize(),
-            'parents': [(i, parent.serialize()) for i, parent in self._parents]
-        }
-        to_save.update(self._podium.serialized())
+    def serialized_best_parents(self):
+        # TODO!
+        return self._podium.serialized(self._log_dir)
 
-        # logger.info('Serialized: {}'.format(to_save))
-        return to_save
+    # def parents_for_redis(self):
+    #     result = []
+    #     for i, parent in self._parents:
+    #         if parent:
+    #             result.append((i, parent.serialize(path=self._parent_path.format(i=i))))
+    #         else:
+    #             result.append((i, None))
+    #     return result
+    #
+    # def elite_for_redis(self):
+    #     # elite is never None right?
+    #     return self._elite.serialize(path=self._elite_path)
+
+    # def save_parents_to_disk(self):
+    #     paths = []
+    #     for (i, parent) in self._parents:
+    #         if parent:
+    #             parent_filename = 'parents_params_i{i}.pth'
+    #             path_to_parent = os.path.join(self._log_dir, self._parents_dir, parent_filename)
+    #             torch.save(parent.serialize(), path_to_parent)
+    #             paths.append((i, path_to_parent))
+    #         else:
+    #             paths.append((i, None))
+    #
+    #     return paths
+
+    # def save_elite_to_disk(self):
+    #     elite_filename = 'elite_params_i{i}.pth'
+    #     path_to_elite = os.path.join(self._log_dir, self._parents_dir, elite_filename)
+    #
+    #     torch.save(self._elite.serialize(), path_to_elite)
+    #     return path_to_elite
 
     def log_stats(self, tlogger):
         tlogger.record_tabular('NoiseStd', self._noise_stdev)
@@ -249,3 +304,6 @@ class Iteration(object):
 
     def parents(self):
         return self._parents
+
+    def parents_dir(self):
+        return self._parents_dir

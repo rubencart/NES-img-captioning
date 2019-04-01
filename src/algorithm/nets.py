@@ -1,4 +1,5 @@
 import copy
+import os
 
 import torch
 from abc import abstractmethod, ABC
@@ -11,7 +12,7 @@ from algorithm.tools.utils import random_state
 class SerializableModel:
 
     @abstractmethod
-    def serialize(self):
+    def serialize(self, path=''):
         raise NotImplementedError
 
     @abstractmethod
@@ -87,12 +88,19 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
     # def compress(self):
     #     return CompressedModel(self.rng_state, self.evolve_states, self.from_param_file)
 
-    def serialize(self):
-        return copy.deepcopy(self.state_dict())
+    def serialize(self, path=''):
+        # return copy.deepcopy(self.state_dict())
+        # filename = 'params_i{i}.pth'.format(i=i)
+        # path_to_offspring = os.path.join(log_dir, filename)
+
+        torch.save(self.state_dict(), path)
+        return path
 
     def from_serialized(self, serialized):
-        assert isinstance(serialized, dict)
-        self.load_state_dict(serialized)
+        # assert isinstance(serialized, dict)
+        # self.load_state_dict(serialized)
+        state_dict = torch.load(serialized)
+        self.load_state_dict(state_dict)
 
     # def forward(self, x):
     #     pass
@@ -122,7 +130,7 @@ class CompressedModel(SerializableModel):
             m.evolve(sigma, rng)
         return m
 
-    def serialize(self):
+    def serialize(self, path=''):
         return self.__dict__
 
     def from_serialized(self, serialized):

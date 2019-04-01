@@ -103,6 +103,10 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # todo
     # algo = import_algo(algo)
 
+    # wait for master process to have uploaded tasks, otherwise errors
+    # because workers start on cached tasks and files don't exist
+    time.sleep(10)
+
     num_workers = num_workers if num_workers else os.cpu_count() - 2
     worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
     while True:

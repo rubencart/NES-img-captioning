@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def save_snapshot(stats: Statistics, it: Iteration, experiment: Experiment, policy: Policy):
+    # TODO THIS DOESN'T WORK ANYMORE --> assumes real parents and not paths
 
     mkdir_p(experiment.snapshot_dir())
 
     filename = save_infos(experiment, it, stats)
-    save_parents(experiment, it, stats)
+    # save_parents(experiment, it, stats)
 
     # todo necessary?
-    save_elite(experiment, it, policy, stats)
+    # save_elite(experiment, it, policy, stats)
 
     logger.info('Saved snapshot {}'.format(filename))
 
@@ -56,8 +57,12 @@ def save_parents(experiment, it, stats):
     parents_filename = 'z_parents_params_e{e}_i{i}-{n}_r{r}.tar' \
         .format(e=it.epoch(), i=it.iteration(), n=experiment.orig_trainloader_lth(),
                 r=round(stats.acc_stats()[-1], 2))
-    serialized_parents = it.serialized_parents()
-    torch.save(serialized_parents,
+
+    to_save = {}
+    to_save.update(it.serialized_parents())
+    to_save.update(it.serialized_best_parents())
+
+    torch.save(to_save,
                os.path.join(directory, parents_filename))
 
 

@@ -90,25 +90,26 @@ class GAMaster(object):
 
                     stats.set_step_tstart()
 
-                    print('***************************************')
-                    print(sys.getsizeof(it.parents()))
-                    print(sys.getsizeof(GATask(
-                        # policy=policy,
-                        elite=it.elite(),
-                        val_data=next(iter(experiment.valloader)),
-                        parents=it.parents(),
-                        batch_data=batch_data,
-                        noise_stdev=it.get_noise_stdev(),
-                    )))
-                    print('***************************************')
+                    # print('***************************************')
+                    # print(sys.getsizeof(it.parents()))
+                    # print(sys.getsizeof(GATask(
+                    #     # policy=policy,
+                    #     elite=it.elite(),
+                    #     val_data=next(iter(experiment.valloader)),
+                    #     parents=it.parents(),
+                    #     batch_data=batch_data,
+                    #     noise_stdev=it.get_noise_stdev(),
+                    # )))
+                    # print('***************************************')
 
                     curr_task_id = master.declare_task(GATask(
-                        # policy=policy,
                         elite=it.elite(),
                         val_data=next(iter(experiment.valloader)),
                         parents=it.parents(),
+                        # todo batch & val data to disk as well
                         batch_data=batch_data,
                         noise_stdev=it.get_noise_stdev(),
+                        # log_dir=experiment.log_dir()
                     ))
 
                     tlogger.log('********** Iteration {} **********'.format(it.iteration()))
@@ -181,7 +182,8 @@ class GAMaster(object):
                     elite_acc = it.max_eval_return()
                     it.record_elite(elite, elite_acc)
 
-                    # it.serialized_parents()
+                    # input('...')
+                    self._remove_truncated(parents, it.parents_dir(), experiment)
                     # input('...')
 
                     stats.record_score_stats(scores)
@@ -221,6 +223,20 @@ class GAMaster(object):
 
         # pick parents for next generation, give new index              todo -1 or not
         parents = [(i, model) for (i, (_, model, _)) in enumerate(scored_models[:truncation - 1])]
+        # rest = [model for (_, model, _) in scored_models[truncation - 1:]]
 
         logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
-        return parents, scores
+        return parents, scores  # , rest
+
+    def _remove_truncated(self, parents, directory, exp):
+        if exp.mode() == 'seeds':
+            return
+
+        to_keep = [parent for _, parent in parents]
+        for file in os.listdir(directory):
+            path = os.path.join(directory, file)
+            # print(os.path.join(directory, file))
+            # print(offspring_to_remove)
+            # input('...')
+            if os.path.isfile(path) and path not in to_keep:
+                os.remove(os.path.join(directory, file))
