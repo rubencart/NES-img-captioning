@@ -2,6 +2,7 @@ import copy
 import gc
 import logging
 import os
+import sys
 
 import psutil
 
@@ -88,6 +89,10 @@ class GAMaster(object):
                     it.incr_iteration()
 
                     stats.set_step_tstart()
+
+                    print('***************************************')
+                    print(sys.getsizeof(it.parents()))
+                    print('***************************************')
 
                     curr_task_id = master.declare_task(GATask(
                         # policy=policy,
