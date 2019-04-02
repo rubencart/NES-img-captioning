@@ -11,8 +11,6 @@ logger = logging.getLogger(__name__)
 class Iteration(object):
 
     def __init__(self, config, exp):
-        # CAUTION: todo maybe get these from infos as well when available?
-
         # ACROSS SOME ITERATIONS
         self._noise_stdev = config.noise_stdev
         self._batch_size = config.batch_size
@@ -76,7 +74,6 @@ class Iteration(object):
         self._elite = policy.generate_model().serialize(path=self._new_elite_path)
 
     def init_from_single(self, param_file_name, truncation, policy):
-        # todo! check if still works
         self._parents = [
             (i, policy
                 .generate_model(from_param_file=param_file_name)

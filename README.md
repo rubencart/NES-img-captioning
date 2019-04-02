@@ -32,6 +32,8 @@ https://bugs.python.org/issue33725
 
 Truncation should be smaller than population size!
 
+Caution you need population_size * <size of one param.pth file> disk space! For a 3M param network with an 11MB param file this is ~11GB.
+
 Example json:
 ```
 {

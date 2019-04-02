@@ -29,22 +29,33 @@ logger = logging.getLogger(__name__)
 
 # from meeting
 # - VCS --> slides graham
-# x gc.collect(), doesn't help
-# x mkl.set_num_threads(1), test on server
 # - start workers from CL
 
-# x Elite also evaluate
-# - To_add telkens nieuwe?
-
-# x leave seeds altogether
 # - multiple elites!
 # - safe mutations
+# - beam search
+# - different models from paper, att, resnet feats,...
+# - try self critical reward instead of pure cider
+# - improved exploration --> NS/RS?
+# - check if we are using cider right (https://github.com/ruotianluo/cider/)
 
 # next things:
 # x implement test on val set!
 # x keep overall best elite ( a la early stopping )
+# - init from SINGLE pretrained
+# - PROFILE run on server
+# - FIX SNAPSHOT --> now: snapshot saves paths to parents in infos
+#                    next generation: parents are deleted
+#                    until next snapshot: infos still points to non existing files!
+#   --> fix by using generic names for parents/elite? {i}_parent.pt
+#       easy fix and works but technically not correct (stats in infos about other generation than
+#       param files)
+#   --> save snapshot of parents to other loc, eg snapshot/ dir in log_dir
+#       --> adjust snapshot code to make copies of files AND to save paths to these files
+#           instead of files in models/parents/ !!!
 # - num elites instead of 1 elite!
 # - look at (i, parent) --> index we always keep --> NECESSARY??
+# - MSCocoExperiment class from experiment.py to captioning module
 # - add code to worker that checks if already too many files in dir and breaks if so!
 # - add some copy.deepcopy() !!
 # - options for capt models --> find nicer way! spaghetti with setup now

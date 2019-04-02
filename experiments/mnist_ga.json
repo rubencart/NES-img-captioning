@@ -1,21 +1,21 @@
 {
-  "parents_dir": "parents",
-  "offspring_dir": "offspring",
-  "elite_dir": "elite",
-  "best_dir": "best",
+  "_parents_dir": "parents",
+  "_offspring_dir": "offspring",
+  "_elite_dir": "elite",
+  "_best_dir": "best",
 
   "mode":  "nets",
   "config": {
     "eval_prob": 0.05,
     "noise_stdev": 0.01,
     "snapshot_freq": 5,
-    "batch_size": 64,
-    "patience": 3,
-    "stdev_decr_divisor": 1.0
+    "batch_size": 128,
+    "patience": 20,
+    "stdev_decr_divisor": 1.2
   },
   "dataset": "mnist",
   "net": "mnist",
-  "population_size": 50,
+  "population_size": 200,
   "truncation": 20,
   "num_elites": 1,
   "__from_population": "logs/es_mnist_mnist_nets_68777/z_info_e1_i18-938.json",
@@ -24,6 +24,6 @@
     "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
     "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
   },
-  "_from_single": "logs/sgd_mnist_21563/params_acc52.pth",
+  "_from_single": "logs/sgd_mnist_44168/params_acc63.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
 }
