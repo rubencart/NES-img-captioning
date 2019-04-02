@@ -76,9 +76,16 @@ class Iteration(object):
 
     def init_from_single(self, param_file_name, truncation, policy):
         # todo! check if still works
-        self._parents = [(i, policy.generate_model(from_param_file=param_file_name))
-                         for i in range(truncation)]
-        self._elite = policy.generate_model(from_param_file=param_file_name)
+        self._parents = [
+            (i, policy
+                .generate_model(from_param_file=param_file_name)
+                .serialize(path=self._new_parent_path.format(i=i))
+             )
+            for i in range(truncation)
+        ]
+        self._elite = policy \
+            .generate_model(from_param_file=param_file_name) \
+            .serialize(path=self._new_elite_path)
 
     def to_dict(self):
         return {

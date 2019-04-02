@@ -115,6 +115,9 @@ def remove_file_if_exists(path):
 
 
 def get_platform():
+    """
+    From https://www.webucator.com/how-to/how-check-the-operating-system-with-python.cfm
+    """
     platforms = {
         'linux1': 'Linux',
         'linux2': 'Linux',

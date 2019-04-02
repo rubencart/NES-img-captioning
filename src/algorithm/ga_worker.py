@@ -102,7 +102,8 @@ class GAWorker(object):
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    logging.error(e)
+                    # logging.error(e)
+                    pass
 
                 except Exception as e:
                     raise Exception
@@ -150,7 +151,8 @@ class GAWorker(object):
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    logging.error(e)
+                    # logging.error(e)
+                    pass
 
                 except Exception as e:
                     raise Exception
