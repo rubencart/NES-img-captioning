@@ -35,9 +35,10 @@ class Iteration(object):
         self._patience = config.patience
 
         self._log_dir = exp['log_dir']
-        self._parents_dir = os.path.join(self._log_dir, exp['parents_dir'])
-        self._elite_dir = os.path.join(self._log_dir, exp['elite_dir'])
-        self._offspring_dir = os.path.join(self._log_dir, exp['offspring_dir'])
+        _models_dir = os.path.join(self._log_dir, 'models')
+        self._parents_dir = os.path.join(_models_dir, 'parents')
+        self._elite_dir = os.path.join(_models_dir, 'elite')
+        self._offspring_dir = os.path.join(_models_dir, 'offspring')
         # mkdir_p(self._parents_dir)
         self._new_elite_path = os.path.join(self._elite_dir, '0_elite_params.pth')
         self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
@@ -45,7 +46,7 @@ class Iteration(object):
         # MODELS
         self._parents = []
         self._elite = None
-        self._podium = Podium(config.patience, os.path.join(self._log_dir, exp['best_dir']))
+        self._podium = Podium(config.patience, os.path.join(_models_dir, 'best'))
 
     def init_from_infos(self, infos: dict):
 

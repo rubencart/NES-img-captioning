@@ -40,7 +40,7 @@ class GAWorker(object):
         worker_id = rs.randint(2 ** 31)
         # todo worker_id random int???? what if two get the same?
 
-        offspring_dir = os.path.join(exp['log_dir'], exp['offspring_dir'])
+        offspring_dir = os.path.join(exp['log_dir'], 'models', 'offspring')
         mkdir_p(offspring_dir)
         offspring_path = os.path.join(offspring_dir, '{w}_{i}_offspring_params.pth')
 

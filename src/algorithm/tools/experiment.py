@@ -35,9 +35,10 @@ class Experiment(ABC):
         mkdir_p(self._log_dir)
         exp.update({'log_dir': self._log_dir})
 
-        self._parents_dir = os.path.join(self._log_dir, exp['parents_dir'])
-        self._offspring_dir = os.path.join(self._log_dir, exp['offspring_dir'])
-        self._elite_dir = os.path.join(self._log_dir, exp['elite_dir'])
+        _models_dir = os.path.join(self._log_dir, 'models')
+        self._parents_dir = os.path.join(_models_dir, 'parents')
+        self._offspring_dir = os.path.join(_models_dir, 'parents')
+        self._elite_dir = os.path.join(_models_dir, 'elite')
 
         mkdir_p(self._parents_dir)
         mkdir_p(self._offspring_dir)
