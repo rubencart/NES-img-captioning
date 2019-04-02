@@ -55,9 +55,9 @@ class GAWorker(object):
             mem_usages = []
 
             # deadlocks!!!! if elite hasn't been evaluated when nb files > 2 pop
-            # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
-            #     time.sleep(1)
-            #     break
+            if len(os.listdir(offspring_dir)) > 2 * exp['population_size']:
+                time.sleep(10)
+                break
 
             # logging.info('Getting task')
             task_id, task_data = worker.get_current_task()

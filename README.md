@@ -78,3 +78,9 @@ from pstats import SortKey
 w = pstats.Stats('profile_worker.txt')
 w.sort_stats(SortKey.TIME).print_stats(10)
 ```
+
+#### Useful commands
+
+`ls dir/ | wc -l` : number of files in dir
+`du -h` : disk usage of dir and subdirs
+

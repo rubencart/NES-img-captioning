@@ -2,6 +2,7 @@ import copy
 import gc
 import logging
 import os
+import time
 
 import psutil
 
@@ -16,7 +17,7 @@ from algorithm.policies import Policy
 from algorithm.tools.setup import setup_master, Config
 from algorithm.tools.snapshot import save_snapshot
 from algorithm.tools.statistics import Statistics
-from algorithm.tools.utils import GATask, Result
+from algorithm.tools.utils import GATask, Result, remove_all_files_from_dir, IterationFailedException
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ logger = logging.getLogger(__name__)
 # - label axes (name + units) in plots!!!!
 # - get rid of tlogger (just use logger but also dump to file like tlogger)
 # - assertions, param checks,...
+
 
 class GAMaster(object):
 
@@ -89,123 +91,134 @@ class GAMaster(object):
 
                 # todo max generations
                 for _, batch_data in enumerate(experiment.trainloader, 0):
-                    gc.collect()
-                    it.incr_iteration()
-                    stats.set_step_tstart()
+                    try:
+                        gc.collect()
+                        it.incr_iteration()
+                        stats.set_step_tstart()
 
-                    # logging.info('declaring task')
-                    curr_task_id = master.declare_task(GATask(
-                        elite=it.elite(),
-                        val_data=next(iter(experiment.valloader)),
-                        parents=it.parents(),
-                        # todo batch & val data to disk as well
-                        batch_data=batch_data,
-                        noise_stdev=it.get_noise_stdev(),
-                        # log_dir=experiment.log_dir()
-                    ))
-                    # logging.info('declared task')
+                        # logging.info('declaring task')
+                        curr_task_id = master.declare_task(GATask(
+                            elite=it.elite(),
+                            val_data=next(iter(experiment.valloader)),
+                            parents=it.parents(),
+                            # todo batch & val data to disk as well
+                            batch_data=batch_data,
+                            noise_stdev=it.get_noise_stdev(),
+                            # log_dir=experiment.log_dir()
+                        ))
+                        # logging.info('declared task')
 
-                    tlogger.log('********** Iteration {} **********'.format(it.iteration()))
-                    logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
+                        tlogger.log('********** Iteration {} **********'.format(it.iteration()))
+                        logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
 
-                    it.reset_task_results()
-                    it.reset_eval_returns()
-                    it.reset_worker_ids()
+                        it.reset_task_results()
+                        it.reset_eval_returns()
+                        it.reset_worker_ids()
 
-                    it.set_nb_models_to_evaluate(experiment.population_size())
-                    it.set_waiting_for_eval_run(False)
-                    it.set_waiting_for_elite_eval(False)
-                    it.set_elite_evaluated(False)
-                    stats.reset_it_mem_usages()
+                        it.set_nb_models_to_evaluate(experiment.population_size())
+                        it.set_waiting_for_eval_run(False)
+                        it.set_waiting_for_elite_eval(False)
+                        it.set_elite_evaluated(False)
+                        stats.reset_it_mem_usages()
 
-                    # logging.info('going into while true loop')
-                    while it.models_left_to_evaluate() or not it.elite_evaluated() or not it.eval_ran():
-                        # if it.models_left_to_evaluate():
-                        #     logging.info('models left')
-                        # if not it.elite_evaluated():
-                        #     logging.info('elite not evaluated')
-                        # if it.eval_ran():
-                        #     logging.info('no eval runs')
+                        # logging.info('going into while true loop')
+                        while it.models_left_to_evaluate() or not it.elite_evaluated() or not it.eval_ran():
+                            # if it.models_left_to_evaluate():
+                            #     logging.info('models left')
+                            # if not it.elite_evaluated():
+                            #     logging.info('elite not evaluated')
+                            # if it.eval_ran():
+                            #     logging.info('no eval runs')
 
-                        # this is just for logging
-                        it.warn_elite_evaluated()
-                        it.warn_eval_run()
+                            # this is just for logging
+                            it.warn_elite_evaluated()
+                            it.warn_eval_run()
 
-                        # wait for a result
-                        task_id, result = master.pop_result()
-                        assert isinstance(task_id, int) and isinstance(result, Result)
+                            if len(os.listdir(experiment.offspring_dir())) > 2 * experiment.population_size():
+                                time.sleep(2)
+                                try:
+                                    remove_all_files_from_dir(experiment.offspring_dir())
+                                finally:
+                                    raise IterationFailedException()
 
-                        # https://psutil.readthedocs.io/en/latest/#memory
-                        master_mem_usage = psutil.Process(os.getpid()).memory_info().rss
-                        stats.record_it_master_mem_usage(master_mem_usage)
-                        stats.record_it_worker_mem_usage(result.worker_id, result.mem_usage)
+                            # wait for a result
+                            task_id, result = master.pop_result()
+                            assert isinstance(task_id, int) and isinstance(result, Result)
 
-                        it.record_worker_id(result.worker_id)
+                            # https://psutil.readthedocs.io/en/latest/#memory
+                            master_mem_usage = psutil.Process(os.getpid()).memory_info().rss
+                            stats.record_it_master_mem_usage(master_mem_usage)
+                            stats.record_it_worker_mem_usage(result.worker_id, result.mem_usage)
 
-                        if result.eval_return is not None:
-                            # this was an eval job, store the result only for current tasks
-                            if task_id == curr_task_id and not it.eval_ran():
-                                it.record_eval_return(result.eval_return)
-                                it.set_waiting_for_eval_run(False)
+                            it.record_worker_id(result.worker_id)
 
-                            # elif task_id != curr_task_id:
-                            #     logging.info('ER, NOT EQ: task id {} - curr {}'.format(task_id, curr_task_id))
+                            if result.eval_return is not None:
+                                # this was an eval job, store the result only for current tasks
+                                if task_id == curr_task_id and not it.eval_ran():
+                                    it.record_eval_return(result.eval_return)
+                                    it.set_waiting_for_eval_run(False)
 
-                        elif result.evaluated_model_id is not None:
-                            # assert result.returns_n2.dtype == np.float32
-                            assert result.fitness.dtype == np.float32
+                                # elif task_id != curr_task_id:
+                                #     logging.info('ER, NOT EQ: task id {} - curr {}'.format(task_id, curr_task_id))
 
-                            # store results only for current tasks
-                            if task_id == curr_task_id:
+                            elif result.evaluated_model_id is not None:
+                                # assert result.returns_n2.dtype == np.float32
+                                assert result.fitness.dtype == np.float32
 
-                                it.decr_nb_models_to_evaluate()
-                                it.record_task_result(result)
+                                # store results only for current tasks
+                                if task_id == curr_task_id:
 
-                                if result.evaluated_model_id == 0:
-                                    it.set_elite_evaluated(True)
-                                    it.set_waiting_for_elite_eval(False)
+                                    it.decr_nb_models_to_evaluate()
+                                    it.record_task_result(result)
 
-                            # else:
-                            #     logging.info('EV, NOT EQ: task id {} - curr {}'.format(task_id, curr_task_id))
+                                    if result.evaluated_model_id == 0:
+                                        it.set_elite_evaluated(True)
+                                        it.set_waiting_for_elite_eval(False)
 
-                    # logging.info('Out of while true loop')
+                                # else:
+                                #     logging.info('EV, NOT EQ: task id {} - curr {}'.format(task_id, curr_task_id))
 
-                    elite_acc = it.max_eval_return()
-                    it.record_elite(elite_acc)
+                        # logging.info('Out of while true loop')
 
-                    parents, scores = self._selection(it.task_results(), experiment.truncation())
+                        elite_acc = it.max_eval_return()
+                        it.record_elite(elite_acc)
 
-                    elite = parents[0][1]
-                    policy.set_model(elite)
-                    it.set_elite(elite)
+                        parents, scores = self._selection(it.task_results(), experiment.truncation())
 
-                    # elite twice in parents: once to have an unmodified copy in next gen,
-                    # once for possible offspring
-                    parents.append((len(parents), copy.copy(elite)))
+                        elite = parents[0][1]
+                        policy.set_model(elite)
+                        it.set_elite(elite)
 
-                    reset_parents = it.record_parents(parents, scores.max())
-                    if reset_parents:
-                        parents = reset_parents
-                        experiment.increase_loader_batch_size(it.batch_size())
+                        # elite twice in parents: once to have an unmodified copy in next gen,
+                        # once for possible offspring
+                        parents.append((len(parents), copy.copy(elite)))
 
-                    stats.record_score_stats(scores)
-                    stats.record_bs_stats(it.batch_size())
-                    stats.record_step_time_stats()
-                    stats.record_norm_stats(policy.parameter_vector())
-                    stats.record_acc_stats(elite_acc)
-                    stats.record_std_stats(it.noise_stdev())
-                    stats.update_mem_stats()
+                        reset_parents = it.record_parents(parents, scores.max())
+                        if reset_parents:
+                            parents = reset_parents
+                            experiment.increase_loader_batch_size(it.batch_size())
 
-                    stats.log_stats(tlogger)
-                    it.log_stats(tlogger)
-                    tlogger.dump_tabular()
+                        stats.record_score_stats(scores)
+                        stats.record_bs_stats(it.batch_size())
+                        stats.record_step_time_stats()
+                        stats.record_norm_stats(policy.parameter_vector())
+                        stats.record_acc_stats(elite_acc)
+                        stats.record_std_stats(it.noise_stdev())
+                        stats.update_mem_stats()
 
-                    # logging.info('saving snap')
-                    if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:
-                        save_snapshot(stats, it, experiment, policy)
-                        if plot:
-                            stats.plot_stats(experiment.log_dir())
-                    # logging.info('saved snap')
+                        stats.log_stats(tlogger)
+                        it.log_stats(tlogger)
+                        tlogger.dump_tabular()
+
+                        # logging.info('saving snap')
+                        if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:
+                            save_snapshot(stats, it, experiment, policy)
+                            if plot:
+                                stats.plot_stats(experiment.log_dir())
+                        # logging.info('saved snap')
+
+                    except IterationFailedException:
+                        pass
 
         except KeyboardInterrupt:
             save_snapshot(stats, it, experiment, policy)

@@ -24,6 +24,10 @@ config_fields = [
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 
 
+class IterationFailedException(Exception):
+    pass
+
+
 def mkdir_p(path):
     try:
         os.makedirs(path)
