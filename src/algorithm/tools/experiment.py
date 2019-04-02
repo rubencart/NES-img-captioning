@@ -158,6 +158,7 @@ class MSCocoExperiment(Experiment):
         # TODO MSCOCO as torchvision.dataset?????
 
         from captioning.dataloader import DataLoader
+        # TODO INCREASE BATCH SIZE
         loader = DataLoader(opt=self.opt, config=config)
 
         trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')

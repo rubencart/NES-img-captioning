@@ -1,18 +1,20 @@
 {
   "mode":  "nets",
   "config": {
-    "eval_prob": 0.02,
+    "eval_prob": 0.05,
     "noise_stdev": 0.01,
     "snapshot_freq": 5,
     "batch_size": 64,
-    "patience": 20,
+    "patience": 3,
     "stdev_decr_divisor": 1.0
   },
   "dataset": "mnist",
   "net": "mnist",
-  "population_size": 100,
-  "truncation": 30,
+  "population_size": 50,
+  "truncation": 20,
   "num_elites": 1,
+  "__from_population": "logs/es_mnist_mnist_nets_68777/z_info_e1_i18-938.json",
+
   "_from_population": {
     "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
     "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"

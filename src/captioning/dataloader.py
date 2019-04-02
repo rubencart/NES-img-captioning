@@ -35,11 +35,15 @@ class DataLoader(data.Dataset):
     def get_seq_length(self):
         return self.seq_length
 
-    def __init__(self, opt, config):
+    def __init__(self, opt, config, batch_size=None):
         self.opt = opt
         self.config = config
-        self.batch_size = self.config.batch_size
         self.seq_per_img = opt.seq_per_img
+
+        if batch_size:
+            self.batch_size = batch_size
+        else:
+            self.batch_size = self.config.batch_size
 
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)

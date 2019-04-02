@@ -1,9 +1,8 @@
 import json
 
-import torch
 
 from algorithm.tools.experiment import ExperimentFactory
-from algorithm.tools.iteration import Iteration, Checkpoint
+from algorithm.tools.iteration import Iteration
 from algorithm.policies import SuppDataset, PolicyFactory, Net
 from algorithm.tools.statistics import Statistics
 from algorithm.tools.utils import Config
@@ -32,14 +31,12 @@ def setup_master(exp):
     iteration = Iteration(config, exp)
 
     if 'from_population' in exp and exp['from_population'] is not None:
-        # todo
-        with open(exp['from_population']['infos']) as f:
+
+        with open(exp['from_population']) as f:
             infos = json.load(f)
 
-        models_checkpt = Checkpoint(**torch.load(exp['from_population']['models']))
-
         statistics.init_from_infos(infos)
-        iteration.init_from_infos(infos, models_checkpt, policy)
+        iteration.init_from_infos(infos)
 
     elif 'from_single' in exp and exp['from_single'] is not None:
         # todo

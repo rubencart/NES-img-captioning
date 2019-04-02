@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -7,11 +8,9 @@ from collections import namedtuple
 from algorithm.nets import SerializableModel
 from algorithm.tools.podium import Podium
 from algorithm.policies import Policy
-from algorithm.tools.utils import mkdir_p
+from algorithm.tools.utils import mkdir_p, copy_file_from_to
 
 logger = logging.getLogger(__name__)
-
-Checkpoint = namedtuple('Checkpoint', ['elite', 'best_elite', 'parents', 'best_parents'])
 
 
 class Iteration(object):
@@ -43,17 +42,15 @@ class Iteration(object):
         self._log_dir = exp['log_dir']
         self._parents_dir = os.path.join(self._log_dir, 'tmp')
         mkdir_p(self._parents_dir)
-        self._elite_path = os.path.join(self._parents_dir, 'elite_params.pth')
-        # self._parent_path = os.path.join(_parents_dir, 'i{i}_parent_params.pth')
+        self._new_elite_path = os.path.join(self._parents_dir, '0_elite_params.pth')
+        self._new_parent_path = os.path.join(self._parents_dir, '0_i{i}_parent_params.pth')
 
         # MODELS
-        # [(int, ABCModel),]
         self._parents = []
         self._elite = None
-        self._podium = Podium(config.patience, self._parents_dir)
+        self._podium = Podium(config.patience, self._log_dir)
 
-    def init_from_infos(self, infos: dict, models_checkpt: Checkpoint, policy: Policy):
-        # self.__init__(config)
+    def init_from_infos(self, infos: dict):
 
         self._epoch = infos['epoch'] - 1 if 'epoch' in infos else self._epoch
         self._iteration = infos['iter'] - 1 if 'iter' in infos else self._iteration
@@ -61,11 +58,14 @@ class Iteration(object):
         self._noise_stdev = infos['noise_stdev'] if 'noise_stdev' in infos else self._noise_stdev
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
 
-        # todo! check if still works
-        self._elite = policy.from_serialized(models_checkpt.elite)
-        self._parents = [(i, policy.from_serialized(parent)) for i, parent in models_checkpt.parents]
+        copy_file_from_to(infos['elite'], self._new_elite_path)
+        self._elite = self._new_elite_path
 
-        self._podium.init_from_checkpt(models_checkpt, policy)
+        for (i, parent_path) in infos['parents']:
+            copy_file_from_to(parent_path, self._new_parent_path.format(i=i))
+        self._parents = [(i, self._new_parent_path.format(i=i)) for i, _ in enumerate(infos['parents'])]
+
+        self._podium.init_from_infos(infos)
 
     def init_parents(self, truncation, policy):
         # important that this stays None:
@@ -75,7 +75,7 @@ class Iteration(object):
         #       TRUNC random parents == less random!
         self._parents = [(model_id, None) for model_id in range(truncation)]
         # self._elite = policy.generate_model()
-        self._elite = policy.generate_model().serialize(path=self._elite_path)
+        self._elite = policy.generate_model().serialize(path=self._new_elite_path)
 
     def init_from_single(self, param_file_name, truncation, policy):
         # todo! check if still works
@@ -93,6 +93,13 @@ class Iteration(object):
 
             # TODO when saving a snapshot maybe we do want the param files and
             # not just the path to them...
+            # 'models': {
+            #     'parents': self._parents,
+            #     'elite': self._elite,
+            #
+            #     'best_elite': self.best_elite(),
+            #     'best_parents': self.best_parents(),
+            # },
             'parents': self._parents,
             'elite': self._elite,
 
@@ -110,9 +117,8 @@ class Iteration(object):
     #     }
     #     return to_save
 
-    def serialized_best_parents(self):
-        # TODO!
-        return self._podium.serialized(self._log_dir)
+    # def serialized_best_parents(self):
+    #     return self._podium.serialized(self._log_dir)
 
     # def parents_for_redis(self):
     #     result = []
@@ -162,6 +168,7 @@ class Iteration(object):
 
     def record_elite(self, elite, acc):
         self._podium.record_elite(elite, acc)
+        self._elite = elite
 
     def record_parents(self, parents, score):
         if not self._podium.record_parents(parents, score):
@@ -176,16 +183,29 @@ class Iteration(object):
                 self._batch_size *= 2
 
                 self._bad_generations = 0
-                return self._podium.best_parents()  # best_parents_so_far[1]
+
+                _, prev_best_parents = self._podium.best_parents()
+                new_parents = []
+                for i, (_, prev_best_parent_path) in enumerate(prev_best_parents):
+                    new_parent = self._new_parent_path.format(i=i)
+
+                    copy_file_from_to(prev_best_parent_path, new_parent)
+
+                    new_parents.append((i, new_parent))
+
+                self._parents = copy.deepcopy(new_parents)
+                return new_parents
         else:
             self._bad_generations = 0
-            return None
 
-    def set_elite(self, elite):
-        self._elite = elite
+        self._parents = copy.deepcopy(parents)
+        return None
 
-    def set_parents(self, parents):
-        self._parents = parents
+    # def set_elite(self, elite):
+    #     self._elite = elite
+    #
+    # def set_parents(self, parents):
+    #     self._parents = parents
 
     def warn_elite_evaluated(self):
         if not self.models_left_to_evaluate() and not self.elite_evaluated():

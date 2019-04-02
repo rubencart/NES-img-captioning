@@ -1,3 +1,5 @@
+import logging
+
 import torch
 from abc import ABC
 
@@ -31,16 +33,24 @@ class ClfPolicy(Policy, ABC):
         assert self.policy_net is not None, 'Set model first!'
         assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
 
+        logging.info('assertions done')
         torch.set_grad_enabled(False)
         self.policy_net.eval()
+        logging.info('grad false, eval')
 
         inputs, labels = data
+        logging.info('unpacked data: {}, {}'.format(inputs, labels))
+        logging.info('unpacked data: {}, {}'.format(len(inputs), len(labels)))
+        logging.info('doing FW')
         outputs = self.policy_net(inputs)
+        logging.info('FW done: {}'.format(outputs))
 
         prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        logging.info('Prediction: {}'.format(prediction))
         correct = prediction.eq(labels.view_as(prediction)).sum().item()
         accuracy = float(correct) / labels.size()[0]
 
+        logging.info('Accuracy: {}'.format(prediction))
         del inputs, labels, outputs, prediction, correct
         return accuracy
 

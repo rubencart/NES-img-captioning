@@ -1,6 +1,7 @@
 
 import errno
 import os
+import shutil
 from collections import namedtuple
 
 import numpy as np
@@ -76,3 +77,29 @@ def random_state():
     rs = np.random.RandomState()
     return rs.randint(0, 2 ** 31 - 1)
 
+
+def copy_file_from_to(path_to_old, path_to_new):
+    shutil.copy(src=path_to_old, dst=path_to_new)
+
+
+def remove_all_files_but(from_dir, but_list):
+    for file in os.listdir(from_dir):
+        path = os.path.join(from_dir, file)
+
+        if os.path.isfile(path) and path not in but_list:
+            os.remove(path)
+
+
+def remove_files(from_dir, rm_list):
+    for file in os.listdir(from_dir):
+        path = os.path.join(from_dir, file)
+
+        if os.path.isfile(path) and path in rm_list:
+            os.remove(path)
+
+
+def remove_file_if_exists(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass

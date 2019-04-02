@@ -12,7 +12,7 @@ import torch
 from dist import WorkerClient
 from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
-from algorithm.tools.utils import GATask, Result
+from algorithm.tools.utils import GATask, Result, mkdir_p
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +40,13 @@ class GAWorker(object):
         worker_id = rs.randint(2 ** 31)
         # todo worker_id random int???? what if two get the same?
 
-        offspring_dir = os.path.join(exp['log_dir'], 'tmp', '{w}_{i}_offspring_params.pth')
+        offspring_dir = os.path.join(exp['log_dir'], 'offspring')
+        mkdir_p(offspring_dir)
+        offspring_path = os.path.join(offspring_dir, '{w}_{i}_offspring_params.pth')
 
         it_id = 0
 
+        logging.info('going into while true loop')
         while True:
 
             it_id += 1
@@ -51,9 +54,16 @@ class GAWorker(object):
             time.sleep(0.01)
             mem_usages = []
 
+            # deadlocks!!!! if elite hasn't been evaluated when nb files > 2 pop
+            # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
+            #     time.sleep(1)
+            #     break
+
+            logging.info('Getting task')
             task_id, task_data = worker.get_current_task()
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
+            logging.info('Got task')
 
             # parent_paths = task_data.parents
             # elite_path = task_data.elite
@@ -63,29 +73,43 @@ class GAWorker(object):
             #     policy = task_data.policy
 
             if rs.rand() < config.eval_prob:
+                logging.info('EVAL RUN')
                 try:
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+                    logging.info('Elite: %s', task_data.elite)
                     policy.set_model(task_data.elite)
+                    logging.info('Elite set in policy')
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
+                    logging.info('Calculating acc')
                     accuracy = policy.accuracy_on(data=task_data.val_data)
+                    logging.info('Accuracy: %d', round(accuracy, 2))
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
+                    logging.info('EVAL pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
                         eval_return=accuracy,
                         mem_usage=max(mem_usages)
                     ))
-                except FileNotFoundError:
-                    pass
+                except FileNotFoundError as e:
+                    logging.error(e)
+
+                except Exception as e:
+                    raise Exception
 
                 # del model
             else:
+                logging.info('EVOLVE RUN')
                 try:
                     # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
 
                     index = rs.randint(len(task_data.parents))
+                    # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
+                    #   time.sleep(1)
+                    #   break
+                    #   index = 0
                     parent_id, parent = task_data.parents[index]
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
@@ -107,19 +131,24 @@ class GAWorker(object):
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
+                    logging.info('EVOLVE pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
                         evaluated_model_id=parent_id,
                         # evaluated_model=policy.get_model(),
-                        evaluated_model=policy.serialized(path=offspring_dir.format(w=worker_id,
-                                                                                    i=it_id)),
+                        evaluated_model=policy.serialized(path=offspring_path.format(w=worker_id,
+                                                                                     i=it_id)),
                         fitness=np.array([fitness], dtype=np.float32),
                         mem_usage=max(mem_usages)
                     ))
-                except FileNotFoundError:
-                    pass
+                except FileNotFoundError as e:
+                    logging.error(e)
+
+                except Exception as e:
+                    raise Exception
 
                 # del model
 
             # del task_data
             gc.collect()
+            logging.info('going out of while true loop')

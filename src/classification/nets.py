@@ -1,3 +1,4 @@
+import logging
 
 from torch import nn
 import torch.nn.functional as F
@@ -125,18 +126,27 @@ class MnistNet(PolicyNet):
         # self.fc1 = nn.Linear(4*4*40, 100)
         self.conv1 = nn.Conv2d(1, 10, 5, 1)
         self.conv2 = nn.Conv2d(10, 20, 5, 1)
-        self.fc1 = nn.Linear(4*4*20, 80)
-        self.fc2 = nn.Linear(80, 10)
+        self.fc1 = nn.Linear(4*4*20, 10)
+        # self.fc2 = nn.Linear(80, 10)
 
         self._initialize_params()
 
     def forward(self, x):
+        logging.info('[FW] IN FW')
+
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, 2, 2)
         x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, 2, 2)
         x = x.view(-1, 4*4*20)
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        logging.info('[FW] BEGINNING FIRST FC')
+        logging.info('[FW] FC: {}'.format(self.fc1))
+        logging.info('[FW] FC: {}'.format(self.fc1(x)))
+        x = self.fc1(x)
+        # x = F.relu(self.fc1(x))
+        # logging.info('[FW] BEGINNING SECOND FC')
+        # x = self.fc2(x)
+
+        logging.info('[FW] OUT OF FW')
         return x
 

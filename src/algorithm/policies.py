@@ -207,16 +207,16 @@ class SeedsPolicy(Policy, ABC):
 class PolicyFactory:
     @staticmethod
     def create(dataset: SuppDataset, mode, net: Net, exp):
-        from classification.policies import SeedsClfPolicy, NetsClfPolicy
-        from captioning.policies import NetsGenPolicy, SeedsGenPolicy
 
         if dataset == SuppDataset.MNIST or dataset == SuppDataset.CIFAR10:
+            from classification.policies import SeedsClfPolicy, NetsClfPolicy
             if mode == 'seeds':
                 return SeedsClfPolicy(dataset, net)
             else:
                 return NetsClfPolicy(dataset, net)
 
         elif dataset == SuppDataset.MSCOCO:
+            from captioning.policies import NetsGenPolicy, SeedsGenPolicy
             if mode == 'seeds':
                 return SeedsGenPolicy(dataset, net, exp['caption_model_options'])
             else:

@@ -17,7 +17,7 @@ from algorithm.policies import Policy
 from algorithm.tools.setup import setup_master, Config
 from algorithm.tools.snapshot import save_snapshot
 from algorithm.tools.statistics import Statistics
-from algorithm.tools.utils import GATask, Result
+from algorithm.tools.utils import GATask, Result, remove_all_files_but
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,9 @@ logger = logging.getLogger(__name__)
 # x implement test on val set!
 # x keep overall best elite ( a la early stopping )
 #
+# - look at (i, parent) --> index we always keep --> NECESSARY??
+# - add code to worker that checks if already too many files in dir and breaks if so!
+# - add some copy.deepcopy() !!
 # - options for capt models --> find nicer way! spaghetti with setup now
 # - lstm/gru/...?
 # - label axes (name + units) in plots!!!!
@@ -87,21 +90,9 @@ class GAMaster(object):
                 for _, batch_data in enumerate(experiment.trainloader, 0):
                     gc.collect()
                     it.incr_iteration()
-
                     stats.set_step_tstart()
 
-                    # print('***************************************')
-                    # print(sys.getsizeof(it.parents()))
-                    # print(sys.getsizeof(GATask(
-                    #     # policy=policy,
-                    #     elite=it.elite(),
-                    #     val_data=next(iter(experiment.valloader)),
-                    #     parents=it.parents(),
-                    #     batch_data=batch_data,
-                    #     noise_stdev=it.get_noise_stdev(),
-                    # )))
-                    # print('***************************************')
-
+                    logging.info('declaring task')
                     curr_task_id = master.declare_task(GATask(
                         elite=it.elite(),
                         val_data=next(iter(experiment.valloader)),
@@ -111,6 +102,7 @@ class GAMaster(object):
                         noise_stdev=it.get_noise_stdev(),
                         # log_dir=experiment.log_dir()
                     ))
+                    logging.info('declared task')
 
                     tlogger.log('********** Iteration {} **********'.format(it.iteration()))
                     logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
@@ -125,7 +117,14 @@ class GAMaster(object):
                     it.set_elite_evaluated(False)
                     stats.reset_it_mem_usages()
 
+                    logging.info('going into while true loop')
                     while it.models_left_to_evaluate() or not it.elite_evaluated() or not it.eval_ran():
+                        # if it.models_left_to_evaluate():
+                        #     logging.info('models left')
+                        # if not it.elite_evaluated():
+                        #     logging.info('elite not evaluated')
+                        # if it.eval_ran():
+                        #     logging.info('no eval runs')
 
                         # this is just for logging
                         it.warn_elite_evaluated()
@@ -148,6 +147,9 @@ class GAMaster(object):
                                 it.record_eval_return(result.eval_return)
                                 it.set_waiting_for_eval_run(False)
 
+                            elif task_id != curr_task_id:
+                                logging.info('ER, NOT EQ: task id {} - curr {}'.format(task_id, curr_task_id))
+
                         elif result.evaluated_model_id is not None:
                             # assert result.returns_n2.dtype == np.float32
                             assert result.fitness.dtype == np.float32
@@ -162,6 +164,11 @@ class GAMaster(object):
                                     it.set_elite_evaluated(True)
                                     it.set_waiting_for_elite_eval(False)
 
+                            else:
+                                logging.info('EV, NOT EQ: task id {} - curr {}'.format(task_id, curr_task_id))
+
+                    logging.info('Out of while true loop')
+
                     # todo iteration or experiment or...?
                     parents, scores = self._selection(it.task_results(), experiment.truncation())
                     elite = parents[0][1]
@@ -170,21 +177,25 @@ class GAMaster(object):
                     # once for possible offspring
                     parents.append((len(parents), copy.deepcopy(elite)))
 
-                    policy.set_model(elite)
-                    it.set_parents(parents)
-                    it.set_elite(elite)
-
                     reset_parents = it.record_parents(parents, scores.max())
                     if reset_parents:
                         parents = reset_parents
+                        # elite is always 1 behind so doing this means skipping one :'(
+                        elite = parents[0][1]
+                        parents.append((len(parents), copy.deepcopy(elite)))
+
                         experiment.increase_loader_batch_size(it.batch_size())
+
+                    policy.set_model(elite)
+                    # it.set_parents(parents)
+                    # it.set_elite(elite)
 
                     elite_acc = it.max_eval_return()
                     it.record_elite(elite, elite_acc)
 
-                    # input('...')
-                    self._remove_truncated(parents, it.parents_dir(), experiment)
-                    # input('...')
+                    logging.info('Removing truncated')
+                    self._remove_truncated(parents, elite, it.parents_dir(), experiment)
+                    logging.info('Removed truncated')
 
                     stats.record_score_stats(scores)
                     stats.record_bs_stats(it.batch_size())
@@ -198,10 +209,12 @@ class GAMaster(object):
                     it.log_stats(tlogger)
                     tlogger.dump_tabular()
 
+                    logging.info('saving snap')
                     if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:
                         save_snapshot(stats, it, experiment, policy)
                         if plot:
                             stats.plot_stats(experiment.log_dir())
+                    logging.info('saved snap')
 
         except KeyboardInterrupt:
             save_snapshot(stats, it, experiment, policy)
@@ -228,15 +241,9 @@ class GAMaster(object):
         logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))
         return parents, scores  # , rest
 
-    def _remove_truncated(self, parents, directory, exp):
+    def _remove_truncated(self, parents, elite, directory, exp):
         if exp.mode() == 'seeds':
             return
 
-        to_keep = [parent for _, parent in parents]
-        for file in os.listdir(directory):
-            path = os.path.join(directory, file)
-            # print(os.path.join(directory, file))
-            # print(offspring_to_remove)
-            # input('...')
-            if os.path.isfile(path) and path not in to_keep:
-                os.remove(os.path.join(directory, file))
+        to_keep = [parent for _, parent in parents] + [elite]
+        remove_all_files_but(from_dir=directory, but_list=to_keep)
