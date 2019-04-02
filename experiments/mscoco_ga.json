@@ -1,17 +1,17 @@
 {
   "mode":  "nets",
   "config": {
-    "eval_prob": 0.02,
+    "eval_prob": 0.01,
     "noise_stdev": 0.01,
     "snapshot_freq": 5,
-    "batch_size": 16,
+    "batch_size": 512,
     "patience": 20,
     "stdev_decr_divisor": 1.5
   },
   "dataset": "mscoco",
   "net": "fc_caption",
-  "population_size": 50,
-  "truncation": 10,
+  "population_size": 1000,
+  "truncation": 30,
   "num_elites": 1,
 
   "caption_options": {
