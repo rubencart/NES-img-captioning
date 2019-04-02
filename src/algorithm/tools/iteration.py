@@ -2,13 +2,8 @@ import copy
 import logging
 import os
 
-import torch
-from collections import namedtuple
-
-from algorithm.nets import SerializableModel
 from algorithm.tools.podium import Podium
-from algorithm.policies import Policy
-from algorithm.tools.utils import mkdir_p, copy_file_from_to
+from algorithm.tools.utils import copy_file_from_to, remove_all_files_from_dir
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +35,17 @@ class Iteration(object):
         self._patience = config.patience
 
         self._log_dir = exp['log_dir']
-        self._parents_dir = os.path.join(self._log_dir, 'tmp')
-        mkdir_p(self._parents_dir)
-        self._new_elite_path = os.path.join(self._parents_dir, '0_elite_params.pth')
-        self._new_parent_path = os.path.join(self._parents_dir, '0_i{i}_parent_params.pth')
+        self._parents_dir = os.path.join(self._log_dir, exp['parents_dir'])
+        self._elite_dir = os.path.join(self._log_dir, exp['elite_dir'])
+        self._offspring_dir = os.path.join(self._log_dir, exp['offspring_dir'])
+        # mkdir_p(self._parents_dir)
+        self._new_elite_path = os.path.join(self._elite_dir, '0_elite_params.pth')
+        self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
 
         # MODELS
         self._parents = []
         self._elite = None
-        self._podium = Podium(config.patience, self._log_dir)
+        self._podium = Podium(config.patience, os.path.join(self._log_dir, exp['best_dir']))
 
     def init_from_infos(self, infos: dict):
 
@@ -107,52 +104,6 @@ class Iteration(object):
             'best_parents': self.best_parents(),
         }
 
-    # def serialized_parents(self):
-    #     assert self._elite is not None
-    #     assert len(self._parents) > 0
-    #
-    #     to_save = {
-    #         'elite': self._elite.serialize(path=self._elite_path),
-    #         'parents': [(i, parent.serialize(path=self._parent_path.format(i=i))) for i, parent in self._parents]
-    #     }
-    #     return to_save
-
-    # def serialized_best_parents(self):
-    #     return self._podium.serialized(self._log_dir)
-
-    # def parents_for_redis(self):
-    #     result = []
-    #     for i, parent in self._parents:
-    #         if parent:
-    #             result.append((i, parent.serialize(path=self._parent_path.format(i=i))))
-    #         else:
-    #             result.append((i, None))
-    #     return result
-    #
-    # def elite_for_redis(self):
-    #     # elite is never None right?
-    #     return self._elite.serialize(path=self._elite_path)
-
-    # def save_parents_to_disk(self):
-    #     paths = []
-    #     for (i, parent) in self._parents:
-    #         if parent:
-    #             parent_filename = 'parents_params_i{i}.pth'
-    #             path_to_parent = os.path.join(self._log_dir, self._parents_dir, parent_filename)
-    #             torch.save(parent.serialize(), path_to_parent)
-    #             paths.append((i, path_to_parent))
-    #         else:
-    #             paths.append((i, None))
-    #
-    #     return paths
-
-    # def save_elite_to_disk(self):
-    #     elite_filename = 'elite_params_i{i}.pth'
-    #     path_to_elite = os.path.join(self._log_dir, self._parents_dir, elite_filename)
-    #
-    #     torch.save(self._elite.serialize(), path_to_elite)
-    #     return path_to_elite
-
     def log_stats(self, tlogger):
         tlogger.record_tabular('NoiseStd', self._noise_stdev)
         tlogger.record_tabular('BatchSize', self._batch_size)
@@ -166,9 +117,13 @@ class Iteration(object):
         tlogger.record_tabular('UniqueWorkers', len(self._worker_ids))
         tlogger.record_tabular('UniqueWorkersFrac', len(self._worker_ids) / len(self._task_results))
 
-    def record_elite(self, elite, acc):
-        self._podium.record_elite(elite, acc)
-        self._elite = elite
+    def record_elite(self, acc):
+        self._podium.record_elite(self.elite(), acc)
+        # self._elite = self._copy_and_clean_elite(elite)
+        # return self._elite
+
+    def set_elite(self, elite):
+        self._elite = self._copy_and_clean_elite(elite)
 
     def record_parents(self, parents, score):
         if not self._podium.record_parents(parents, score):
@@ -181,31 +136,63 @@ class Iteration(object):
 
                 self._noise_stdev /= self._stdev_decr_divisor
                 self._batch_size *= 2
-
                 self._bad_generations = 0
 
-                _, prev_best_parents = self._podium.best_parents()
-                new_parents = []
-                for i, (_, prev_best_parent_path) in enumerate(prev_best_parents):
-                    new_parent = self._new_parent_path.format(i=i)
-
-                    copy_file_from_to(prev_best_parent_path, new_parent)
-
-                    new_parents.append((i, new_parent))
-
-                self._parents = copy.deepcopy(new_parents)
-                return new_parents
+                new_parents = self._new_parents_from_best()
+                self._parents = self._copy_and_clean_parents(new_parents)
+                return self._parents
         else:
             self._bad_generations = 0
 
-        self._parents = copy.deepcopy(parents)
+        new_parents = copy.deepcopy(parents)
+        self._parents = self._copy_and_clean_parents(new_parents)
         return None
 
-    # def set_elite(self, elite):
-    #     self._elite = elite
-    #
-    # def set_parents(self, parents):
-    #     self._parents = parents
+    def _new_parents_from_best(self):
+        _, prev_best_parents = self._podium.best_parents()
+
+        # todo necessary to discard existing index?
+        new_parents = [(i, prev) for i, (_, prev) in enumerate(prev_best_parents)]
+
+        # for i, (_, prev_best_parent_path) in enumerate(prev_best_parents):
+        #     new_parent = self._new_parent_path.format(i=i)
+        #     new_parents.append((i, new_parent))
+
+        return copy.deepcopy(new_parents)
+
+    def _copy_and_clean_parents(self, parents):
+        """
+        :param parents: List<Tuple<int, str: path to offspring dir>>
+        :return: List<Tuple<int, str: path to parents in parents dir>>
+        """
+        # remove all parents previously stored in parent dir
+        remove_all_files_from_dir(self.parents_dir())
+
+        # copy new parents from offspring dir to parent dir and rename them
+        new_parents = []
+        for i, parent in parents:
+
+            _, new_parent_filename = os.path.split(parent)
+            new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
+            new_parents.append((i, new_parent_path))
+
+            copy_file_from_to(parent, new_parent_path)
+
+        # clean offspring dir
+        remove_all_files_from_dir(self.offspring_dir())
+
+        return copy.deepcopy(new_parents)
+
+    def _copy_and_clean_elite(self, elite):
+        # remove previous elite
+        remove_all_files_from_dir(self.elite_dir())
+
+        # name & copy new elite
+        _, new_elite_filename = os.path.split(elite)
+        new_elite_path = os.path.join(self.elite_dir(), new_elite_filename)
+        copy_file_from_to(elite, new_elite_path)
+
+        return new_elite_path
 
     def warn_elite_evaluated(self):
         if not self.models_left_to_evaluate() and not self.elite_evaluated():
@@ -327,3 +314,9 @@ class Iteration(object):
 
     def parents_dir(self):
         return self._parents_dir
+
+    def elite_dir(self):
+        return self._elite_dir
+
+    def offspring_dir(self):
+        return self._offspring_dir

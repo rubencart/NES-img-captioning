@@ -1,9 +1,9 @@
 
 import logging
 import os
-import shutil
 
-from algorithm.tools.utils import mkdir_p, copy_file_from_to, remove_files, remove_file_if_exists
+from algorithm.tools.utils import mkdir_p, copy_file_from_to, remove_files, remove_file_if_exists, \
+    remove_all_files_from_dir
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +18,14 @@ class Podium(object):
 
         self._patience = patience
 
-        self._best_directory = os.path.join(directory, 'best')
-        self._new_best_elite_path = os.path.join(self._best_directory, '0_elite.pth')
-        self._new_best_parent_path = os.path.join(self._best_directory, '0_{i}_parent.pth')
-        mkdir_p(self._best_directory)
+        _best_directory = directory
+        self._best_elite_dir = os.path.join(_best_directory, 'best_elite')
+        self._best_parents_dir = os.path.join(_best_directory, 'best_parents')
+        self._new_best_elite_path = os.path.join(self._best_elite_dir, '0_elite.pth')
+        self._new_best_parent_path = os.path.join(self._best_parents_dir, '0_{i}_parent.pth')
+        # mkdir_p(_best_directory)
+        mkdir_p(self._best_elite_dir)
+        mkdir_p(self._best_parents_dir)
 
     def init_from_infos(self, infos):
 
@@ -53,39 +57,31 @@ class Podium(object):
 
         _prev_acc, _prev_elite = self._best_elite
         if not _prev_elite or acc > _prev_acc:
-            if _prev_elite and self._best_parents[1] \
-                    and _prev_elite not in [p for _, p in self._best_parents[1]]:
-                remove_file_if_exists(_prev_elite)
+            if _prev_elite:
+                remove_all_files_from_dir(self._best_elite_dir)
 
-            _, new_elite_filename = os.path.split(elite)
-            new_elite_path = os.path.join(self._best_directory, new_elite_filename)
+            new_elite_path = self._new_best_elite_path
 
             self._best_elite = (acc, new_elite_path)
-            shutil.copy(src=elite,
-                        dst=new_elite_path)
+            copy_file_from_to(elite, new_elite_path)
 
     def record_parents(self, parents, score):
         best_parent_score, best_parents = self._best_parents
 
         if not best_parents or (score - 5 > best_parent_score):
             if best_parents:
-                to_remove = [p for _, p in best_parents if p != self._best_elite[1]]
-                remove_files(from_dir=self._best_directory, rm_list=to_remove)
+                remove_all_files_from_dir(self._best_parents_dir)
 
             new_best_parents = []
             for (i, parent) in parents:
 
-                # todo is this really necessary? we can also just store them under std name
-                _, new_parent_filename = os.path.split(parent)
-                new_parent_path = os.path.join(self._best_directory, new_parent_filename)
+                new_parent_path = self._new_best_parent_path.format(i=i)
                 new_best_parents.append((i, new_parent_path))
-
-                shutil.copy(src=parent,
-                            dst=new_parent_path)
+                copy_file_from_to(parent, new_parent_path)
 
             self._best_parents = (score, new_best_parents)
 
-            logger.info('GOOD GENERATION')
+            logger.info('GOOD GENERATION: {}'.format(self._best_parents[0]))
             return True
 
         elif self._patience:

@@ -22,6 +22,7 @@ class SerializableModel:
 
 class PolicyNet(nn.Module, SerializableModel, ABC):
     def __init__(self, rng_state=None, from_param_file=None, grad=False):
+        # todo from param file not really needed anymore since now serialized == from param file?
         super(PolicyNet, self).__init__()
 
         self.rng_state = rng_state

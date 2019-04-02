@@ -32,9 +32,21 @@ class Experiment(ABC):
 
         self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
                                                      self._net, self._mode, os.getpid())
+        mkdir_p(self._log_dir)
         exp.update({'log_dir': self._log_dir})
 
-        mkdir_p(self._log_dir)
+        self._parents_dir = os.path.join(self._log_dir, exp['parents_dir'])
+        self._offspring_dir = os.path.join(self._log_dir, exp['offspring_dir'])
+        self._elite_dir = os.path.join(self._log_dir, exp['elite_dir'])
+
+        mkdir_p(self._parents_dir)
+        mkdir_p(self._offspring_dir)
+        mkdir_p(self._elite_dir)
+        # exp.update({
+        #     'parents_dir': self._parents_dir,
+        #     'offspring_dir': self._offspring_dir,
+        # })
+
         with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
             json.dump(exp, f)
 
@@ -97,6 +109,15 @@ class Experiment(ABC):
     def snapshot_dir(self):
         return self._log_dir
 
+    def parents_dir(self):
+        return self._parents_dir
+
+    def offspring_dir(self):
+        return self._offspring_dir
+
+    def elite_dir(self):
+        return self._elite_dir
+
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         raise NotImplementedError
 
@@ -158,8 +179,7 @@ class MSCocoExperiment(Experiment):
         # TODO MSCOCO as torchvision.dataset?????
 
         from captioning.dataloader import DataLoader
-        # TODO INCREASE BATCH SIZE
-        loader = DataLoader(opt=self.opt, config=config)
+        loader = DataLoader(opt=self.opt, config=config, batch_size=batch_size)
 
         trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')
         valloader = MSCocoDataLdrWrapper(loader=loader, split='val')
@@ -177,7 +197,7 @@ class MSCocoDataLdrWrapper:
         return self
 
     def __next__(self):
-        # todo stopiter
+        # todo raise stopiter
         return self.loader.get_batch(self.split)
 
     def __len__(self):

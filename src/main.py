@@ -4,6 +4,8 @@ os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
+import cProfile
+
 # print('importing rest')
 import argparse
 import json
@@ -122,7 +124,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
 def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
     logging.info('Spawning {} workers'.format(num_workers))
     worker_ids = []
-    for _ in range(num_workers):
+    for _id in range(num_workers):
         new_pid = os.fork()
         if new_pid == 0:
 
@@ -134,7 +136,8 @@ def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
             ga_worker = GAWorker()
 
             # todo pass along worker id to ensure unique
-            ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)
+            cProfile.run(ga_worker.run_worker(master_redis_cfg, relay_redis_cfg),
+                         'profile_worker_{}.txt'.format(_id))
             return
         else:
             worker_ids.append(new_pid)

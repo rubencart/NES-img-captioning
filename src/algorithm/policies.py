@@ -84,10 +84,10 @@ class Policy(ABC):
         assert self.policy_net is not None, 'set model first!'
         return self.policy_net.get_nb_learnable_params()
 
-    def from_serialized(self, serialized):
-        model = self.generate_model()
-        model.from_serialized(serialized)
-        return model
+    # def from_serialized(self, serialized):
+    #     model = self.generate_model()
+    #     model.from_serialized(serialized)
+    #     return model
 
     def serialized(self, path=''):
         return self.policy_net.serialize(path=path)

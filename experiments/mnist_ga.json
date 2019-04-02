@@ -1,4 +1,9 @@
 {
+  "parents_dir": "parents",
+  "offspring_dir": "offspring",
+  "elite_dir": "elite",
+  "best_dir": "best",
+
   "mode":  "nets",
   "config": {
     "eval_prob": 0.05,

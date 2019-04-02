@@ -98,6 +98,14 @@ def remove_files(from_dir, rm_list):
             os.remove(path)
 
 
+def remove_all_files_from_dir(from_dir):
+    for file in os.listdir(from_dir):
+        path = os.path.join(from_dir, file)
+
+        if os.path.isfile(path):
+            os.remove(path)
+
+
 def remove_file_if_exists(path):
     try:
         os.remove(path)

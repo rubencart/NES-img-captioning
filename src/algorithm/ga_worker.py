@@ -40,16 +40,16 @@ class GAWorker(object):
         worker_id = rs.randint(2 ** 31)
         # todo worker_id random int???? what if two get the same?
 
-        offspring_dir = os.path.join(exp['log_dir'], 'offspring')
+        offspring_dir = os.path.join(exp['log_dir'], exp['offspring_dir'])
         mkdir_p(offspring_dir)
         offspring_path = os.path.join(offspring_dir, '{w}_{i}_offspring_params.pth')
 
-        it_id = 0
+        _it_id = 0
 
-        logging.info('going into while true loop')
+        # logging.info('going into while true loop')
         while True:
 
-            it_id += 1
+            _it_id += 1
             gc.collect()
             time.sleep(0.01)
             mem_usages = []
@@ -59,11 +59,11 @@ class GAWorker(object):
             #     time.sleep(1)
             #     break
 
-            logging.info('Getting task')
+            # logging.info('Getting task')
             task_id, task_data = worker.get_current_task()
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
-            logging.info('Got task')
+            # logging.info('Got task')
 
             # parent_paths = task_data.parents
             # elite_path = task_data.elite
@@ -76,18 +76,26 @@ class GAWorker(object):
                 logging.info('EVAL RUN')
                 try:
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
-                    logging.info('Elite: %s', task_data.elite)
+                    # logging.info('Elite: %s', task_data.elite)
+
+                    # setup_tuple = setup_worker(exp)
+                    # config: Config = setup_tuple[0]
+                    # policy: Policy = setup_tuple[1]
+
+                    policy.init_model(policy.generate_model())
                     policy.set_model(task_data.elite)
-                    logging.info('Elite set in policy')
+
+                    # logging.info('Elite set in policy')
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                    logging.info('Calculating acc')
+                    # logging.info('Calculating acc')
                     accuracy = policy.accuracy_on(data=task_data.val_data)
-                    logging.info('Accuracy: %d', round(accuracy, 2))
+                    # accuracy = policy.rollout(data=task_data.val_data)
+                    # logging.info('Accuracy: %d', round(accuracy, 2))
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                    logging.info('EVAL pushing result')
+                    # logging.info('EVAL pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
                         eval_return=accuracy,
@@ -131,13 +139,13 @@ class GAWorker(object):
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                    logging.info('EVOLVE pushing result')
+                    # logging.info('EVOLVE pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
                         evaluated_model_id=parent_id,
                         # evaluated_model=policy.get_model(),
                         evaluated_model=policy.serialized(path=offspring_path.format(w=worker_id,
-                                                                                     i=it_id)),
+                                                                                     i=_it_id)),
                         fitness=np.array([fitness], dtype=np.float32),
                         mem_usage=max(mem_usages)
                     ))
@@ -151,4 +159,4 @@ class GAWorker(object):
 
             # del task_data
             gc.collect()
-            logging.info('going out of while true loop')
+            # logging.info('going out of while true loop')
