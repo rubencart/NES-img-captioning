@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # next things:
 # x implement test on val set!
 # x keep overall best elite ( a la early stopping )
-#
+# - num elites instead of 1 elite!
 # - look at (i, parent) --> index we always keep --> NECESSARY??
 # - add code to worker that checks if already too many files in dir and breaks if so!
 # - add some copy.deepcopy() !!

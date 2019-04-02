@@ -1,4 +1,7 @@
 import os
+
+from algorithm.tools.utils import get_platform
+
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
@@ -20,7 +23,7 @@ import psutil
 
 from dist import RelayClient
 from algorithm.ga_master import GAMaster
-from algorithm.ga_worker import GAWorker
+from algorithm.ga_worker import start_and_run_worker
 
 
 def run():
@@ -107,15 +110,26 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
 
     # wait for master process to have uploaded tasks, otherwise errors
     # because workers start on cached tasks and files don't exist
-    time.sleep(10)
+    time.sleep(5)
 
     num_workers = num_workers if num_workers else os.cpu_count() - 2
-    worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+    processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+    # ga_worker = GAWorker()
+    # ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)
     while True:
-        if psutil.virtual_memory().percent > 90.0:
+        # print(psutil.virtual_memory().percent)
+        if psutil.virtual_memory().percent > 85.0:
+            logging.warning('****************************************************')
+            logging.warning('****************************************************')
+            logging.warning('****************************************************')
             logging.warning('!!!!! ---  Killing all workers   --- !!!!!')
-            [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
-            worker_ids = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+            logging.warning('****************************************************')
+            logging.warning('****************************************************')
+            logging.warning('****************************************************')
+            # [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
+            [p.kill() for p in processes]
+            processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+            time.sleep(10)
         else:
             time.sleep(60)
     # os.wait()
@@ -125,24 +139,35 @@ def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
     logging.info('Spawning {} workers'.format(num_workers))
     worker_ids = []
     for _id in range(num_workers):
-        new_pid = os.fork()
-        if new_pid == 0:
-
-            # print('importing mkl, setting num threads')
-            # import mkl
-            # mkl.set_num_threads(1)
-
-            # todo
-            ga_worker = GAWorker()
-
-            # todo pass along worker id to ensure unique
-            cProfile.run(ga_worker.run_worker(master_redis_cfg, relay_redis_cfg),
-                         'profile_worker_{}.txt'.format(_id))
-            return
-        else:
-            worker_ids.append(new_pid)
+        # ctx = mp.spawn(fn=start_and_run_worker, args=(master_redis_cfg, relay_redis_cfg),
+        #                join=False)
+        p = mp.Process(target=start_and_run_worker, args=(0, master_redis_cfg, relay_redis_cfg))
+        p.start()
+        worker_ids += [p]
+        # new_pid = os.fork()
+        # if new_pid == 0:
+        #
+        #     # print('importing mkl, setting num threads')
+        #     # import mkl
+        #     # mkl.set_num_threads(1)
+        #
+        #     # todo
+        #     ga_worker = GAWorker()
+        #
+        #     # todo pass along worker id to ensure unique
+        #     ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)
+        #     # cProfile.run(ga_worker.run_worker(master_redis_cfg, relay_redis_cfg),
+        #     #              'profile_worker_{}.txt'.format(_id))
+        #     return
+        # else:
+        #     worker_ids.append(new_pid)
     return worker_ids
 
 
 if __name__ == '__main__':
+    import torch.multiprocessing as mp
+
+    if get_platform() == 'OS X':
+        mp.set_start_method('forkserver', force=True)
+
     run()

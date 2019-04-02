@@ -18,5 +18,10 @@
          "infos": "logs/es_cifar10_cifar10_nets_4915/z_info_e1_i22-49.json",
          "models": "logs/es_cifar10_cifar10_nets_4915/z_parents_params_e1_i22-49_r0.78.tar"
    },
-  "_from_single": "logs/sgd_cifar10_7860/params_acc78.pth"
+  "_from_single": "logs/sgd_cifar10_7860/params_acc78.pth",
+
+  "parents_dir": "parents",
+  "offspring_dir": "offspring",
+  "elite_dir": "elite",
+  "best_dir": "best"
 }

@@ -38,5 +38,10 @@
 
   },
   "_seq_length":  0,
-  "_vocab_size":  0
+  "_vocab_size":  0,
+
+  "parents_dir": "parents",
+  "offspring_dir": "offspring",
+  "elite_dir": "elite",
+  "best_dir": "best"
 }
