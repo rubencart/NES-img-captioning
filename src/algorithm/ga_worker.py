@@ -73,7 +73,7 @@ class GAWorker(object):
             #     policy = task_data.policy
 
             if rs.rand() < config.eval_prob:
-                logging.info('EVAL RUN')
+                # logging.info('EVAL RUN')
                 try:
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
                     # logging.info('Elite: %s', task_data.elite)
@@ -102,14 +102,15 @@ class GAWorker(object):
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    logging.error(e)
+                    # logging.error(e)
+                    pass
 
                 except Exception as e:
                     raise Exception
 
                 # del model
             else:
-                logging.info('EVOLVE RUN')
+                # logging.info('EVOLVE RUN')
                 try:
                     # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
 
@@ -150,7 +151,8 @@ class GAWorker(object):
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    logging.error(e)
+                    # logging.error(e)
+                    pass
 
                 except Exception as e:
                     raise Exception
@@ -160,3 +162,8 @@ class GAWorker(object):
             # del task_data
             gc.collect()
             # logging.info('going out of while true loop')
+
+
+def start_and_run_worker(i, master_redis_cfg, relay_redis_cfg):
+    ga_worker = GAWorker()
+    ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)

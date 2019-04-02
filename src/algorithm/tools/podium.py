@@ -68,7 +68,7 @@ class Podium(object):
     def record_parents(self, parents, score):
         best_parent_score, best_parents = self._best_parents
 
-        if not best_parents or (score - 5 > best_parent_score):
+        if not best_parents or (score > best_parent_score):
             if best_parents:
                 remove_all_files_from_dir(self._best_parents_dir)
 

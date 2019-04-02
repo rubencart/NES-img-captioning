@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# export PYTHONWARNINGS='ignore:semaphore_tracker:UserWarning'
+
 NAME=exp_`date "+%m_%d_%H_%M_%S"`
 ALGO=$1
 EXP_FILE=$2

@@ -1,16 +1,36 @@
 # ga-img-captioning
 
+#### References
+
+Based on & took code from:
+- https://github.com/ruotianluo/self-critical.pytorch
+- https://github.com/uber-research/deep-neuroevolution
+- https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
+
+
 #### Installation
 
 run pkill python before & after
 
+https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#viewing-a-list-of-your-environments
 conda:
 mkl-service?
 
 pip:
 ...
 
+#### Distributed application
+
+https://seba-1511.github.io/tutorials/intermediate/dist_tuto.html
+https://pytorch.org/docs/stable/multiprocessing.html
+https://stackoverflow.com/questions/48822463/how-to-use-pytorch-multiprocessing
+
+https://bugs.python.org/issue33725
+"The underlying problem is that macOS system frameworks (basically anything higher level than libc) are not save wrt fork(2) and fixing that appears to have no priority at all at Apple."
+
 #### Running
+
+Truncation should be smaller than population size!
 
 Example json:
 ```

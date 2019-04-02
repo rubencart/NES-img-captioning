@@ -139,7 +139,7 @@ class MnistNet(PolicyNet):
         x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, 2, 2)
         x = x.view(-1, 4*4*20)
-        logging.info('[FW] BEGINNING FIRST FC')
+        # logging.info('[FW] BEGINNING FIRST FC')
         # logging.info('[FW] FC: {}'.format(self.fc1))
         # logging.info('[FW] FC: {}'.format(self.fc1(x)))
         x = self.fc1(x)
@@ -147,6 +147,6 @@ class MnistNet(PolicyNet):
         # logging.info('[FW] BEGINNING SECOND FC')
         # x = self.fc2(x)
 
-        logging.info('[FW] OUT OF FW')
+        # logging.info('[FW] OUT OF FW')
         return x
 

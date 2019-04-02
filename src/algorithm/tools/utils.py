@@ -2,6 +2,7 @@
 import errno
 import os
 import shutil
+import sys
 from collections import namedtuple
 
 import numpy as np
@@ -111,3 +112,19 @@ def remove_file_if_exists(path):
         os.remove(path)
     except FileNotFoundError:
         pass
+
+
+def get_platform():
+    """
+    From https://www.webucator.com/how-to/how-check-the-operating-system-with-python.cfm
+    """
+    platforms = {
+        'linux1': 'Linux',
+        'linux2': 'Linux',
+        'darwin': 'OS X',
+        'win32': 'Windows'
+    }
+    if sys.platform not in platforms:
+        return sys.platform
+
+    return platforms[sys.platform]
