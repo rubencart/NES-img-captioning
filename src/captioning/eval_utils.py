@@ -70,7 +70,8 @@ def language_eval(preds, directory, split):
 
     logging.info('using %d/%d predictions' % (len(preds_filt), len(preds)))
 
-    json.dump(preds_filt, open(cache_path, 'w'))  # serialize to temporary json file. Sigh, COCO API...
+    with open(cache_path, 'w') as f:
+        json.dump(preds_filt, f)  # serialize to temporary json file. Sigh, COCO API...
 
     print('json dumped')
 
