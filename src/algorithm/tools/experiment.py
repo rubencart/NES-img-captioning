@@ -211,6 +211,9 @@ class MSCocoDataLdrWrapper:
         self.loader: DataLoader = loader
         self.split = split
         self.batch_size = loader.batch_size
+        self.seq_per_img = loader.seq_per_img
+
+        self.get_vocab = loader.get_vocab
 
     def reset(self):
         self.loader.reset_iterator(split=self.split)
