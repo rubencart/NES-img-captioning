@@ -25,7 +25,7 @@ class GenPolicy(Policy, ABC):
 
         return reward
 
-    def accuracy_on(self, dataloader, config, directory=None):
+    def accuracy_on(self, dataloader, config, directory):
         assert directory is not None
 
         num_batches = config.num_val_batches if config and config.num_val_batches else 0

@@ -30,7 +30,7 @@ class ClfPolicy(Policy, ABC):
         del inputs, labels, outputs, loss, criterion
         return result
 
-    def accuracy_on(self, dataloader, config):
+    def accuracy_on(self, dataloader, config, directory):
         assert self.policy_net is not None, 'Set model first!'
         assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
 

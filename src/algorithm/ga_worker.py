@@ -92,7 +92,8 @@ class GAWorker(object):
 
                     # logging.info('Calculating acc')
 
-                    score = policy.accuracy_on(experiment.valloader, config)
+                    score = policy.accuracy_on(experiment.valloader, config,
+                                               os.path.join(exp['log_dir'], 'eval'))
 
                     # val_scores.append(policy.accuracy_on(data=next(iter(val_loader))))
 
