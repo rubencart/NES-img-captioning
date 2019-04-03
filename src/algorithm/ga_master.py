@@ -45,8 +45,9 @@ logger = logging.getLogger(__name__)
 # x keep overall best elite ( a la early stopping )
 # x init from SINGLE pretrained
 # - PROFILE run on server
-# - improve eval run: entire valid set?
-# - snapshot in SEPARATE FOLDER! plots etc
+# - cococaption uses CIDEr and not CIDErD
+# x improve eval run: entire valid set?
+# x snapshot in SEPARATE FOLDER! plots etc
 # - FIX SNAPSHOT --> now: snapshot saves paths to parents in infos
 #                    next generation: parents are deleted
 #                    until next snapshot: infos still points to non existing files!

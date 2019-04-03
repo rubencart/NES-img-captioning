@@ -187,10 +187,10 @@ def eval_split(model, loader, directory, num_batches=0, split='val'):
         # if verbose:
         #     print('evaluating validation performance... %d/%d (%f)' % (ix0 - 1, ix1, loss))
 
-        if data['bounds']['wrapped']:
-            break
+        # if data['bounds']['wrapped']:
+        #     break
 
-        if num_batches >= 0 and n >= num_batches:
+        if num_batches > 0 and n > num_batches:
             break
 
     # lang_stats = None

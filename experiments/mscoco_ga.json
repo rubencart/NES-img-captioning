@@ -1,7 +1,7 @@
 {
   "mode":  "nets",
   "config": {
-    "eval_prob": 0.01,
+    "eval_prob": 0.002,
     "noise_stdev": 0.001,
     "snapshot_freq": 5,
     "batch_size": 256,
