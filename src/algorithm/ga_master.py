@@ -115,7 +115,8 @@ class GAMaster(object):
                         curr_task_id = master.declare_task(GATask(
                             elite=it.elite(),
                             # val_data=next(iter(experiment.valloader)),
-                            val_loader=copy.deepcopy(experiment.valloader),
+                            # val_loader=copy.deepcopy(experiment.valloader),
+                            val_loader=experiment.valloader,
                             parents=it.parents(),
                             # todo batch & val data to disk as well
                             batch_data=batch_data,

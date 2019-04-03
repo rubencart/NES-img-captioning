@@ -157,7 +157,7 @@ class Cifar10Experiment(Experiment):
 
 _opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
                'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img']
-CaptionOptions = namedtuple('Opt', field_names=_opt_fields, defaults=(None,) * len(_opt_fields))
+CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=(None,) * len(_opt_fields))
 
 
 class MSCocoExperiment(Experiment):
