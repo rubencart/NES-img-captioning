@@ -45,7 +45,7 @@ def array_to_str(arr):
 
 
 # TODO try with and without self critical!!!!
-def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_result):
+def get_self_critical_reward(_, __, ___, ____, data, gen_result):
     batch_size = gen_result.size(0)  # batch_size = sample_size * seq_per_img
     seq_per_img = batch_size // len(data['gts'])
 
@@ -77,7 +77,7 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
     gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
 
-    _, cider_scores = CiderD_scorer.compute_score(gts, res_)
+    score, cider_scores = CiderD_scorer.compute_score(gts, res_)
 
     # if opt.cider_reward_weight > 0:
     #     # todo check this
@@ -105,4 +105,4 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     # [[1], [2], [3]] --> [[1, 1], [2, 2], [3, 3]]
     rewards = np.repeat(scores[:, np.newaxis], gen_result.shape[1], 1)
 
-    return rewards
+    return score

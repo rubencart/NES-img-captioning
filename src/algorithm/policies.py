@@ -95,7 +95,7 @@ class Policy(ABC):
     def rollout(self, data):
         raise NotImplementedError
 
-    def accuracy_on(self, data):
+    def accuracy_on(self, data, config):
         raise NotImplementedError
 
     def evolve_model(self, sigma):

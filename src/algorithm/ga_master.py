@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # - multiple elites!
 # - safe mutations
 # - beam search
+# - scheduled sampling (ss_prob in self-critical repo)
 # - different models from paper, att, resnet feats,...
 # - try self critical reward instead of pure cider
 # - improved exploration --> NS/RS?
@@ -42,8 +43,10 @@ logger = logging.getLogger(__name__)
 # next things:
 # x implement test on val set!
 # x keep overall best elite ( a la early stopping )
-# - init from SINGLE pretrained
+# x init from SINGLE pretrained
 # - PROFILE run on server
+# - improve eval run: entire valid set?
+# - snapshot in SEPARATE FOLDER! plots etc
 # - FIX SNAPSHOT --> now: snapshot saves paths to parents in infos
 #                    next generation: parents are deleted
 #                    until next snapshot: infos still points to non existing files!
@@ -54,9 +57,10 @@ logger = logging.getLogger(__name__)
 #       --> adjust snapshot code to make copies of files AND to save paths to these files
 #           instead of files in models/parents/ !!!
 # - num elites instead of 1 elite!
+# - PROFILE WORKER ON SERVER!
 # - look at (i, parent) --> index we always keep --> NECESSARY??
 # - MSCocoExperiment class from experiment.py to captioning module
-# - add code to worker that checks if already too many files in dir and breaks if so!
+# x add code to worker that checks if already too many files in dir and breaks if so!
 # - add some copy.deepcopy() !!
 # - options for capt models --> find nicer way! spaghetti with setup now
 # - lstm/gru/...?
@@ -78,8 +82,8 @@ class GAMaster(object):
         experiment: Experiment = setup_tuple[4]
 
         from algorithm.tools import tabular_logger as tlogger
-        logger.info('Tabular logging to {}'.format(experiment.log_dir()))
-        tlogger.start(experiment.log_dir())
+        logger.info('Tabular logging to {}'.format(experiment.snapshot_dir()))
+        tlogger.start(experiment.snapshot_dir())
 
         torch.set_grad_enabled(False)
         torch.set_num_threads(0)
@@ -110,7 +114,8 @@ class GAMaster(object):
                         # logging.info('declaring task')
                         curr_task_id = master.declare_task(GATask(
                             elite=it.elite(),
-                            val_data=next(iter(experiment.valloader)),
+                            # val_data=next(iter(experiment.valloader)),
+                            val_loader=copy.deepcopy(experiment.valloader),
                             parents=it.parents(),
                             # todo batch & val data to disk as well
                             batch_data=batch_data,
@@ -145,12 +150,12 @@ class GAMaster(object):
                             it.warn_elite_evaluated()
                             it.warn_eval_run()
 
-                            if len(os.listdir(experiment.offspring_dir())) > 2 * experiment.population_size():
-                                time.sleep(2)
-                                try:
-                                    remove_all_files_from_dir(experiment.offspring_dir())
-                                finally:
-                                    raise IterationFailedException()
+                            # if len(os.listdir(experiment.offspring_dir())) > 2 * experiment.population_size():
+                            #     time.sleep(2)
+                            #     try:
+                            #         remove_all_files_from_dir(experiment.offspring_dir())
+                            #     finally:
+                            #         raise IterationFailedException()
 
                             # wait for a result
                             task_id, result = master.pop_result()
@@ -225,7 +230,7 @@ class GAMaster(object):
                         if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:
                             save_snapshot(stats, it, experiment, policy)
                             if plot:
-                                stats.plot_stats(experiment.log_dir())
+                                stats.plot_stats(experiment.snapshot_dir())
                         # logging.info('saved snap')
 
                     except IterationFailedException:
@@ -234,7 +239,7 @@ class GAMaster(object):
         except KeyboardInterrupt:
             save_snapshot(stats, it, experiment, policy)
             if plot:
-                stats.plot_stats(experiment.log_dir())
+                stats.plot_stats(experiment.snapshot_dir())
 
     def _selection(self, curr_task_results, truncation):
         scored_models = [(result.evaluated_model_id, result.evaluated_model, result.fitness.item())

@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import torch
 from abc import ABC
 
@@ -29,29 +30,33 @@ class ClfPolicy(Policy, ABC):
         del inputs, labels, outputs, loss, criterion
         return result
 
-    def accuracy_on(self, data):
+    def accuracy_on(self, dataloader, config):
         assert self.policy_net is not None, 'Set model first!'
         assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
 
-        # logging.info('assertions done')
-        torch.set_grad_enabled(False)
-        self.policy_net.eval()
-        # logging.info('grad false, eval')
+        accuracies = []
+        end = config.num_val_batches if config.num_val_batches else len(dataloader)
+        for i, data in enumerate(dataloader):
+            if i >= end:
+                break
 
-        inputs, labels = data
-        # logging.info('unpacked data: {}, {}'.format(inputs, labels))
-        # logging.info('unpacked data: {}, {}'.format(len(inputs), len(labels)))
-        # logging.info('doing FW')
-        outputs = self.policy_net(inputs)
-        # logging.info('FW done: {}'.format(outputs))
+            torch.set_grad_enabled(False)
+            self.policy_net.eval()
 
-        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        # logging.info('Prediction: {}'.format(prediction))
-        correct = prediction.eq(labels.view_as(prediction)).sum().item()
-        accuracy = float(correct) / labels.size()[0]
+            inputs, labels = data
+            # logging.info('doing FW')
+            outputs = self.policy_net(inputs)
+            # logging.info('FW done: {}'.format(outputs))
 
-        # logging.info('Accuracy: {}'.format(prediction))
-        del inputs, labels, outputs, prediction, correct
+            prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+
+            correct = prediction.eq(labels.view_as(prediction)).sum().item()
+            accuracies.append(float(correct) / labels.size()[0])
+            del inputs, labels, outputs, prediction, correct
+
+        accuracy = np.mean(accuracies)
+
+        del accuracies
         return accuracy
 
 

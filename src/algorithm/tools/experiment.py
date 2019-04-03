@@ -35,6 +35,9 @@ class Experiment(ABC):
         mkdir_p(self._log_dir)
         exp.update({'log_dir': self._log_dir})
 
+        self._snapshot_dir = os.path.join(self._log_dir, 'snapshot')
+        mkdir_p(self._snapshot_dir)
+
         _models_dir = os.path.join(self._log_dir, 'models')
         self._parents_dir = os.path.join(_models_dir, 'parents')
         self._offspring_dir = os.path.join(_models_dir, 'parents')
@@ -68,10 +71,12 @@ class Experiment(ABC):
 
         if config:
             bs = config.batch_size
+            val_bs = config.val_batch_size if config.val_batch_size else len(valset)
             num_workers = config.num_dataloader_workers if config.num_dataloader_workers else 1
         else:
             assert isinstance(batch_size, int)
             bs = batch_size
+            val_bs = len(valset)
             num_workers = workers if workers else 1
 
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
@@ -80,6 +85,7 @@ class Experiment(ABC):
         valloader = torch.utils.data.DataLoader(valset, batch_size=bs,
                                                 shuffle=True, num_workers=num_workers)
 
+        # todo batch size?
         testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
                                                  shuffle=True, num_workers=num_workers)
 
@@ -108,7 +114,7 @@ class Experiment(ABC):
         return self._log_dir
 
     def snapshot_dir(self):
-        return self._log_dir
+        return self._snapshot_dir
 
     def parents_dir(self):
         return self._parents_dir
@@ -180,19 +186,27 @@ class MSCocoExperiment(Experiment):
         # TODO MSCOCO as torchvision.dataset?????
 
         from captioning.dataloader import DataLoader
-        loader = DataLoader(opt=self.opt, config=config, batch_size=batch_size)
+        tloader = DataLoader(opt=self.opt, config=config, batch_size=batch_size)
 
-        trainloader = MSCocoDataLdrWrapper(loader=loader, split='train')
-        valloader = MSCocoDataLdrWrapper(loader=loader, split='val')
-        testloader = MSCocoDataLdrWrapper(loader=loader, split='test')
+        # config.val_batch_size will be None (default value) if not set so ok
+        vloader = DataLoader(opt=self.opt, config=config, batch_size=config.val_batch_size)
+
+        trainloader = MSCocoDataLdrWrapper(loader=tloader, split='train')
+        valloader = MSCocoDataLdrWrapper(loader=vloader, split='val')
+        testloader = MSCocoDataLdrWrapper(loader=vloader, split='test')
 
         return trainloader, valloader, testloader
 
 
 class MSCocoDataLdrWrapper:
     def __init__(self, loader, split):
-        self.loader = loader
+        from captioning.dataloader import DataLoader
+
+        self.loader: DataLoader = loader
         self.split = split
+
+    def reset(self):
+        self.loader.reset_iterator(split=self.split)
 
     def __iter__(self):
         return self
@@ -202,7 +216,7 @@ class MSCocoDataLdrWrapper:
         return self.loader.get_batch(self.split)
 
     def __len__(self):
-        return self.loader.length_of_split(self.split)
+        return self.loader.length_of_split(self.split) // self.loader.batch_size
 
 
 class ExperimentFactory:

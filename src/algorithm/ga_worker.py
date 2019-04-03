@@ -55,9 +55,9 @@ class GAWorker(object):
             mem_usages = []
 
             # deadlocks!!!! if elite hasn't been evaluated when nb files > 2 pop
-            if len(os.listdir(offspring_dir)) > 2 * exp['population_size']:
-                time.sleep(10)
-                break
+            # if len(os.listdir(offspring_dir)) > 2 * exp['population_size']:
+            #     time.sleep(10)
+            #     continue
 
             # logging.info('Getting task')
             task_id, task_data = worker.get_current_task()
@@ -82,14 +82,19 @@ class GAWorker(object):
                     # config: Config = setup_tuple[0]
                     # policy: Policy = setup_tuple[1]
 
-                    policy.init_model(policy.generate_model())
+                    val_loader = task_data.val_loader
+
                     policy.set_model(task_data.elite)
 
                     # logging.info('Elite set in policy')
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
                     # logging.info('Calculating acc')
-                    accuracy = policy.accuracy_on(data=task_data.val_data)
+
+                    score = policy.accuracy_on(val_loader, config)
+
+                    # val_scores.append(policy.accuracy_on(data=next(iter(val_loader))))
+
                     # accuracy = policy.rollout(data=task_data.val_data)
                     # logging.info('Accuracy: %d', round(accuracy, 2))
 
@@ -98,7 +103,7 @@ class GAWorker(object):
                     # logging.info('EVAL pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
-                        eval_return=accuracy,
+                        eval_return=score,
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
@@ -117,7 +122,7 @@ class GAWorker(object):
                     index = rs.randint(len(task_data.parents))
                     # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
                     #   time.sleep(1)
-                    #   break
+                    #   continue
                     #   index = 0
                     parent_id, parent = task_data.parents[index]
 

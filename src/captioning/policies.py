@@ -1,6 +1,7 @@
 import torch
 from abc import ABC
 
+import captioning.eval_utils as eval_utils
 
 from algorithm.policies import Policy, NetsPolicy, SeedsPolicy
 from captioning.rewards import init_scorer, get_self_critical_reward
@@ -22,10 +23,16 @@ class GenPolicy(Policy, ABC):
         reward = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
                                           att_masks, data, gen_result)
 
-        return reward.sum()
+        return reward
 
-    def accuracy_on(self, data):
-        return self.rollout(data)
+    def accuracy_on(self, dataloader, config, directory=None):
+        assert directory is not None
+
+        num_batches = config.num_val_batches if config and config.num_val_batches else 0
+
+        lang_stats = eval_utils.eval_split(self.policy_net, dataloader, directory, num_batches)
+
+        return float(lang_stats['CIDEr'])
 
 
 class NetsGenPolicy(GenPolicy, NetsPolicy):

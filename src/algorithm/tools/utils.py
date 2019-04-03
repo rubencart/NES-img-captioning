@@ -7,8 +7,9 @@ from collections import namedtuple
 
 import numpy as np
 
+# todo cleanup
 ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev',
-                  'log_dir']  # , 'policy'
+                  'log_dir', 'val_loader']  # , 'policy'
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
 
@@ -19,7 +20,8 @@ Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(
 config_fields = [
     'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
     'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers', 'log_dir',
-    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience'
+    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience',
+    'val_batch_size', 'num_val_batches'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 

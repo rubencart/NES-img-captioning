@@ -126,7 +126,8 @@ class Statistics(object):
         self._acc_stats.append(value)
 
     def record_norm_stats(self, param_vector):
-        norm = float(np.sqrt(np.square(param_vector).sum()))
+        # norm = float(np.sqrt(np.square(param_vector).sum()))
+        norm = float(param_vector.abs().sum() / param_vector.numel())
         self._norm_stats.append(norm)
 
     def record_std_stats(self, value):

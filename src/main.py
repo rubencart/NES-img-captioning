@@ -116,9 +116,10 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
     # ga_worker = GAWorker()
     # ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)
+    counter = 0
     while True:
         # print(psutil.virtual_memory().percent)
-        if psutil.virtual_memory().percent > 85.0:
+        if psutil.virtual_memory().percent > 90.0:
             logging.warning('****************************************************')
             logging.warning('****************************************************')
             logging.warning('****************************************************')
@@ -129,10 +130,13 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
             # [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
             [p.kill() for p in processes]
             processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
-            time.sleep(10)
-        else:
-            time.sleep(60)
-    # os.wait()
+            counter += 1
+        # else:
+        time.sleep(60)
+        if counter > 20:
+            [p.kill() for p in processes]
+            break
+    os.wait()
 
 
 def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
