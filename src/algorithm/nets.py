@@ -39,7 +39,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
     def _initialize_params(self):
         if self.from_param_file:
-            self.load_state_dict(torch.load(self.from_param_file))
+            self.load_state_dict(torch.load(self.from_param_file, map_location='cpu'))
 
         for name, tensor in self.named_parameters():
             # todo this is completely unnecessary
@@ -100,7 +100,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
     def from_serialized(self, serialized):
         # assert isinstance(serialized, dict)
         # self.load_state_dict(serialized)
-        state_dict = torch.load(serialized)
+        state_dict = torch.load(serialized, map_location='cpu')
         self.load_state_dict(state_dict)
 
     # def forward(self, x):
