@@ -90,7 +90,6 @@ class Experiment(ABC):
         # todo batch size?
         testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
                                                  shuffle=True, num_workers=num_workers)
-
         return trainloader, valloader, testloader
 
     def _split_testset(self, dataset, transform):
@@ -211,6 +210,7 @@ class MSCocoDataLdrWrapper:
 
         self.loader: DataLoader = loader
         self.split = split
+        self.batch_size = loader.batch_size
 
     def reset(self):
         self.loader.reset_iterator(split=self.split)
