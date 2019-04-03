@@ -108,8 +108,8 @@ def eval_split(model, loader, directory, num=-1, split='val'):
     # Todo we assume model is on single device
     device = next(model.parameters()).device
 
-    # loader.reset_iterator(split)
-    loader.reset()
+    loader.reset_iterator(split)
+    # loader.reset()
 
     n = 0
     # loss = 0

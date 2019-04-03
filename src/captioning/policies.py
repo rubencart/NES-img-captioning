@@ -33,7 +33,7 @@ class GenPolicy(Policy, ABC):
         # num_batches = config.num_val_batches if config and config.num_val_batches else 0
         num = config.num_val_items
 
-        lang_stats = eval_utils.eval_split(self.policy_net, dataloader, directory, num=num)
+        lang_stats = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
 
         logging.info('******* eval run complete: {} *******'.format(float(lang_stats['CIDEr'])))
         return float(lang_stats['CIDEr'])
