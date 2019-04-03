@@ -7,6 +7,7 @@ from __future__ import division
 from __future__ import print_function
 
 import errno
+import logging
 
 import torch
 import torch.nn as nn
@@ -66,7 +67,9 @@ def language_eval(preds, directory, split):
 
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt = [p for p in preds if p['image_id'] in valids]
-    # print('using %d/%d predictions' % (len(preds_filt), len(preds)))
+
+    logging.info('using %d/%d predictions' % (len(preds_filt), len(preds)))
+
     json.dump(preds_filt, open(cache_path, 'w'))  # serialize to temporary json file. Sigh, COCO API...
 
     cocoRes = coco.loadRes(cache_path)
@@ -89,7 +92,7 @@ def language_eval(preds, directory, split):
     return out
 
 
-def eval_split(model, loader, directory, num_batches=0, split='val'):
+def eval_split(model, loader, directory, num=-1, split='val'):
     # verbose = eval_kwargs.get('verbose', False)
     # verbose_beam = eval_kwargs.get('verbose_beam', 1)
     # verbose_loss = eval_kwargs.get('verbose_loss', 1)
@@ -108,15 +111,15 @@ def eval_split(model, loader, directory, num_batches=0, split='val'):
     # loader.reset_iterator(split)
     loader.reset()
 
-    # n = 0
+    n = 0
     # loss = 0
     # loss_sum = 0
     # loss_evals = 1e-8
     predictions = []
-    # while True:
-    for (n, data) in enumerate(loader):
-        # data = loader.get_batch(split)
-        # n = n + loader.batch_size
+    while True:
+    # for (n, data) in enumerate(loader):
+        data = loader.get_batch(split)
+        n = n + loader.batch_size
 
         # if data.get('labels', None) is not None and verbose_loss:
         #     # forward the model to get loss
@@ -178,19 +181,19 @@ def eval_split(model, loader, directory, num_batches=0, split='val'):
         # if we wrapped around the split or used up val imgs budget then bail
         # EDIT: not possible anymore
         # ix0 = data['bounds']['it_pos_now']
-        # ix1 = data['bounds']['it_max']
-        # if num_images != -1:
-        #     ix1 = min(ix1, num_images)
-        # for i in range(n - ix1):
-        #     predictions.pop()
+        ix1 = data['bounds']['it_max']
+        if num != -1:
+            ix1 = min(ix1, num)
+        for i in range(n - ix1):
+            predictions.pop()
 
         # if verbose:
         #     print('evaluating validation performance... %d/%d (%f)' % (ix0 - 1, ix1, loss))
 
-        # if data['bounds']['wrapped']:
-        #     break
+        if data['bounds']['wrapped']:
+            break
 
-        if num_batches > 0 and n > num_batches:
+        if num >= 0 and n >= num:
             break
 
     # lang_stats = None
