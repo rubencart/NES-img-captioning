@@ -9,6 +9,7 @@ import time
 import numpy as np
 import torch
 
+from algorithm.tools.experiment import Experiment
 from dist import WorkerClient
 from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
@@ -33,8 +34,8 @@ class GAWorker(object):
         setup_tuple = setup_worker(exp)
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
+        experiment: Experiment = setup_tuple[2]
         # policy = None
-        # experiment: Experiment = setup_tuple[6]
 
         rs = np.random.RandomState()
         worker_id = rs.randint(2 ** 31)
@@ -82,7 +83,7 @@ class GAWorker(object):
                     # config: Config = setup_tuple[0]
                     # policy: Policy = setup_tuple[1]
 
-                    val_loader = task_data.val_loader
+                    # val_loader = task_data.val_loader
 
                     policy.set_model(task_data.elite)
 
@@ -91,7 +92,7 @@ class GAWorker(object):
 
                     # logging.info('Calculating acc')
 
-                    score = policy.accuracy_on(val_loader, config)
+                    score = policy.accuracy_on(experiment.valloader, config)
 
                     # val_scores.append(policy.accuracy_on(data=next(iter(val_loader))))
 

@@ -12,12 +12,13 @@ def setup_worker(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
+    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, master=False)
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
                                   net=Net(exp['net']), exp=exp)
 
     # elite = policy.generate_model()
     policy.init_model(policy.generate_model())
-    return config, policy
+    return config, policy, experiment
 
 
 def setup_master(exp):

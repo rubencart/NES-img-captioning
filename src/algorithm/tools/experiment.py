@@ -16,7 +16,7 @@ class Experiment(ABC):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config):
+    def __init__(self, exp, config, master=True):
         self._exp = exp
         self._population_size = exp['population_size']
         self._truncation = exp['truncation']
@@ -30,29 +30,31 @@ class Experiment(ABC):
         self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
         self._orig_trainloader_lth = len(self.trainloader)
 
-        self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
-                                                     self._net, self._mode, os.getpid())
-        mkdir_p(self._log_dir)
-        exp.update({'log_dir': self._log_dir})
+        self._master = master
+        if master:
+            self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
+                                                         self._net, self._mode, os.getpid())
+            mkdir_p(self._log_dir)
+            exp.update({'log_dir': self._log_dir})
 
-        self._snapshot_dir = os.path.join(self._log_dir, 'snapshot')
-        mkdir_p(self._snapshot_dir)
+            self._snapshot_dir = os.path.join(self._log_dir, 'snapshot')
+            mkdir_p(self._snapshot_dir)
 
-        _models_dir = os.path.join(self._log_dir, 'models')
-        self._parents_dir = os.path.join(_models_dir, 'parents')
-        self._offspring_dir = os.path.join(_models_dir, 'parents')
-        self._elite_dir = os.path.join(_models_dir, 'elite')
+            _models_dir = os.path.join(self._log_dir, 'models')
+            self._parents_dir = os.path.join(_models_dir, 'parents')
+            self._offspring_dir = os.path.join(_models_dir, 'parents')
+            self._elite_dir = os.path.join(_models_dir, 'elite')
 
-        mkdir_p(self._parents_dir)
-        mkdir_p(self._offspring_dir)
-        mkdir_p(self._elite_dir)
-        # exp.update({
-        #     'parents_dir': self._parents_dir,
-        #     'offspring_dir': self._offspring_dir,
-        # })
+            mkdir_p(self._parents_dir)
+            mkdir_p(self._offspring_dir)
+            mkdir_p(self._elite_dir)
+            # exp.update({
+            #     'parents_dir': self._parents_dir,
+            #     'offspring_dir': self._offspring_dir,
+            # })
 
-        with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
-            json.dump(exp, f)
+            with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
+                json.dump(exp, f)
 
     def to_dict(self):
         return {
@@ -111,18 +113,23 @@ class Experiment(ABC):
         return self._mode
 
     def log_dir(self):
+        assert self._master
         return self._log_dir
 
     def snapshot_dir(self):
+        assert self._master
         return self._snapshot_dir
 
     def parents_dir(self):
+        assert self._master
         return self._parents_dir
 
     def offspring_dir(self):
+        assert self._master
         return self._offspring_dir
 
     def elite_dir(self):
+        assert self._master
         return self._elite_dir
 
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
@@ -130,8 +137,8 @@ class Experiment(ABC):
 
 
 class MnistExperiment(Experiment):
-    def __init__(self, exp, config):
-        super().__init__(exp, config)
+    def __init__(self, exp, config, master=True):
+        super().__init__(exp, config, master=master)
 
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         transform = transforms.Compose([
@@ -143,8 +150,8 @@ class MnistExperiment(Experiment):
 
 
 class Cifar10Experiment(Experiment):
-    def __init__(self, exp, config):
-        super().__init__(exp, config)
+    def __init__(self, exp, config, master=True):
+        super().__init__(exp, config, master=master)
 
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         transform = transforms.Compose([
@@ -161,7 +168,7 @@ CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=
 
 
 class MSCocoExperiment(Experiment):
-    def __init__(self, exp, config):
+    def __init__(self, exp, config, master=True):
         self.opt = CaptionOptions(**exp['caption_options'])
 
         # Deal with feature things before anything
@@ -172,7 +179,7 @@ class MSCocoExperiment(Experiment):
         # self.options.vocab_size = loader.vocab_size
         # self.options.seq_length = loader.seq_length
 
-        super().__init__(exp, config)
+        super().__init__(exp, config, master=master)
 
         self.vocab_size = self.trainloader.loader.vocab_size
         self.seq_length = self.trainloader.loader.seq_length
@@ -221,10 +228,10 @@ class MSCocoDataLdrWrapper:
 
 class ExperimentFactory:
     @staticmethod
-    def create(dataset: SuppDataset, exp, config):
+    def create(dataset: SuppDataset, exp, config, master=True):
         if dataset == SuppDataset.MNIST:
-            return MnistExperiment(exp, config)
+            return MnistExperiment(exp, config, master=master)
         elif dataset == SuppDataset.CIFAR10:
-            return Cifar10Experiment(exp, config)
+            return Cifar10Experiment(exp, config, master=master)
         elif dataset == SuppDataset.MSCOCO:
-            return MSCocoExperiment(exp, config)
+            return MSCocoExperiment(exp, config, master=master)
