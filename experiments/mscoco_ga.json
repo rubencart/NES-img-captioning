@@ -5,12 +5,12 @@
     "noise_stdev": 0.001,
     "snapshot_freq": 5,
     "batch_size": 256,
-    "val_batch_size": 16,
+    "val_batch_size": 256,
+    "num_val_batches": 4,
 
     "patience": 20,
     "stdev_decr_divisor": 1.2
   },
-  "_num_val_batches": 100,
 
   "dataset": "mscoco",
   "net": "fc_caption",

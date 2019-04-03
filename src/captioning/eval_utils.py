@@ -42,7 +42,7 @@ def decode_sequence(ix_to_word, seq):
     return out
 
 
-def language_eval(preds, model_id, split):
+def language_eval(preds, directory, split):
     import sys
     sys.path.append("cococaption")
     annFile = 'cococaption/annotations/captions_val2014.json'
@@ -57,16 +57,16 @@ def language_eval(preds, model_id, split):
     # if not os.path.isdir('logs/eval_results'):
     #     os.makedirs('logs/eval_results')
 
-    # todo dir
-    utils.mkdir_p('logs/eval_results')
-    cache_path = os.path.join('logs/eval_results/', model_id + '_' + split + '.json')
+    # utils.mkdir_p('logs/eval_results')
+    # cache_path = os.path.join('logs/eval_results/', model_id + '_' + split + '.json')
+    cache_path = os.path.join(directory, 'eval_cache_' + split + '.json')
 
     coco = COCO(annFile)
     valids = coco.getImgIds()
 
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt = [p for p in preds if p['image_id'] in valids]
-    print('using %d/%d predictions' % (len(preds_filt), len(preds)))
+    # print('using %d/%d predictions' % (len(preds_filt), len(preds)))
     json.dump(preds_filt, open(cache_path, 'w'))  # serialize to temporary json file. Sigh, COCO API...
 
     cocoRes = coco.loadRes(cache_path)
