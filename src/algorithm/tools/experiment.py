@@ -190,12 +190,13 @@ class MSCocoExperiment(Experiment):
 
     def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
         # TODO MSCOCO as torchvision.dataset?????
+        assert not (config is None and batch_size is None)
 
         from captioning.dataloader import DataLoader
         tloader = DataLoader(opt=self.opt, config=config, batch_size=batch_size)
 
-        # config.val_batch_size will be None (default value) if not set so ok
-        vloader = DataLoader(opt=self.opt, config=config, batch_size=config.val_batch_size)
+        val_bs = config.val_batch_size if config and config.val_batch_size else batch_size
+        vloader = DataLoader(opt=self.opt, config=config, batch_size=val_bs)
 
         trainloader = MSCocoDataLdrWrapper(loader=tloader, split='train')
         valloader = MSCocoDataLdrWrapper(loader=vloader, split='val')

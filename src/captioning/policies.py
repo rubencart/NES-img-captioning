@@ -3,10 +3,10 @@ import logging
 import torch
 from abc import ABC
 
-import captioning.eval_utils as eval_utils
+# import captioning.eval_utils as eval_utils
 
 from algorithm.policies import Policy, NetsPolicy, SeedsPolicy
-from captioning.rewards import init_scorer, get_self_critical_reward
+from captioning.rewards import init_scorer, get_self_critical_reward, RewardCriterion
 
 
 class GenPolicy(Policy, ABC):
@@ -25,7 +25,13 @@ class GenPolicy(Policy, ABC):
         reward = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
                                           att_masks, data, gen_result)
 
-        return reward
+        rl_crit = RewardCriterion()
+
+        # device = next(data).device
+        # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().to(device))
+        loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
+
+        return loss.item()
 
     def accuracy_on(self, dataloader, config, directory):
         return self.rollout(next(iter(dataloader)))
