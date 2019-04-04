@@ -87,7 +87,7 @@ def language_eval(preds, directory, split):
     for metric, score in cocoEval.eval.items():
         out[metric] = score
 
-    print('out constructed')
+    # print('out constructed')
 
     # imgToEval = cocoEval.imgToEval
     # for p in preds_filt:
@@ -96,12 +96,12 @@ def language_eval(preds, directory, split):
     # with open(cache_path, 'w') as outfile:
     #     json.dump({'overall': out, 'imgToEval': imgToEval}, outfile)
 
-    logging.info('   *** OUT : {} ****    '.format(out))
+    # logging.info('   *** OUT : {} ****    '.format(out))
     return out
 
 
 def eval_split(model, loader, directory, num=-1, split='val'):
-    print('EVAL SPLIT IS CALLED')
+    # print('EVAL SPLIT IS CALLED')
     # verbose = eval_kwargs.get('verbose', False)
     # verbose_beam = eval_kwargs.get('verbose_beam', 1)
     # verbose_loss = eval_kwargs.get('verbose_loss', 1)

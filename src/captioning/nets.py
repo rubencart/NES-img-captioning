@@ -253,8 +253,8 @@ class FCModel(CaptionModel):
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
         # todo both necessary?
-        self._initialize_params()
         self.init_weights()
+        self._initialize_params()
 
     def init_weights(self):
         initrange = 0.1
