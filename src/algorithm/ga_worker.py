@@ -74,7 +74,7 @@ class GAWorker(object):
             #     policy = task_data.policy
 
             if rs.rand() < config.eval_prob:
-                # logging.info('EVAL RUN')
+                logging.info('EVAL RUN')
                 try:
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
                     # logging.info('Elite: %s', task_data.elite)
@@ -109,8 +109,8 @@ class GAWorker(object):
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    # logging.error(e)
-                    pass
+                    logging.error(e)
+                    # pass
 
                 except Exception as e:
                     raise Exception
