@@ -82,6 +82,7 @@ def readable_bytes(num, suffix='B'):
 
 def random_state():
     rs = np.random.RandomState()
+    # print('[pid {pid}] random state: {rs}'.format(pid=os.getpid(), rs=rs.randint(0, 2 ** 31 - 1)))
     return rs.randint(0, 2 ** 31 - 1)
 
 

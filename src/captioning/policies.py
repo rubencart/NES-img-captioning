@@ -22,16 +22,17 @@ class GenPolicy(Policy, ABC):
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
                                                       opt={'sample_max': 0}, mode='sample')
 
-        reward = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
-                                          att_masks, data, gen_result)
+        reward, rewards, scores = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
+                                                           att_masks, data, gen_result)
 
-        rl_crit = RewardCriterion()
+        # rl_crit = RewardCriterion()
 
         # device = next(data).device
         # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().to(device))
-        loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
+        # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
 
-        return loss.item()
+        # return loss.item()
+        return scores.sum() / (fc_feats.size(0) / 256)
 
     def accuracy_on(self, dataloader, config, directory):
         # return self.rollout(next(iter(dataloader)))

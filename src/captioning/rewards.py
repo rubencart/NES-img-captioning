@@ -97,7 +97,7 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     scores = cider_scores
 
     # todo is this the self critical part?
-    scores = scores[:batch_size] - scores[batch_size:]
+    # scores = scores[:batch_size] - scores[batch_size:]
 
     # scores[:, np.newaxis] makes a column vector of 1d array scores
     # scores = [1, 2, 3] --> scores[:, np.newaxis] = [[1], [2], [3]]
@@ -106,7 +106,7 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     # [[1], [2], [3]] --> [[1, 1], [2, 2], [3, 3]]
     rewards = np.repeat(scores[:, np.newaxis], gen_result.shape[1], 1)
 
-    return rewards
+    return score, rewards, scores
 
 
 class RewardCriterion(nn.Module):

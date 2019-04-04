@@ -2,16 +2,16 @@
   "mode":  "nets",
   "config": {
     "eval_prob": 0.002,
-    "noise_stdev": 0.001,
+    "noise_stdev": 0.01,
     "snapshot_freq": 5,
-    "batch_size": 256,
+    "batch_size": 1024,
 
     "val_batch_size": 256,
     "num_val_batches": 4,
-    "num_val_items": 1000,
+    "num_val_items": 5000,
 
     "patience": 20,
-    "stdev_decr_divisor": 1.2
+    "stdev_decr_divisor": 1.0
   },
 
   "dataset": "mscoco",

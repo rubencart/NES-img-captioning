@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 # - try self critical reward instead of pure cider
 # - improved exploration --> NS/RS?
 # - check if we are using cider right (https://github.com/ruotianluo/cider/)
+# - torchvision.datasets.MSCOCO instead of hacky own version?
+# - tournament selection instead of truncation?
 
 # next things:
 # x implement test on val set!
@@ -46,6 +48,7 @@ logger = logging.getLogger(__name__)
 # x init from SINGLE pretrained
 # - PROFILE run on server
 # - cococaption uses CIDEr and not CIDErD
+# - leave unused BLEU / METEOR / ... scores out of validation run
 # x improve eval run: entire valid set?
 # x snapshot in SEPARATE FOLDER! plots etc
 # - FIX SNAPSHOT --> now: snapshot saves paths to parents in infos
