@@ -50,8 +50,11 @@ class Iteration(object):
 
         self._epoch = infos['epoch'] - 1 if 'epoch' in infos else self._epoch
         self._iteration = infos['iter'] - 1 if 'iter' in infos else self._iteration
-        self._bad_generations = infos['bad_gens'] if 'bad_gens' in infos else self._bad_generations
+        self._bad_generations = (
+            infos['bad_generations'] if 'bad_generations' in infos else self._bad_generations
+        )
         self._noise_stdev = infos['noise_stdev'] if 'noise_stdev' in infos else self._noise_stdev
+
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
 
         copy_file_from_to(infos['elite'], self._new_elite_path)

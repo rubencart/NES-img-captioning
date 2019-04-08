@@ -41,12 +41,29 @@ logger = logging.getLogger(__name__)
 # - check if we are using cider right (https://github.com/ruotianluo/cider/)
 # - torchvision.datasets.MSCOCO instead of hacky own version?
 # - tournament selection instead of truncation?
+# - consider excluding FC layer params?
+
+# - https://discuss.pytorch.org/t/how-to-debug-causes-of-gpu-memory-leaks/6741/11 !!!
+#   --> prints currently alive Tensors and Variables
+#   --> no_grad blocks
+#   --> placeholder tensor
+#   --> computation graph references
+# - https://discuss.pytorch.org/t/very-consitent-memory-leak/21038/5
+#   --> disabled eval mode:
+#       https://discuss.pytorch.org/t/model-eval-vs-with-torch-no-grad/19615/9
+#       use no_grad everywhere and not just .eval()!!!!
+#   --> loss.detach() was creating a memory leakage
+# - https://pytorch.org/docs/stable/notes/faq.html#my-model-reports-cuda-runtime-error-2-out-of-memory
+# - https://discuss.pytorch.org/t/how-to-check-memory-leak-in-a-model/22903
+#   -->  torch.cuda.empty_cache()
 
 # next things:
 # x implement test on val set!
 # x keep overall best elite ( a la early stopping )
 # x init from SINGLE pretrained
 # - PROFILE run on server
+# - include last generation's elite but also best elite so far!!!!
+# - todo remove files from offspring folder on except KeyIntterupt
 # - cococaption uses CIDEr and not CIDErD
 # - leave unused BLEU / METEOR / ... scores out of validation run
 # x improve eval run: entire valid set?

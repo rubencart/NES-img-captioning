@@ -6,10 +6,10 @@
 
   "mode":  "nets",
   "config": {
-    "eval_prob": 0.01,
+    "eval_prob": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 5,
-    "batch_size": 512,
+    "batch_size": 1024,
     "patience": 20,
     "stdev_decr_divisor": 1.0
   },
@@ -18,12 +18,12 @@
   "population_size": 800,
   "truncation": 30,
   "num_elites": 1,
-  "__from_population": "logs/es_mnist_mnist_nets_68777/z_info_e1_i18-938.json",
+  "from_population": "logs/es_mnist_mnist_nets_27408/snapshot/z_info_e1_i140-118.json",
 
   "_from_population": {
     "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
     "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
   },
-  "from_single": "logs/sgd_mnist_44168/params_acc63.pth",
+  "_from_single": "logs/sgd_mnist_44168/params_acc63.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
 }

@@ -44,6 +44,7 @@ class DataLoader(data.Dataset):
             self.batch_size = batch_size
         else:
             self.batch_size = self.config.batch_size
+        print('DataLoader batch size: %d', self.batch_size)
 
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)

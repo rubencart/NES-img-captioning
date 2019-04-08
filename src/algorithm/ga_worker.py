@@ -168,6 +168,7 @@ class GAWorker(object):
 
                 # del model
 
+            # todo DEL everything!
             # del task_data
             gc.collect()
             # logging.info('going out of while true loop')
