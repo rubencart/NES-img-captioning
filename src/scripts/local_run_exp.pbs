@@ -1,0 +1,41 @@
+#!/bin/bash
+
+
+#PBS -l nodes=4:ppn=16
+
+#PBS -l pmem=5gb
+
+#PBS -l walltime=24:00:00
+
+#PBS -A ltutorial_liir
+
+#PBS -j oe
+
+#PBS -o logs/terminal_output.txt
+
+#PBS -m abe
+
+#PBS -M ruben.cartuyvels@gmail.com
+
+# Define the project directory and set it as the working directory.
+PROJECT_ROOT=$VSC_DATA/ga-img-captioning/
+cd $PROJECT_ROOT
+
+# Activate Conda environment.
+source $HOME/.bashrc
+# conda activate cp3env
+. src/scripts/local_env_setup.sh
+
+#ALGO=${algo}
+#EXP_FILE=${exp}
+NUM_WORKERS=${workers}
+
+if test -z "$NUM_WORKERS"
+then
+      WORKERS=''
+else
+      WORKERS=' --num_workers '"$NUM_WORKERS"
+fi
+
+python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file experiments/mscoco_ga.json 2>&1 | ts | tee ./output/master_outputfile.txt &
+python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga 2>&1 "$WORKERS" | ts | tee ./output/worker_outputfile.txt &

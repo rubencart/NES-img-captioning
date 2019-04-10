@@ -5,7 +5,7 @@ from collections import namedtuple
 import numpy as np
 from torch.optim import SGD, Adam
 
-from .dist import MasterClient, WorkerClient
+from dist import MasterClient, WorkerClient
 
 logger = logging.getLogger(__name__)
 

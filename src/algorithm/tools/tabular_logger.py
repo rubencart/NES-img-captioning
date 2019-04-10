@@ -151,6 +151,11 @@ class _Logger(object):
         else:
             self.tbwriter = None
 
+        # logging.basicConfig(
+        #     format='[%(asctime)s pid=%(process)d] %(message)s',
+        #     level=logging.INFO,
+        #     stream=sys.stdout)
+
     # Logging API, forwarded
     # ----------------------------------------
     def record_tabular(self, key, val):
