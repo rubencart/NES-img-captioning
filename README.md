@@ -19,6 +19,10 @@ mkl-service?
 pip:
 ...
 
+Needs ts from moreutils and tee (unix packages)
+https://superuser.com/questions/1174408/can-you-prefix-each-line-written-with-tee-with-the-current-date-and-time
+https://git-scm.com/book/en/v2/Git-Tools-Submodules
+
 #### Distributed application
 
 https://seba-1511.github.io/tutorials/intermediate/dist_tuto.html
@@ -87,4 +91,6 @@ w.sort_stats(SortKey.TIME).print_stats(10)
 
 `ls dir/ | wc -l` : number of files in dir
 `du -h` : disk usage of dir and subdirs
+
+https://unix.stackexchange.com/questions/1314/how-to-set-default-file-permissions-for-all-folders-files-in-a-directory
 
