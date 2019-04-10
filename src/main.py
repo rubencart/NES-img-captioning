@@ -48,7 +48,7 @@ def run():
     logging.basicConfig(
         format='[%(asctime)s pid=%(process)d] %(message)s',
         level=logging.INFO,
-        stream=sys.stdout)
+    )   # stream=sys.stdout)
 
     if args.who == 'master':
         master(args.algo, args.exp_file, args.master_socket_path, args.log_dir, args.plot)
@@ -111,31 +111,34 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # wait for master process to have uploaded tasks, otherwise errors
     # because workers start on cached tasks and files don't exist
     time.sleep(5)
+    if num_workers == -1:
+        start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
+    else:
 
-    num_workers = num_workers if num_workers else os.cpu_count() - 2
-    processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
-    # start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
-    counter = 0
-    while True:
-        # print(psutil.virtual_memory().percent)
-        if psutil.virtual_memory().percent > 90.0:
-            logging.warning('****************************************************')
-            logging.warning('****************************************************')
-            logging.warning('****************************************************')
-            logging.warning('!!!!! ---  Killing all workers   --- !!!!!')
-            logging.warning('****************************************************')
-            logging.warning('****************************************************')
-            logging.warning('****************************************************')
-            # [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
-            [p.kill() for p in processes]
-            processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
-            counter += 1
-        # else:
-        time.sleep(60)
-        if counter > 20:
-            [p.kill() for p in processes]
-            break
-    # os.wait()
+        num_workers = num_workers if num_workers else os.cpu_count() - 2
+        processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+        # start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
+        counter = 0
+        while True:
+            # print(psutil.virtual_memory().percent)
+            if psutil.virtual_memory().percent > 90.0:
+                logging.warning('****************************************************')
+                logging.warning('****************************************************')
+                logging.warning('****************************************************')
+                logging.warning('!!!!! ---  Killing all workers   --- !!!!!')
+                logging.warning('****************************************************')
+                logging.warning('****************************************************')
+                logging.warning('****************************************************')
+                # [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
+                [p.kill() for p in processes]
+                processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+                counter += 1
+            # else:
+            time.sleep(60)
+            if counter > 20:
+                [p.kill() for p in processes]
+                break
+        # os.wait()
 
 
 def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):

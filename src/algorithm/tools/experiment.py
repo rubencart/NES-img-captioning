@@ -29,6 +29,8 @@ class Experiment(ABC):
 
         self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
         self._orig_trainloader_lth = len(self.trainloader)
+        # self._orig_trainloader_lth = len(self.trainloader) * self.trainloader.batch_size
+        # self._orig_bs = self.trainloader.batch_size
 
         self._master = master
         if master:
@@ -61,7 +63,13 @@ class Experiment(ABC):
             # todo other stuff? + needs from_dict method as well
             # like log dir?
             'trainloader_lth': self._orig_trainloader_lth,
+            # 'orig_bs': self._orig_bs
         }
+
+    def init_from_infos(self, infos: dict):
+        # self._orig_bs = infos['orig_bs'] if 'orig_bs' in infos else self._orig_bs
+        self._orig_trainloader_lth = infos['trainloader_lth'] if 'trainloader_lth' in infos \
+            else self._orig_trainloader_lth
 
     def increase_loader_batch_size(self, batch_size):
         self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
@@ -98,6 +106,9 @@ class Experiment(ABC):
         n1, n2 = len(comp_testset) // 2, len(comp_testset) - (len(comp_testset) // 2)
         valset, testset = torch.utils.data.random_split(comp_testset, (n1, n2))
         return valset, testset
+
+    def get_trainloader(self):
+        return self.trainloader
 
     def population_size(self):
         return self._population_size

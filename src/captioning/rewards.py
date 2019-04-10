@@ -72,12 +72,12 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     for i in range(len(data['gts'])):
         gts[i] = [array_to_str(data['gts'][i][j]) for j in range(len(data['gts'][i]))]
 
-    res_ = [{'image_id': i, 'caption': res[i]} for i in range(2 * batch_size)]
+    # res_ = [{'image_id': i, 'caption': res[i]} for i in range(2 * batch_size)]
     # res__ = {i: res[i] for i in range(2 * batch_size)}
-    gts = {i: gts[i % batch_size // seq_per_img] for i in range(2 * batch_size)}
+    # gts = {i: gts[i % batch_size // seq_per_img] for i in range(2 * batch_size)}
 
-    # res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
-    # gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
+    res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
+    gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
 
     score, cider_scores = CiderD_scorer.compute_score(gts, res_)
 

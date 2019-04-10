@@ -15,12 +15,12 @@ from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
 from algorithm.tools.utils import GATask, Result, mkdir_p
 
-logger = logging.getLogger(__name__)
-
 
 class GAWorker(object):
     # @profile_exp(stream=open('profile_exp/memory_profile_worker.log', 'w+'))
     def run_worker(self, master_redis_cfg, relay_redis_cfg):
+        logger = logging.getLogger(__name__)
+
         logger.info('run_worker: {}'.format(locals()))
         torch.set_grad_enabled(False)
         torch.set_num_threads(0)
@@ -54,6 +54,7 @@ class GAWorker(object):
         while True:
 
             _it_id += 1
+            torch.set_grad_enabled(False)
             gc.collect()
             time.sleep(0.01)
             mem_usages = []
@@ -77,7 +78,7 @@ class GAWorker(object):
             #     policy = task_data.policy
 
             if rs.rand() < config.eval_prob:
-                logging.info('EVAL RUN')
+                logger.info('EVAL RUN')
                 try:
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
                     # logging.info('Elite: %s', task_data.elite)
@@ -111,7 +112,7 @@ class GAWorker(object):
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    logging.error(e)
+                    logger.error(e)
                     # pass
 
                 except Exception as e:
@@ -145,6 +146,7 @@ class GAWorker(object):
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
+                    # logger.info('BATCH SIZE: {}'.format(task_data.batch_data[1].size()))
                     fitness = policy.rollout(data=task_data.batch_data)
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
@@ -175,5 +177,10 @@ class GAWorker(object):
 
 
 def start_and_run_worker(i, master_redis_cfg, relay_redis_cfg):
+    logging.basicConfig(
+        format='[%(asctime)s pid=%(process)d] %(message)s',
+        level=logging.INFO,
+    )  # stream=sys.stdout)
+
     ga_worker = GAWorker()
     ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)

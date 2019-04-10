@@ -58,16 +58,14 @@ logger = logging.getLogger(__name__)
 #   -->  torch.cuda.empty_cache()
 
 # next things:
-# x implement test on val set!
-# x keep overall best elite ( a la early stopping )
-# x init from SINGLE pretrained
 # - PROFILE run on server
 # - include last generation's elite but also best elite so far!!!!
+# - fix trainloader generator etc, nicer solution to incr bs than breaking loop
+# - Test if GPU goes faster!
 # - todo remove files from offspring folder on except KeyIntterupt
 # - cococaption uses CIDEr and not CIDErD
+# - fix permissions of entire ga-img-capt folder
 # - leave unused BLEU / METEOR / ... scores out of validation run
-# x improve eval run: entire valid set?
-# x snapshot in SEPARATE FOLDER! plots etc
 # - FIX SNAPSHOT --> now: snapshot saves paths to parents in infos
 #                    next generation: parents are deleted
 #                    until next snapshot: infos still points to non existing files!
@@ -78,10 +76,8 @@ logger = logging.getLogger(__name__)
 #       --> adjust snapshot code to make copies of files AND to save paths to these files
 #           instead of files in models/parents/ !!!
 # - num elites instead of 1 elite!
-# - PROFILE WORKER ON SERVER!
 # - look at (i, parent) --> index we always keep --> NECESSARY??
 # - MSCocoExperiment class from experiment.py to captioning module
-# x add code to worker that checks if already too many files in dir and breaks if so!
 # - add some copy.deepcopy() !!
 # - options for capt models --> find nicer way! spaghetti with setup now
 # - lstm/gru/...?
@@ -126,10 +122,11 @@ class GAMaster(object):
                 it.incr_epoch()
 
                 # todo max generations
-                for _, batch_data in enumerate(experiment.trainloader, 0):
+                for batch_data in experiment.get_trainloader():
                     try:
                         gc.collect()
-                        it.incr_iteration()
+                        # it.incr_iteration(batch_data[1].size(0))
+                        it.incr_iteration(it.times_orig_bs())
                         stats.set_step_tstart()
 
                         # logging.info('declaring task')
@@ -236,17 +233,33 @@ class GAMaster(object):
                             parents = reset_parents
                             experiment.increase_loader_batch_size(it.batch_size())
 
-                        stats.record_score_stats(scores)
-                        stats.record_bs_stats(it.batch_size())
-                        stats.record_step_time_stats()
-                        stats.record_norm_stats(policy.parameter_vector())
-                        stats.record_acc_stats(elite_acc)
-                        stats.record_std_stats(it.noise_stdev())
-                        stats.update_mem_stats()
+                            stats.record_score_stats(scores)
+                            stats.record_bs_stats(it.batch_size())
+                            stats.record_step_time_stats()
+                            stats.record_norm_stats(policy.parameter_vector())
+                            stats.record_acc_stats(elite_acc)
+                            stats.record_std_stats(it.noise_stdev())
+                            stats.update_mem_stats()
 
-                        stats.log_stats(tlogger)
-                        it.log_stats(tlogger)
-                        tlogger.dump_tabular()
+                            stats.log_stats(tlogger)
+                            it.log_stats(tlogger)
+                            tlogger.dump_tabular()
+
+                            # to use new trainloader!
+                            break
+
+                        else:
+                            stats.record_score_stats(scores)
+                            stats.record_bs_stats(it.batch_size())
+                            stats.record_step_time_stats()
+                            stats.record_norm_stats(policy.parameter_vector())
+                            stats.record_acc_stats(elite_acc)
+                            stats.record_std_stats(it.noise_stdev())
+                            stats.update_mem_stats()
+
+                            stats.log_stats(tlogger)
+                            it.log_stats(tlogger)
+                            tlogger.dump_tabular()
 
                         # logging.info('saving snap')
                         if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:

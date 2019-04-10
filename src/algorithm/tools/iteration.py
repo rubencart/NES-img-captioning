@@ -14,6 +14,7 @@ class Iteration(object):
         # ACROSS SOME ITERATIONS
         self._noise_stdev = config.noise_stdev
         self._batch_size = config.batch_size
+        self._times_orig_bs = 1
         self._bad_generations = 0
         self._epoch = 0
         self._iteration = 0
@@ -56,6 +57,7 @@ class Iteration(object):
         self._noise_stdev = infos['noise_stdev'] if 'noise_stdev' in infos else self._noise_stdev
 
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
+        self._times_orig_bs = infos['times_orig_bs'] if 'times_orig_bs' in infos else self._times_orig_bs
 
         copy_file_from_to(infos['elite'], self._new_elite_path)
         self._elite = self._new_elite_path
@@ -95,6 +97,7 @@ class Iteration(object):
             'noise_stdev': self._noise_stdev,
             'batch_size': self._batch_size,
             'bad_generations': self._bad_generations,
+            'times_orig_bs': self._times_orig_bs,
 
             # TODO when saving a snapshot maybe we do want the param files and
             # not just the path to them...
@@ -140,11 +143,13 @@ class Iteration(object):
 
             if self._bad_generations > self._patience:
                 # todo tlogger like logger
-                logger.warning('Max patience reached; setting lower noise stdev & bigger batch_size')
 
+                logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
                 self._noise_stdev /= self._stdev_decr_divisor
                 self._batch_size *= 2
                 self._bad_generations = 0
+                self._times_orig_bs *= 2
+                logger.warning('Max patience reached; new std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
 
                 new_parents = self._new_parents_from_best()
                 self._parents = self._copy_and_clean_parents(new_parents)
@@ -223,8 +228,8 @@ class Iteration(object):
     def incr_epoch(self):
         self._epoch += 1
 
-    def incr_iteration(self):
-        self._iteration += 1
+    def incr_iteration(self, n=1):
+        self._iteration += n
 
     def set_batch_size(self, value):
         self._batch_size = value
@@ -277,6 +282,9 @@ class Iteration(object):
 
     def batch_size(self):
         return self._batch_size
+
+    def times_orig_bs(self):
+        return self._times_orig_bs
 
     def bad_gens(self):
         return self._bad_generations

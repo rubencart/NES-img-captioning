@@ -9,21 +9,16 @@
     "eval_prob": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 5,
-    "batch_size": 1024,
-    "patience": 20,
+    "batch_size": 256,
+    "patience": 2,
     "stdev_decr_divisor": 1.0
   },
   "dataset": "mnist",
   "net": "mnist",
-  "population_size": 800,
+  "population_size": 200,
   "truncation": 30,
   "num_elites": 1,
-  "from_population": "logs/es_mnist_mnist_nets_27408/snapshot/z_info_e1_i140-118.json",
-
-  "_from_population": {
-    "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
-    "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
-  },
+  "_from_population": "logs/es_mnist_mnist_nets_27408/snapshot/z_info_e1_i140-118.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
 }

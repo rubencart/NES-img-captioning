@@ -38,6 +38,7 @@ def setup_master(exp):
 
         statistics.init_from_infos(infos)
         iteration.init_from_infos(infos)
+        experiment.init_from_infos(infos)
 
     elif 'from_single' in exp and exp['from_single'] is not None:
         # todo

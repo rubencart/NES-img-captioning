@@ -8,6 +8,8 @@ import captioning.eval_utils as eval_utils
 from algorithm.policies import Policy, NetsPolicy, SeedsPolicy
 from captioning.rewards import init_scorer, get_self_critical_reward, RewardCriterion
 
+logger = logging.getLogger(__name__)
+
 
 class GenPolicy(Policy, ABC):
 
@@ -18,6 +20,8 @@ class GenPolicy(Policy, ABC):
         # tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
         tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
+
+        logger.info('evaluating {} images'.format(fc_feats.size(0)))
 
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
                                                       opt={'sample_max': 0}, mode='sample')
@@ -32,7 +36,7 @@ class GenPolicy(Policy, ABC):
         # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
 
         # return loss.item()
-        return scores.sum() / (fc_feats.size(0) / 256)
+        return reward * 100  # scores.sum() / (fc_feats.size(0) / 256)
 
     def accuracy_on(self, dataloader, config, directory):
         # return self.rollout(next(iter(dataloader)))
@@ -43,7 +47,7 @@ class GenPolicy(Policy, ABC):
 
         lang_stats = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
 
-        logging.info('******* eval run complete: {} *******'.format(float(lang_stats['CIDEr'])))
+        # logging.info('******* eval run complete: {} *******'.format(float(lang_stats['CIDEr'])))
         return float(lang_stats['CIDEr'])
 
 
