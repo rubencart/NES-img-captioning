@@ -1,20 +1,23 @@
-import copy
 import logging
-import os
+from collections import namedtuple
 
-from algorithm.tools.podium import Podium
-from algorithm.tools.utils import copy_file_from_to, remove_all_files_from_dir
+from nets import ABCModel
+from podium import Podium
+from policies import Policy
 
 logger = logging.getLogger(__name__)
+
+Checkpoint = namedtuple('Checkpoint', ['elite', 'best_elite', 'parents', 'best_parents'])
 
 
 class Iteration(object):
 
-    def __init__(self, config, exp):
+    def __init__(self, config):
+        # CAUTION: todo maybe get these from infos as well when available?
+
         # ACROSS SOME ITERATIONS
         self._noise_stdev = config.noise_stdev
         self._batch_size = config.batch_size
-        self._times_orig_bs = 1
         self._bad_generations = 0
         self._epoch = 0
         self._iteration = 0
@@ -33,40 +36,25 @@ class Iteration(object):
         self._stdev_decr_divisor = config.stdev_decr_divisor
         self._patience = config.patience
 
-        self._log_dir = exp['log_dir']
-        _models_dir = os.path.join(self._log_dir, 'models')
-        self._parents_dir = os.path.join(_models_dir, 'parents')
-        self._elite_dir = os.path.join(_models_dir, 'elite')
-        self._offspring_dir = os.path.join(_models_dir, 'offspring')
-        # mkdir_p(self._parents_dir)
-        self._new_elite_path = os.path.join(self._elite_dir, '0_elite_params.pth')
-        self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
-
         # MODELS
+        # [(int, ABCModel),]
         self._parents = []
-        self._elite = None
-        self._podium = Podium(config.patience, os.path.join(_models_dir, 'best'))
+        self._elite: ABCModel = None
+        self._podium = Podium(config.patience)
 
-    def init_from_infos(self, infos: dict):
+    def init_from_infos(self, infos: dict, models_checkpt: Checkpoint, policy: Policy):
+        # self.__init__(config)
 
         self._epoch = infos['epoch'] - 1 if 'epoch' in infos else self._epoch
         self._iteration = infos['iter'] - 1 if 'iter' in infos else self._iteration
-        self._bad_generations = (
-            infos['bad_generations'] if 'bad_generations' in infos else self._bad_generations
-        )
+        self._bad_generations = infos['bad_gens'] if 'bad_gens' in infos else self._bad_generations
         self._noise_stdev = infos['noise_stdev'] if 'noise_stdev' in infos else self._noise_stdev
-
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
-        self._times_orig_bs = infos['times_orig_bs'] if 'times_orig_bs' in infos else self._times_orig_bs
 
-        copy_file_from_to(infos['elite'], self._new_elite_path)
-        self._elite = self._new_elite_path
+        self._elite = policy.from_serialized(models_checkpt.elite)
+        self._parents = [(i, policy.from_serialized(parent)) for i, parent in models_checkpt.parents]
 
-        for (i, parent_path) in infos['parents']:
-            copy_file_from_to(parent_path, self._new_parent_path.format(i=i))
-        self._parents = [(i, self._new_parent_path.format(i=i)) for i, _ in enumerate(infos['parents'])]
-
-        self._podium.init_from_infos(infos)
+        self._podium.init_from_checkpt(models_checkpt, policy)
 
     def init_parents(self, truncation, policy):
         # important that this stays None:
@@ -75,20 +63,12 @@ class Iteration(object):
         # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
         #       TRUNC random parents == less random!
         self._parents = [(model_id, None) for model_id in range(truncation)]
-        # self._elite = policy.generate_model()
-        self._elite = policy.generate_model().serialize(path=self._new_elite_path)
+        self._elite = policy.generate_model()
 
     def init_from_single(self, param_file_name, truncation, policy):
-        self._parents = [
-            (i, policy
-                .generate_model(from_param_file=param_file_name)
-                .serialize(path=self._new_parent_path.format(i=i))
-             )
-            for i in range(truncation)
-        ]
-        self._elite = policy \
-            .generate_model(from_param_file=param_file_name) \
-            .serialize(path=self._new_elite_path)
+        self._parents = [(i, policy.generate_model(from_param_file=param_file_name))
+                         for i in range(truncation)]
+        self._elite = policy.generate_model(from_param_file=param_file_name)
 
     def to_dict(self):
         return {
@@ -97,23 +77,20 @@ class Iteration(object):
             'noise_stdev': self._noise_stdev,
             'batch_size': self._batch_size,
             'bad_generations': self._bad_generations,
-            'times_orig_bs': self._times_orig_bs,
-
-            # TODO when saving a snapshot maybe we do want the param files and
-            # not just the path to them...
-            # 'models': {
-            #     'parents': self._parents,
-            #     'elite': self._elite,
-            #
-            #     'best_elite': self.best_elite(),
-            #     'best_parents': self.best_parents(),
-            # },
-            'parents': self._parents,
-            'elite': self._elite,
-
-            'best_elite': self.best_elite(),
-            'best_parents': self.best_parents(),
         }
+
+    def serialized_parents(self):
+        assert self._elite is not None
+        assert len(self._parents) > 0
+
+        to_save = {
+            'elite': self._elite.serialize(),
+            'parents': [(i, parent.serialize()) for i, parent in self._parents]
+        }
+        to_save.update(self._podium.serialized())
+
+        # logger.info('Serialized: {}'.format(to_save))
+        return to_save
 
     def log_stats(self, tlogger):
         tlogger.record_tabular('NoiseStd', self._noise_stdev)
@@ -128,13 +105,8 @@ class Iteration(object):
         tlogger.record_tabular('UniqueWorkers', len(self._worker_ids))
         tlogger.record_tabular('UniqueWorkersFrac', len(self._worker_ids) / len(self._task_results))
 
-    def record_elite(self, acc):
-        self._podium.record_elite(self.elite(), acc)
-        # self._elite = self._copy_and_clean_elite(elite)
-        # return self._elite
-
-    def set_elite(self, elite):
-        self._elite = self._copy_and_clean_elite(elite)
+    def record_elite(self, elite, acc):
+        self._podium.record_elite(elite, acc)
 
     def record_parents(self, parents, score):
         if not self._podium.record_parents(parents, score):
@@ -143,69 +115,22 @@ class Iteration(object):
 
             if self._bad_generations > self._patience:
                 # todo tlogger like logger
+                logger.warning('Max patience reached; setting lower noise stdev & bigger batch_size')
 
-                logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
                 self._noise_stdev /= self._stdev_decr_divisor
                 self._batch_size *= 2
-                self._bad_generations = 0
-                self._times_orig_bs *= 2
-                logger.warning('Max patience reached; new std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
 
-                new_parents = self._new_parents_from_best()
-                self._parents = self._copy_and_clean_parents(new_parents)
-                return self._parents
+                self._bad_generations = 0
+                return self._podium.best_parents()  # best_parents_so_far[1]
         else:
             self._bad_generations = 0
+            return None
 
-        new_parents = copy.deepcopy(parents)
-        self._parents = self._copy_and_clean_parents(new_parents)
-        return None
+    def set_elite(self, elite):
+        self._elite = elite
 
-    def _new_parents_from_best(self):
-        _, prev_best_parents = self._podium.best_parents()
-
-        # todo necessary to discard existing index?
-        new_parents = [(i, prev) for i, (_, prev) in enumerate(prev_best_parents)]
-
-        # for i, (_, prev_best_parent_path) in enumerate(prev_best_parents):
-        #     new_parent = self._new_parent_path.format(i=i)
-        #     new_parents.append((i, new_parent))
-
-        return copy.deepcopy(new_parents)
-
-    def _copy_and_clean_parents(self, parents):
-        """
-        :param parents: List<Tuple<int, str: path to offspring dir>>
-        :return: List<Tuple<int, str: path to parents in parents dir>>
-        """
-        # remove all parents previously stored in parent dir
-        remove_all_files_from_dir(self.parents_dir())
-
-        # copy new parents from offspring dir to parent dir and rename them
-        new_parents = []
-        for i, parent in parents:
-
-            _, new_parent_filename = os.path.split(parent)
-            new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
-            new_parents.append((i, new_parent_path))
-
-            copy_file_from_to(parent, new_parent_path)
-
-        # clean offspring dir
-        remove_all_files_from_dir(self.offspring_dir())
-
-        return copy.deepcopy(new_parents)
-
-    def _copy_and_clean_elite(self, elite):
-        # remove previous elite
-        remove_all_files_from_dir(self.elite_dir())
-
-        # name & copy new elite
-        _, new_elite_filename = os.path.split(elite)
-        new_elite_path = os.path.join(self.elite_dir(), new_elite_filename)
-        copy_file_from_to(elite, new_elite_path)
-
-        return new_elite_path
+    def set_parents(self, parents):
+        self._parents = parents
 
     def warn_elite_evaluated(self):
         if not self.models_left_to_evaluate() and not self.elite_evaluated():
@@ -228,8 +153,8 @@ class Iteration(object):
     def incr_epoch(self):
         self._epoch += 1
 
-    def incr_iteration(self, n=1):
-        self._iteration += n
+    def incr_iteration(self):
+        self._iteration += 1
 
     def set_batch_size(self, value):
         self._batch_size = value
@@ -283,9 +208,6 @@ class Iteration(object):
     def batch_size(self):
         return self._batch_size
 
-    def times_orig_bs(self):
-        return self._times_orig_bs
-
     def bad_gens(self):
         return self._bad_generations
 
@@ -327,12 +249,3 @@ class Iteration(object):
 
     def parents(self):
         return self._parents
-
-    def parents_dir(self):
-        return self._parents_dir
-
-    def elite_dir(self):
-        return self._elite_dir
-
-    def offspring_dir(self):
-        return self._offspring_dir

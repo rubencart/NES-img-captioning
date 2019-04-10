@@ -9,11 +9,8 @@ import torchvision
 import torch
 from torch import nn
 
-from algorithm.nets import CompressedModel, PolicyNet
-# from captioning.nets import FCModel
-# from classification.nets import Cifar10Net  # , Cifar10Net, MnistNet, Cifar10Net_Small
-from algorithm.tools.utils import mkdir_p, random_state
-# from classification.policies import SeedsClfPolicy, NetsClfPolicy
+from nets import PolicyNet, CompressedModel, random_state, Cifar10Net, MnistNet, Cifar10Net_Small
+from utils import mkdir_p
 
 logger = logging.getLogger(__name__)
 
@@ -21,47 +18,34 @@ logger = logging.getLogger(__name__)
 class SuppDataset(Enum):
     CIFAR10 = 'cifar10'
     MNIST = 'mnist'
-    MSCOCO = 'mscoco'
 
 
 class Net(Enum):
     CIFAR10 = 'cifar10'
     CIFAR10_SMALL = 'cifar10_small'
     MNIST = 'mnist'
-    FC_CAPTION = 'fc_caption'
 
 
 DATASETS = {
     SuppDataset.CIFAR10: torchvision.datasets.CIFAR10,
     SuppDataset.MNIST: torchvision.datasets.MNIST,
-    SuppDataset.MSCOCO: None  # todo
+}
+
+NETS = {
+    Net.CIFAR10: Cifar10Net,
+    Net.CIFAR10_SMALL: Cifar10Net_Small,
+    Net.MNIST: MnistNet,
 }
 
 
 class Policy(ABC):
-    def __init__(self, dataset: SuppDataset, net: Net, options=None):
-        if options:
-            from captioning.nets import CaptModelOptions
-            self.options = CaptModelOptions(**options)
-        else:
-            self.options = None
-
-        self.policy_net: PolicyNet = None
+    def __init__(self, dataset: SuppDataset, net: Net):
+        self.policy_net = None
         self.serial_net = None
 
         assert isinstance(dataset, SuppDataset)
         self.dataset = dataset
         self.net = net
-
-        from classification.nets import Cifar10Net, Cifar10Net_Small, MnistNet
-        from captioning.nets import FCModel
-
-        self.NETS = {
-            Net.CIFAR10: Cifar10Net,
-            Net.CIFAR10_SMALL: Cifar10Net_Small,
-            Net.MNIST: MnistNet,
-            Net.FC_CAPTION: FCModel,
-        }
 
     def save(self, path, filename):
         # todo! also save serial?
@@ -71,31 +55,28 @@ class Policy(ABC):
         torch.save(self.policy_net.state_dict(), os.path.join(path, filename))
 
     def get_net_class(self):
-        return self.NETS[self.net]
+        return NETS[self.net]
 
     def parameter_vector(self):
         assert self.policy_net is not None, 'set model first!'
         return nn.utils.parameters_to_vector(self.policy_net.parameters())
 
-    # def get_serial_model(self):
-    #     return copy.deepcopy(self.serial_net)
+    def get_serial_model(self):
+        return copy.deepcopy(self.serial_net)
 
     def nb_learnable_params(self):
         assert self.policy_net is not None, 'set model first!'
         return self.policy_net.get_nb_learnable_params()
 
-    # def from_serialized(self, serialized):
-    #     model = self.generate_model()
-    #     model.from_serialized(serialized)
-    #     return model
+    def from_serialized(self, serialized: Union[CompressedModel, dict]):
+        model = self.generate_model()
+        model.from_serialized(serialized)
+        return model
 
-    def serialized(self, path=''):
-        return self.policy_net.serialize(path=path)
-
-    def rollout(self, data, config):
+    def rollout(self, data):
         raise NotImplementedError
 
-    def accuracy_on(self, data, config, directory):
+    def accuracy_on(self, data):
         raise NotImplementedError
 
     def evolve_model(self, sigma):
@@ -113,62 +94,41 @@ class Policy(ABC):
     def get_model(self):
         raise NotImplementedError
 
-    # def save_to_disk(self, log_dir):
-    #     dir = 'tmp_offspring'
-    #     filename = 'offspring_params_i{i}.pth'
-    #     path_to_offspring = os.path.join(log_dir, dir, filename)
-    #
-    #     torch.save(self._po.serialize(), path_to_elite)
-    #     return path_to_elite
-
 
 class NetsPolicy(Policy, ABC):
-    # TODO inconsistent: init model from PolicyNet but afterwards only with paths --> unify
-    # TODO cleanup serial_net & policy_net
 
-    def init_model(self, model=None):
+    def init_model(self, model: PolicyNet = None):
         assert isinstance(model, PolicyNet), '{}'.format(type(model))
         self.policy_net = model
-        # self.serial_net = model.state_dict()
+        self.serial_net = model.state_dict()
 
     def set_model(self, model):
-        assert isinstance(model, PolicyNet) or isinstance(model, dict) \
-               or isinstance(model, str), '{}'.format(type(model))
+        assert isinstance(model, PolicyNet) or isinstance(model, dict), '{}'.format(type(model))
         if isinstance(model, PolicyNet):
-            self._set_from_statedict_model(model.state_dict())
-        elif isinstance(model, dict):
-            self._set_from_statedict_model(model)
+            self._set_serialized_net_model(model.state_dict())
         else:
-            self._set_from_path_model(model)
+            self._set_serialized_net_model(model)
 
-    def _set_from_path_model(self, serialized):
-        # assert isinstance(serialized, dict), '{}'.format(type(serialized))
-        assert self.policy_net is not None, 'Set model first!'
-
-        # copied = copy.deepcopy(serialized)
-        self.policy_net.from_serialized(serialized)
-        # self.serial_net = serialized
-
-    def _set_from_statedict_model(self, serialized):
+    def _set_serialized_net_model(self, serialized):
         assert isinstance(serialized, dict), '{}'.format(type(serialized))
         assert self.policy_net is not None, 'Set model first!'
 
         copied = copy.deepcopy(serialized)
         self.policy_net.load_state_dict(copied)
-        # self.serial_net = copied
+        self.serial_net = copied
 
     def generate_model(self, from_param_file=None, start_rng=None):
         if from_param_file:
-            return self.get_net_class()(from_param_file=from_param_file, options=self.options)
+            return self.get_net_class()(from_param_file=from_param_file)  # .state_dict()
         elif start_rng:
-            return self.get_net_class()(rng_state=start_rng, options=self.options)
+            return self.get_net_class()(rng_state=start_rng)  # .state_dict()
         else:
-            return self.get_net_class()(rng_state=random_state(), options=self.options)
+            return self.get_net_class()(rng_state=random_state())  # .state_dict()
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
         self.policy_net.evolve(sigma)
-        # self.serial_net = copy.deepcopy(self.policy_net.state_dict())
+        self.serial_net = copy.deepcopy(self.policy_net.state_dict())
 
     def get_model(self):
         return self.policy_net
@@ -204,20 +164,57 @@ class SeedsPolicy(Policy, ABC):
         self.serial_net = copy.deepcopy(compressed_model)
 
 
+class ClfPolicy(Policy, ABC):
+    def rollout(self, data):
+        # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
+        assert self.policy_net is not None, 'Set model first!'
+        assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
+
+        torch.set_grad_enabled(False)
+        self.policy_net.eval()
+
+        inputs, labels = data
+        outputs = self.policy_net(inputs)
+
+        criterion = nn.CrossEntropyLoss()
+        loss = criterion(outputs, labels)
+        # print(loss) --> tensor(2.877)
+        result = -float(loss.item())
+
+        del inputs, labels, outputs, loss, criterion
+        return result
+
+    def accuracy_on(self, data):
+        assert self.policy_net is not None, 'Set model first!'
+        assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
+
+        torch.set_grad_enabled(False)
+        self.policy_net.eval()
+
+        inputs, labels = data
+        outputs = self.policy_net(inputs)
+
+        prediction = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        correct = prediction.eq(labels.view_as(prediction)).sum().item()
+        accuracy = float(correct) / labels.size()[0]
+
+        del inputs, labels, outputs, prediction, correct
+        return accuracy
+
+
+class NetsClfPolicy(ClfPolicy, NetsPolicy):
+    pass
+
+
+class SeedsClfPolicy(ClfPolicy, SeedsPolicy):
+    pass
+
+
 class PolicyFactory:
     @staticmethod
-    def create(dataset: SuppDataset, mode, net: Net, exp):
-
+    def create(dataset: SuppDataset, mode, net: Net):
         if dataset == SuppDataset.MNIST or dataset == SuppDataset.CIFAR10:
-            from classification.policies import SeedsClfPolicy, NetsClfPolicy
             if mode == 'seeds':
                 return SeedsClfPolicy(dataset, net)
             else:
                 return NetsClfPolicy(dataset, net)
-
-        elif dataset == SuppDataset.MSCOCO:
-            from captioning.policies import NetsGenPolicy, SeedsGenPolicy
-            if mode == 'seeds':
-                return SeedsGenPolicy(dataset, net, exp['caption_model_options'])
-            else:
-                return NetsGenPolicy(dataset, net, exp['caption_model_options'])
