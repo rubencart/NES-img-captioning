@@ -21,7 +21,7 @@ config_fields = [
     'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
     'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers', 'log_dir',
     'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience',
-    'val_batch_size', 'num_val_batches', 'num_val_items',
+    'val_batch_size', 'num_val_batches', 'num_val_items', 'cuda'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 

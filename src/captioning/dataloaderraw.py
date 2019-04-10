@@ -1,5 +1,7 @@
 """
 Code from https://github.com/ruotianluo/self-critical.pytorch
+
+# todo this loads from raw images, right?
 """
 
 # from __future__ import absolute_import
@@ -117,8 +119,9 @@ class DataLoaderRaw:
             # img = torch.from_numpy(img.transpose([2, 0, 1])).cuda()
             img = torch.from_numpy(img.transpose([2, 0, 1])).to(self.device)
             img = preprocess(img)
-            with torch.no_grad():
-                tmp_fc, tmp_att = self.my_resnet(img)
+            # with torch.no_grad():
+
+            tmp_fc, tmp_att = self.my_resnet(img)
 
             fc_batch[i] = tmp_fc.data.cpu().float().numpy()
             att_batch[i] = tmp_att.data.cpu().float().numpy()

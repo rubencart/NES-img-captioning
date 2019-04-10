@@ -3,14 +3,15 @@
 NAME=exp_`date "+%m_%d_%H_%M_%S"`
 ALGO=$1
 EXP_FILE=$2
-NUM_WORKERS=$3
-
-if test -z "$NUM_WORKERS"
-then
-      WORKERS=''
-else
-      WORKERS=' --num_workers '"$NUM_WORKERS"
-fi
+#NUM_WORKERS=$3
+#
+#if test -z "$NUM_WORKERS"
+#then
+#      WORKERS=''
+#else
+#      WORKERS=' --num_workers '"$NUM_WORKERS"
+#fi
+WORKERS=' --num_workers -1'
 
 tmux new -s $NAME -d
 tmux send-keys -t $NAME '. src/scripts/local_env_setup.sh' C-m    # -m src.main master

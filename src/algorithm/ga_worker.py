@@ -147,7 +147,7 @@ class GAWorker(object):
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
                     # logger.info('BATCH SIZE: {}'.format(task_data.batch_data[1].size()))
-                    fitness = policy.rollout(data=task_data.batch_data)
+                    fitness = policy.rollout(data=task_data.batch_data, config=config)
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
@@ -172,7 +172,7 @@ class GAWorker(object):
 
             # todo DEL everything!
             # del task_data
-            gc.collect()
+            # gc.collect()
             # logging.info('going out of while true loop')
 
 

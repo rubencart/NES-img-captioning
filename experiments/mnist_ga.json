@@ -6,11 +6,12 @@
 
   "mode":  "nets",
   "config": {
+    "cuda": true,
     "eval_prob": 0.005,
     "noise_stdev": 0.01,
     "snapshot_freq": 5,
     "batch_size": 256,
-    "patience": 2,
+    "patience": 20,
     "stdev_decr_divisor": 1.0
   },
   "dataset": "mnist",

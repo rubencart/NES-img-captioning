@@ -52,21 +52,21 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     seq_per_img = batch_size // len(data['gts'])
 
     # get greedy decoding baseline
-    model.eval()
-    with torch.no_grad():
+    # model.eval()
+    # with torch.no_grad():
         # mode sample but sample_max = 1 by default so greedy
-        greedy_res, _ = model(fc_feats, att_feats, att_masks=att_masks, mode='sample')
+        # greedy_res, _ = model(fc_feats, att_feats, att_masks=att_masks, mode='sample')
 
     # model.train()
 
     res = OrderedDict()
 
     gen_result = gen_result.data.cpu().numpy()
-    greedy_res = greedy_res.data.cpu().numpy()
+    # greedy_res = greedy_res.data.cpu().numpy()
     for i in range(batch_size):
         res[i] = [array_to_str(gen_result[i])]
-    for i in range(batch_size):
-        res[batch_size + i] = [array_to_str(greedy_res[i])]
+    # for i in range(batch_size):
+    #     res[batch_size + i] = [array_to_str(greedy_res[i])]
 
     gts = OrderedDict()
     for i in range(len(data['gts'])):

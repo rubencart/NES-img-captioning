@@ -59,13 +59,15 @@ logger = logging.getLogger(__name__)
 
 # next things:
 # - PROFILE run on server
+# - fix permissions of entire ga-img-capt folder
+
 # - include last generation's elite but also best elite so far!!!!
 # - fix trainloader generator etc, nicer solution to incr bs than breaking loop
 # - Test if GPU goes faster!
 # - todo remove files from offspring folder on except KeyIntterupt
 # - cococaption uses CIDEr and not CIDErD
-# - fix permissions of entire ga-img-capt folder
 # - leave unused BLEU / METEOR / ... scores out of validation run
+# - model.eval() / .train() --> so no dropout is used
 # - FIX SNAPSHOT --> now: snapshot saves paths to parents in infos
 #                    next generation: parents are deleted
 #                    until next snapshot: infos still points to non existing files!

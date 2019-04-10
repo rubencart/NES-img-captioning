@@ -13,12 +13,18 @@ logger = logging.getLogger(__name__)
 
 class GenPolicy(Policy, ABC):
 
-    def rollout(self, data):
+    def rollout(self, data, config):
         init_scorer(cached_tokens='coco-train-idxs')
 
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-        # tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
-        tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
+
+        device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
+        logger.info('***** DEVICE : {} *****'.format(device))
+
+        self.policy_net.to(device)
+
+        tmp = [_ if _ is None else torch.from_numpy(_).to(device) for _ in tmp]
+        # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
         logger.info('evaluating {} images'.format(fc_feats.size(0)))
@@ -44,6 +50,11 @@ class GenPolicy(Policy, ABC):
 
         # num_batches = config.num_val_batches if config and config.num_val_batches else 0
         num = config.num_val_items
+
+        device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
+        logger.info('***** DEVICE : {} *****'.format(device))
+
+        self.policy_net.to(device)
 
         lang_stats = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
 
