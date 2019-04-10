@@ -1,7 +1,7 @@
 {
   "mode":  "nets",
   "config": {
-    "cuda": true,
+    "cuda": false,
 
     "eval_prob": 0.002,
     "noise_stdev": 0.003,

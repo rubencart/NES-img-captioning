@@ -41,7 +41,7 @@ def run():
     parser.add_argument('--master_host', type=str, default='localhost', help='')
     parser.add_argument('--master_port', type=int, default=6379, help='')
     parser.add_argument('--relay_socket_path', type=str, default='/tmp/es_redis_relay.sock', help='')
-    parser.add_argument('--num_workers', type=int, default=2, help='')
+    parser.add_argument('--num_workers', type=int, help='')
 
     args = parser.parse_args()
 
