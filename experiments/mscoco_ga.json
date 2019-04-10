@@ -2,7 +2,7 @@
   "mode":  "nets",
   "config": {
     "cuda": true,
-    
+
     "eval_prob": 0.002,
     "noise_stdev": 0.003,
     "snapshot_freq": 5,

@@ -27,7 +27,7 @@ class GenPolicy(Policy, ABC):
         # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
-        logger.info('evaluating {} images'.format(fc_feats.size(0)))
+        logger.info('evaluating {} images'.format(labels.size()))
 
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
                                                       opt={'sample_max': 0}, mode='sample')
