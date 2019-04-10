@@ -10,8 +10,9 @@ import torch.optim as optim
 
 
 # https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html#sphx-glr-beginner-blitz-cifar10-tutorial-py
-from nets import random_state, MnistNet, Cifar10Net
-from utils import mkdir_p
+from classification.nets import MnistNet, Cifar10Net
+from algorithm.tools.utils import mkdir_p, random_state
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--save_to_path', type=str, default='logs/sgd_{ds}_{pid}/', help='')
@@ -48,6 +49,7 @@ else:
 
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+print('***** DEVICE : {} *****'.format(device))
 net.to(device)
 
 criterion = nn.CrossEntropyLoss()

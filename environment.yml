@@ -1,47 +1,73 @@
-name: base
+name: cp3env
 channels:
   - defaults
 dependencies:
-  - asn1crypto=0.24.0=py37_0
-  - ca-certificates=2018.03.07=0
-  - certifi=2018.11.29=py37_0
-  - cffi=1.11.5=py37h6174b99_1
-  - chardet=3.0.4=py37_1
-  - conda=4.5.12=py37_0
-  - conda-env=2.6.0=1
-  - cryptography=2.4.2=py37ha12b0ac_0
-  - idna=2.8=py37_0
-  - libcxx=4.0.1=hcfea43d_1
-  - libcxxabi=4.0.1=hcfea43d_1
-  - libedit=3.1.20170329=hb402a30_2
-  - libffi=3.2.1=h475c297_4
-  - ncurses=6.1=h0a44026_1
-  - openssl=1.1.1a=h1de35cc_0
-  - pip=18.1=py37_0
-  - pycosat=0.6.3=py37h1de35cc_0
-  - pycparser=2.19=py37_0
-  - pyopenssl=18.0.0=py37_0
-  - pysocks=1.6.8=py37_0
-  - python=3.7.1=haf84260_7
-  - python.app=2=py37_9
-  - readline=7.0=h1de35cc_5
-  - requests=2.21.0=py37_0
-  - ruamel_yaml=0.15.46=py37h1de35cc_0
-  - setuptools=40.6.3=py37_0
+  - blas=1.0=mkl
+  - ca-certificates=2019.1.23=0
+  - certifi=2019.3.9=py37_0
+  - h5py=2.9.0=py37h7918eee_0
+  - hdf5=1.10.4=hb1b8bf9_0
+  - intel-openmp=2019.3=199
+  - libedit=3.1.20181209=hc058e9b_0
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc-ng=8.2.0=hdf63c60_1
+  - libgfortran-ng=7.3.0=hdf63c60_0
+  - libstdcxx-ng=8.2.0=hdf63c60_1
+  - mkl=2019.3=199
+  - mkl-service=1.1.2=py37he904b0f_5
+  - mkl_fft=1.0.10=py37ha843d7b_0
+  - mkl_random=1.0.2=py37hd81dba3_0
+  - ncurses=6.1=he6710b0_1
+  - numpy=1.16.2=py37h7e9f1db_0
+  - numpy-base=1.16.2=py37hde5b4d6_0
+  - openssl=1.1.1b=h7b6447c_1
+  - pip=19.0.3=py37_0
+  - python=3.7.2=h0371630_0
+  - readline=7.0=h7b6447c_5
+  - setuptools=40.8.0=py37_0
   - six=1.12.0=py37_0
-  - sqlite=3.26.0=ha441bb4_0
-  - tk=8.6.8=ha441bb4_0
-  - urllib3=1.24.1=py37_0
-  - wheel=0.32.3=py37_0
-  - xz=5.2.4=h1de35cc_4
-  - yaml=0.1.7=hc338f04_2
-  - zlib=1.2.11=h1de35cc_3
+  - sqlite=3.27.2=h7b6447c_0
+  - tk=8.6.8=hbc83047_0
+  - wheel=0.33.1=py37_0
+  - xz=5.2.4=h14c3975_4
+  - zlib=1.2.11=h7b6447c_3
   - pip:
     - appnope==0.1.0
     - backcall==0.1.0
-    - numpy==1.16.2
+    - click==7.0
+    - cycler==0.10.0
+    - decorator==4.4.0
+    - graphviz==0.10.1
+    - imageio==2.5.0
+    - ipython==7.3.0
+    - ipython-genutils==0.2.0
+    - jedi==0.13.3
+    - kiwisolver==1.0.1
+    - matplotlib==3.0.3
+    - memory-profiler==0.55.0
+    - networkx==2.2
+    - objgraph==3.4.0
+    - parso==0.3.4
+    - pexpect==4.6.0
+    - pickleshare==0.7.5
     - pillow==5.4.1
-    - torch==1.0.1.post2
-    - torchvision==0.2.2.post3
-prefix: /Users/rubencartuyvels/miniconda3
+    - prompt-toolkit==2.0.9
+    - psutil==5.6.1
+    - ptyprocess==0.6.0
+    - pygments==2.3.1
+    - pyparsing==2.3.1
+    - python-dateutil==2.8.0
+    - pytz==2018.9
+    - pywavelets==1.0.2
+    - redis==3.0.1
+    - rq==0.13.0
+    - scikit-image==0.15.0
+    - scipy==1.2.1
+    - torch==1.0.1
+    - torchvision==0.2.2
+    - tornado==6.0.1
+    - tqdm==4.19.9
+    - traitlets==4.3.2
+    - wcwidth==0.1.7
+prefix: /home/rubencartuyvels_gmail_com/miniconda3/envs/cp3env
 
