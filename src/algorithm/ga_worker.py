@@ -35,7 +35,6 @@ class GAWorker(object):
         config: Config = setup_tuple[0]
         policy: Policy = setup_tuple[1]
         experiment: Experiment = setup_tuple[2]
-        # policy = None
 
         rs = np.random.RandomState()
         worker_id = rs.randint(2 ** 31)
@@ -45,12 +44,11 @@ class GAWorker(object):
         mkdir_p(offspring_dir)
         offspring_path = os.path.join(offspring_dir, '{w}_{i}_offspring_params.pth')
 
-        eval_dir = os.path.join(exp['log_dir'], 'eval')
+        eval_dir = os.path.join(exp['log_dir'], 'eval_{}'.format(os.getpid()))
         mkdir_p(eval_dir)
 
         _it_id = 0
 
-        # logging.info('going into while true loop')
         while True:
 
             _it_id += 1
@@ -64,11 +62,9 @@ class GAWorker(object):
             #     time.sleep(10)
             #     continue
 
-            # logging.info('Getting task')
             task_id, task_data = worker.get_current_task()
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
-            # logging.info('Got task')
 
             # parent_paths = task_data.parents
             # elite_path = task_data.elite
@@ -81,39 +77,28 @@ class GAWorker(object):
                 logger.info('EVAL RUN')
                 try:
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
-                    # logging.info('Elite: %s', task_data.elite)
 
-                    # setup_tuple = setup_worker(exp)
-                    # config: Config = setup_tuple[0]
-                    # policy: Policy = setup_tuple[1]
+                    index = rs.randint(len(task_data.elites))
 
-                    # val_loader = task_data.val_loader
+                    cand_id, cand = task_data.elites[index]
 
-                    policy.set_model(task_data.elite)
+                    policy.set_model(cand)
 
-                    # logging.info('Elite set in policy')
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
-
-                    # logging.info('Calculating acc')
 
                     score = policy.accuracy_on(experiment.valloader, config, eval_dir)
 
-                    # val_scores.append(policy.accuracy_on(data=next(iter(val_loader))))
-
-                    # accuracy = policy.rollout(data=task_data.val_data)
-                    # logging.info('Accuracy: %d', round(accuracy, 2))
-
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                    # logging.info('EVAL pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
-                        eval_return=score,
+                        score=score,
+                        evaluated_cand_id=cand_id,
+                        evaluated_cand=cand,
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
                     logger.error(e)
-                    # pass
 
                 except Exception as e:
                     raise Exception
@@ -139,31 +124,29 @@ class GAWorker(object):
                         policy.set_model(model)
                     else:
                         policy.set_model(parent)
+                        # todo unmodified or not?
                         # elite at idx 0 doesn't have to be evolved (last elem of parents list is an
                         # exact copy of the elite, which will be evolved)
-                        if index != 0:
-                            policy.evolve_model(task_data.noise_stdev)
+                        # if index < experiment.num_elites():
+                        #    policy.evolve_model(task_data.noise_stdev)
+                        policy.evolve_model(task_data.noise_stdev)
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                    # logger.info('BATCH SIZE: {}'.format(task_data.batch_data[1].size()))
                     fitness = policy.rollout(data=task_data.batch_data, config=config)
 
                     mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-                    # logging.info('EVOLVE pushing result')
                     worker.push_result(task_id, Result(
                         worker_id=worker_id,
                         evaluated_model_id=parent_id,
-                        # evaluated_model=policy.get_model(),
                         evaluated_model=policy.serialized(path=offspring_path.format(w=worker_id,
                                                                                      i=_it_id)),
                         fitness=np.array([fitness], dtype=np.float32),
                         mem_usage=max(mem_usages)
                     ))
                 except FileNotFoundError as e:
-                    # logging.error(e)
-                    pass
+                    logging.error(e)
 
                 except Exception as e:
                     raise Exception
@@ -173,7 +156,6 @@ class GAWorker(object):
             # todo DEL everything!
             # del task_data
             # gc.collect()
-            # logging.info('going out of while true loop')
 
 
 def start_and_run_worker(i, master_redis_cfg, relay_redis_cfg):

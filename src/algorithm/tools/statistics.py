@@ -100,6 +100,7 @@ class Statistics(object):
         tlogger.record_tabular('RewMean', self._score_stats[1][-1])
         tlogger.record_tabular('RewMin', self._score_stats[0][-1])
         tlogger.record_tabular('RewStd', self._score_stds[-1])
+        tlogger.record_tabular('EliteAcc', self._acc_stats[-1])
 
         # todo apart from norm, would also be interesting to see how far params are from
         # each other in param space (distance between param_vectors)

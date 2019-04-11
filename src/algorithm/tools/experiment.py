@@ -20,7 +20,9 @@ class Experiment(ABC):
         self._exp = exp
         self._population_size = exp['population_size']
         self._truncation = exp['truncation']
-        self._num_elites = exp['num_elites']  # todo use num_elites instead of 1
+        self._num_elites = exp['num_elites']
+        self._num_elite_cands = exp['num_elite_cands']
+
         self._dataset = exp['dataset']
         self._net = exp['net']
 
@@ -29,8 +31,6 @@ class Experiment(ABC):
 
         self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
         self._orig_trainloader_lth = len(self.trainloader)
-        # self._orig_trainloader_lth = len(self.trainloader) * self.trainloader.batch_size
-        # self._orig_bs = self.trainloader.batch_size
 
         self._master = master
         if master:
@@ -121,6 +121,12 @@ class Experiment(ABC):
 
     def mode(self):
         return self._mode
+
+    def num_elites(self):
+        return self._num_elites
+
+    def num_elite_cands(self):
+        return self._num_elite_cands
 
     def log_dir(self):
         assert self._master

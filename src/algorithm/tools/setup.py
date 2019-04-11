@@ -41,14 +41,11 @@ def setup_master(exp):
         experiment.init_from_infos(infos)
 
     elif 'from_single' in exp and exp['from_single'] is not None:
-        # todo
-
-        # single_state_dict = torch.load(exp['from_single'])
-        iteration.init_from_single(exp['from_single'], exp['truncation'], policy)
+        iteration.init_from_single(exp['from_single'], exp['truncation'], exp['num_elite_cands'], policy)
 
     else:
-        iteration.init_parents(exp['truncation'], policy)
+        iteration.init_parents(exp['truncation'], exp['num_elite_cands'], policy)
 
     policy.init_model(policy.generate_model())
-    policy.set_model(iteration.elite())
+    # policy.set_model(iteration.elite())
     return config, policy, statistics, iteration, experiment

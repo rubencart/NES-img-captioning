@@ -34,6 +34,15 @@ https://bugs.python.org/issue33725
 
 #### Running
 
+```
+screen -S redis
+'echo never > /sys/kernel/mm/transparent_hugepage/enabled' as root
+. src/scripts/local_run_redis.sh
+
+screen -S ga
+. src/scripts/local_run_exp.sh ga experiments/mscoco.json 58
+```
+
 Truncation should be smaller than population size!
 
 Caution you need population_size * <size of one param.pth file> disk space! For a 3M param network with an 11MB param file this is ~12GB.
