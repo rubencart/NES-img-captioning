@@ -9,12 +9,13 @@ import numpy as np
 
 # todo cleanup
 ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev',
-                  'log_dir', 'val_loader']  # , 'policy'
+                  'log_dir', 'val_loader', 'elites']  # , 'policy'
 GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
 
 result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
-                 'eval_return', 'mem_usage']
+                 'eval_return', 'mem_usage', 'evaluated_cand', 'evaluated_cand_id',
+                 'score']
 Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 config_fields = [
