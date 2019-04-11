@@ -1,13 +1,11 @@
 #!/bin/bash
 
 
-#PBS -l nodes=4:ppn=16
+#PBS -l nodes=4:ppn=8
 
 #PBS -l pmem=5gb
 
 #PBS -l walltime=24:00:00
-
-#PBS -A ltutorial_liir
 
 #PBS -j oe
 
@@ -37,5 +35,5 @@ else
       WORKERS=' --num_workers '"$NUM_WORKERS"
 fi
 
-python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file experiments/mscoco_ga.json 2>&1 | ts | tee ./output/master_outputfile.txt &
-python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga 2>&1 "$WORKERS" | ts | tee ./output/worker_outputfile.txt &
+python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file experiments/mscoco_ga.json > ./output/master_outputfile.txt 2>&1 &
+python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga "$WORKERS" > ./output/worker_outputfile.txt 2>&1 &

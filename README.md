@@ -101,5 +101,13 @@ w.sort_stats(SortKey.TIME).print_stats(10)
 `ls dir/ | wc -l` : number of files in dir
 `du -h` : disk usage of dir and subdirs
 
+https://askubuntu.com/questions/420981/how-do-i-save-terminal-output-to-a-file
+https://stackoverflow.com/questions/876239/how-can-i-redirect-and-append-both-stdout-and-stderr-to-a-file-with-bash
+
 https://unix.stackexchange.com/questions/1314/how-to-set-default-file-permissions-for-all-folders-files-in-a-directory
 
+#### GENIUS (VSC) machines ####
+
+https://vscentrum.be/cluster-doc/running-jobs/credit-system-basics#how-to-request-introduction-credits
+https://www.vscentrum.be/cluster-doc/running-jobs/specifying-requirements
+Add `#PBS -A ltutorial_liir` to put on LIIR?
