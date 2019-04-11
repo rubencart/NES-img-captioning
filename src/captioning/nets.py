@@ -294,17 +294,17 @@ class FCModel(CaptionModel):
                         prob_prev = torch.exp(outputs[-1].data)  # fetch prev distribution: shape Nx(M+1)
 
                         # hopefully this:
-                        # t_sample = torch.multinomial(prob_prev, 1).view(-1)
+                        t_sample = torch.multinomial(prob_prev, 1, replacement=True).view(-1)
 
                         # equals this:
-                        np_prob_prev = prob_prev.numpy()
-                        result = []
-                        for row in np_prob_prev:
-                            n_row = row / np.linalg.norm(row, ord=1)
-                            sample = np.random.choice(len(n_row), 1, p=n_row)
-                            result.append(sample.item())
-
-                        t_sample = torch.LongTensor(result)
+                        # np_prob_prev = prob_prev.numpy()
+                        # result = []
+                        # for row in np_prob_prev:
+                        #     n_row = row / np.linalg.norm(row, ord=1)
+                        #     sample = np.random.choice(len(n_row), 1, p=n_row)
+                        #     result.append(sample.item())
+                        #
+                        # t_sample = torch.LongTensor(result)
                         # ---- until here :)
 
                         sample = t_sample.index_select(0, sample_ind)
@@ -406,17 +406,17 @@ class FCModel(CaptionModel):
                 # it = torch.multinomial(prob_prev, 1).cuda()
 
                 # hopefully this:
-                # it = torch.multinomial(prob_prev, 1).to(device)
+                it = torch.multinomial(prob_prev, 1, replacement=True).to(device)
 
                 # equals this:
-                np_prob_prev = prob_prev.numpy()
-                result = []
-                for row in np_prob_prev:
-                    n_row = row / np.linalg.norm(row, ord=1)
-                    sample = np.random.choice(len(n_row), 1, p=n_row)
-                    result.append(sample.item())
-
-                it = torch.LongTensor(result).unsqueeze(1).to(device)
+                # np_prob_prev = prob_prev.numpy()
+                # result = []
+                # for row in np_prob_prev:
+                #     n_row = row / np.linalg.norm(row, ord=1)
+                #     sample = np.random.choice(len(n_row), 1, p=n_row)
+                #     result.append(sample.item())
+                #
+                # it = torch.LongTensor(result).unsqueeze(1).to(device)
                 # --- until here
 
                 sampleLogprobs = logprobs.gather(1, it)  # gather the logprobs at sampled positions
