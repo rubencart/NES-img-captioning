@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 #PBS -l nodes=4:ppn=8
 
 #PBS -l pmem=5gb
