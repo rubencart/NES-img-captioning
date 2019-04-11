@@ -19,7 +19,7 @@ class GenPolicy(Policy, ABC):
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
 
         device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
-        logger.info('***** DEVICE : {} *****'.format(device))
+        # logger.info('***** DEVICE : {} *****'.format(device))
 
         self.policy_net.to(device)
 
@@ -27,7 +27,7 @@ class GenPolicy(Policy, ABC):
         # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
-        logger.info('evaluating {} images'.format(labels.size()))
+        # logger.info('evaluating {} images'.format(labels.size()))
 
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
                                                       opt={'sample_max': 0}, mode='sample')
@@ -52,7 +52,7 @@ class GenPolicy(Policy, ABC):
         num = config.num_val_items
 
         device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
-        logger.info('***** DEVICE : {} *****'.format(device))
+        # logger.info('***** DEVICE : {} *****'.format(device))
 
         self.policy_net.to(device)
 
