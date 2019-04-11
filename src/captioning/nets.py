@@ -306,6 +306,9 @@ class FCModel(CaptionModel):
 
                         t_sample = torch.LongTensor(result)
                         # ---- until here :)
+                        # see https://pytorch.org/docs/stable/torch.html#torch.multinomial
+                        # https://github.com/pytorch/pytorch/issues/11931
+                        # https://github.com/pytorch/pytorch/issues/13018
 
                         sample = t_sample.index_select(0, sample_ind)
                         it.index_copy_(0, sample_ind, sample)
@@ -418,6 +421,9 @@ class FCModel(CaptionModel):
 
                 it = torch.LongTensor(result).unsqueeze(1).to(device)
                 # --- until here
+                # see https://pytorch.org/docs/stable/torch.html#torch.multinomial
+                # https://github.com/pytorch/pytorch/issues/11931
+                # https://github.com/pytorch/pytorch/issues/13018
 
                 sampleLogprobs = logprobs.gather(1, it)  # gather the logprobs at sampled positions
                 it = it.view(-1).long()  # and flatten indices for downstream processing
