@@ -189,13 +189,14 @@ class Cifar10Experiment(Experiment):
 
 
 _opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
-               'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img']
+               'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img', 'fitness']
 CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=(None,) * len(_opt_fields))
 
 
 class MSCocoExperiment(Experiment):
     def __init__(self, exp, config, master=True):
-        self.opt = CaptionOptions(**exp['caption_options'])
+        self.opt: CaptionOptions = CaptionOptions(**exp['caption_options'])
+        # self.fitness = Fitness(self.opt.get('fitness', 'sc_loss'))
 
         # Deal with feature things before anything
         # self.options.use_att = utils.if_use_att(self.options.caption_model)

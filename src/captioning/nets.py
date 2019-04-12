@@ -226,7 +226,8 @@ class LSTMCore(nn.Module):
 
 _capt_model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
                           # todo dropout can go
-                          'drop_prob_lm', 'seq_length', 'fc_feat_size']
+                          # todo fitness to CaptPolicyOptions
+                          'drop_prob_lm', 'seq_length', 'fc_feat_size', 'fitness']
 CaptModelOptions = namedtuple('CaptModelOptions', field_names=_capt_model_opt_fields,
                               defaults=(None,) * len(_capt_model_opt_fields))
 
