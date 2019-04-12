@@ -40,7 +40,7 @@ screen -S redis
 . src/scripts/local_run_redis.sh
 
 screen -S ga
-. src/scripts/local_run_exp.sh ga experiments/mscoco.json 58
+. src/scripts/local_run_exp.sh ga experiments/mscoco_ga.json 58
 ```
 
 Truncation should be smaller than population size!
