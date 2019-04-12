@@ -3,10 +3,10 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.002,
-    "noise_stdev": 0.003,
+    "eval_prob": 0.004,
+    "noise_stdev": 0.002,
     "snapshot_freq": 5,
-    "batch_size": 512,
+    "batch_size": 256,
 
     "val_batch_size": 256,
     "num_val_batches": 4,
@@ -20,7 +20,9 @@
   "net": "fc_caption",
   "population_size": 1000,
   "truncation": 30,
-  "num_elites": 1,
+
+  "num_elites": 3,
+  "num_elite_cands": 3,
 
   "from_single": "logs/log_xent_fc_128/checkpt/model-best.pth",
 
