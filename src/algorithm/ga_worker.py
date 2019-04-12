@@ -9,6 +9,7 @@ import time
 
 import numpy as np
 import torch
+from memory_profiler import profile
 
 from algorithm.tools.experiment import Experiment
 from dist import WorkerClient
@@ -43,7 +44,9 @@ class GAWorker(object):
         # policy: Policy = setup_tuple[1]
         self.experiment: Experiment = setup_tuple[2]
 
-    # @profile_exp(stream=open('profile_exp/memory_profile_worker.log', 'w+'))
+        self.placeholder = torch.FloatTensor(1)
+
+    @profile(stream=open('output/memory_profile_worker.txt', 'w+'))
     def run_worker(self):
         logger = logging.getLogger(__name__)
 
@@ -56,7 +59,7 @@ class GAWorker(object):
 
         _it_id = 0
 
-        while True:
+        while _it_id < 100:
 
             _it_id += 1
             torch.set_grad_enabled(False)
@@ -79,7 +82,7 @@ class GAWorker(object):
             if rs.rand() < config.eval_prob:
                 logger.info('EVAL RUN')
                 try:
-                    result = self.accuracy(config, experiment, policy, task_data)
+                    result = self.accuracy(policy, task_data)
                     worker.push_result(task_id, result)
 
                 except FileNotFoundError as e:
@@ -92,7 +95,7 @@ class GAWorker(object):
                 # logging.info('EVOLVE RUN')
                 try:
 
-                    result = self.fitness(config, _it_id, policy, task_data)
+                    result = self.fitness(_it_id, policy, task_data)
                     worker.push_result(task_id, result)
 
                 except FileNotFoundError as e:
@@ -103,10 +106,9 @@ class GAWorker(object):
 
             del policy, task_data
             gc.collect()
-            self.write_alive_tensors()
-            input('...')
+            # self.write_alive_tensors()
 
-    def accuracy(self, config, experiment, policy, task_data):
+    def accuracy(self, policy, task_data):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
@@ -117,7 +119,7 @@ class GAWorker(object):
         policy.set_model(cand)
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        score = policy.accuracy_on(experiment.valloader, config, self.eval_dir)
+        score = policy.accuracy_on(self.experiment.valloader, self.config, self.eval_dir)
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         # del task_data, cand, score
@@ -129,7 +131,7 @@ class GAWorker(object):
             mem_usage=max(mem_usages)
         )
 
-    def fitness(self, config, it_id, policy, task_data):
+    def fitness(self, it_id, policy, task_data):
 
         # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
 
@@ -157,7 +159,8 @@ class GAWorker(object):
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        fitness = policy.rollout(data=task_data.batch_data, config=config)
+        fitness = policy.rollout(placeholder=self.placeholder,
+                                 data=task_data.batch_data, config=self.config)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
@@ -173,7 +176,7 @@ class GAWorker(object):
     def write_alive_tensors(self):
         fn = os.path.join(self.eval_dir, 'alive_tensors.txt')
 
-        to_write = ''
+        to_write = '***************************\n'
         for obj in gc.get_objects():
             try:
                 if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):

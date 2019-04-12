@@ -94,7 +94,7 @@ class Policy(ABC):
     def serialized(self, path=''):
         return self.policy_net.serialize(path=path)
 
-    def rollout(self, data, config) -> float:
+    def rollout(self, placeholder, data, config) -> float:
         raise NotImplementedError
 
     def accuracy_on(self, data, config, directory) -> float:

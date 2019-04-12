@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ClfPolicy(Policy, ABC):
-    def rollout(self, data, config):
+    def rollout(self, placeholder, data, config):
         # CAUTION: memory: https://pytorch.org/docs/stable/notes/faq.html
         assert self.policy_net is not None, 'Set model first!'
         assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
@@ -25,16 +25,17 @@ class ClfPolicy(Policy, ABC):
         # logger.info('***** DEVICE : {} *****'.format(device))
 
         inputs, labels = data
-        inputs.to(device)
+        placeholder.data.resize_(inputs.shape).copy_(inputs)
+        placeholder.to(device)
         labels.to(device)
         self.policy_net.to(device)
 
-        outputs = self.policy_net(inputs)
+        outputs = self.policy_net(placeholder)
 
         criterion = nn.CrossEntropyLoss()
         loss = criterion(outputs, labels)
         # print(loss) --> tensor(2.877)
-        result = -float(loss.item())
+        result = -float(loss.detach().item())
 
         del inputs, labels, outputs, loss, criterion
         return result
@@ -43,14 +44,14 @@ class ClfPolicy(Policy, ABC):
         assert self.policy_net is not None, 'Set model first!'
         assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
 
+        torch.set_grad_enabled(False)
+        self.policy_net.eval()
+
         accuracies = []
         end = config.num_val_batches if config.num_val_batches else len(dataloader)
         for i, data in enumerate(dataloader):
             if i >= end:
                 break
-
-            torch.set_grad_enabled(False)
-            self.policy_net.eval()
 
             device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
             # logger.info('***** DEVICE : {} *****'.format(device))

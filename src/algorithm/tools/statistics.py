@@ -46,7 +46,7 @@ class Statistics(object):
         self._acc_stats = infos['acc_stats'] if 'acc_stats' in infos else self._acc_stats
         self._norm_stats = infos['norm_stats'] if 'norm_stats' in infos else self._norm_stats
         self._std_stats = infos['noise_std_stats'] if 'noise_std_stats' in infos else self._std_stats
-        self._bs_stats = infos['batch_size_stats'] if 'batch_size_stats' in infos else self._bs_stats
+        self._bs_stats = infos['bs_stats'] if 'bs_stats' in infos else self._bs_stats
         self._mem_stats = infos['mem_stats'] if 'mem_stats' in infos else self._mem_stats
 
     def to_dict(self):

@@ -56,6 +56,8 @@ logger = logging.getLogger(__name__)
 # - https://pytorch.org/docs/stable/notes/faq.html#my-model-reports-cuda-runtime-error-2-out-of-memory
 # - https://discuss.pytorch.org/t/how-to-check-memory-leak-in-a-model/22903
 #   -->  torch.cuda.empty_cache()
+#
+# https://github.com/pytorch/pytorch/issues/13246 !!
 
 # next things:
 # - PROFILE run on server
@@ -90,6 +92,7 @@ logger = logging.getLogger(__name__)
 
 class GAMaster(object):
 
+    # @profile(stream=open('../output/memory_profile_worker.txt', 'w+'))
     def run_master(self, master_redis_cfg, exp, plot):
         logger.info('run_master: {}'.format(locals()))
 

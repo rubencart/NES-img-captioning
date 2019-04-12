@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class GenPolicy(Policy, ABC):
 
-    def rollout(self, data, config):
+    def rollout(self, placeholder, data, config):
         torch.set_grad_enabled(False)
 
         init_scorer(cached_tokens='coco-train-idxs')
