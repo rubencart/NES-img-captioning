@@ -29,12 +29,11 @@ class Experiment(ABC):
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
 
-        # self.trainloader, self.valloader, self.testloader = None, None, None
-        # self._orig_trainloader_lth = 0
+        self.trainloader, self.valloader, self.testloader = None, None, None
+        self._orig_trainloader_lth = 0
 
         bs = iteration.batch_size() if iteration else config.batch_size
-        self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=bs)
-        self._orig_trainloader_lth = len(self.trainloader)
+        self.init_loaders(batch_size=bs)
 
         self._master = master
         if master:

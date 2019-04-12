@@ -1,11 +1,11 @@
 import json
-
+import os
 
 from algorithm.tools.experiment import ExperimentFactory
 from algorithm.tools.iteration import Iteration
 from algorithm.policies import SuppDataset, PolicyFactory, Net
 from algorithm.tools.statistics import Statistics
-from algorithm.tools.utils import Config
+from algorithm.tools.utils import Config, mkdir_p
 
 
 def setup_worker(exp):
@@ -16,7 +16,7 @@ def setup_worker(exp):
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
                                   net=Net(exp['net']), exp=exp)
 
-    experiment.init_loaders(config=config, exp=exp)
+    # experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
     # policy.init_model(policy.generate_model())
     return config, policy, experiment
@@ -24,6 +24,10 @@ def setup_worker(exp):
 
 def setup_master(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
+
+    _log_dir = 'logs/es_{}_{}_{}_{}'.format(exp['dataset'], exp['net'], exp['mode'], os.getpid())
+    mkdir_p(_log_dir)
+    exp.update({'log_dir': _log_dir})
 
     config = Config(**exp['config'])
     iteration = Iteration(config, exp)
