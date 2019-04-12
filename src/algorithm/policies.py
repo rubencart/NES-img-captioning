@@ -92,10 +92,10 @@ class Policy(ABC):
     def serialized(self, path=''):
         return self.policy_net.serialize(path=path)
 
-    def rollout(self, data, config):
+    def rollout(self, data, config) -> float:
         raise NotImplementedError
 
-    def accuracy_on(self, data, config, directory):
+    def accuracy_on(self, data, config, directory) -> float:
         raise NotImplementedError
 
     def evolve_model(self, sigma):

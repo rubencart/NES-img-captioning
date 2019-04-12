@@ -44,7 +44,7 @@ class GenPolicy(Policy, ABC):
         # return loss.item()
         return reward * 100  # scores.sum() / (fc_feats.size(0) / 256)
 
-    def accuracy_on(self, dataloader, config, directory):
+    def accuracy_on(self, dataloader, config, directory) -> float:
         # return self.rollout(next(iter(dataloader)))
         assert directory is not None
 
