@@ -16,6 +16,7 @@ def setup_worker(exp):
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
                                   net=Net(exp['net']), exp=exp)
 
+    experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
     policy.init_model(policy.generate_model())
     return config, policy, experiment
@@ -39,12 +40,14 @@ def setup_master(exp):
         statistics.init_from_infos(infos)
         iteration.init_from_infos(infos)
         experiment.init_from_infos(infos)
+        experiment.init_loaders(batch_size=iteration.batch_size(), exp=exp)
 
     elif 'from_single' in exp and exp['from_single'] is not None:
         iteration.init_from_single(exp['from_single'], exp['truncation'], exp['num_elite_cands'], policy)
-
+        experiment.init_loaders(config=config, exp=exp)
     else:
         iteration.init_parents(exp['truncation'], exp['num_elite_cands'], policy)
+        experiment.init_loaders(config=config, exp=exp)
 
     policy.init_model(policy.generate_model())
     # policy.set_model(iteration.elite())
