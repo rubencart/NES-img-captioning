@@ -7,7 +7,7 @@ os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
-import cProfile
+# import cProfile
 
 # print('importing rest')
 import argparse
@@ -113,6 +113,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     time.sleep(5)
     if num_workers == -1:
         start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
+        sys.exit(1)
     else:
 
         num_workers = num_workers if num_workers else os.cpu_count() - 2

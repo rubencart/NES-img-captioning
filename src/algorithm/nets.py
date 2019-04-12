@@ -81,6 +81,10 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             # fill to_add elements sampled from normal distr
             to_add.normal_(mean=0.0, std=sigma)
             tensor.data.add_(to_add.to(tensor.device))
+            tensor.requires_grad = False
+
+        for param in self.parameters():
+            param.requires_grad = False
 
     def get_nb_learnable_params(self):
         return self.nb_learnable_params

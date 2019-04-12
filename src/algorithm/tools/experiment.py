@@ -29,8 +29,8 @@ class Experiment(ABC):
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
 
-        self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
-        self._orig_trainloader_lth = len(self.trainloader)
+        self.trainloader, self.valloader, self.testloader = None, None, None
+        self._orig_trainloader_lth = 0
 
         self._master = master
         if master:
@@ -72,7 +72,8 @@ class Experiment(ABC):
             else self._orig_trainloader_lth
 
     def increase_loader_batch_size(self, batch_size):
-        self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
+        # self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
+        self.init_loaders(batch_size=batch_size)
 
     def _init_torchvision_loaders(self, dataset, transform, config, batch_size, workers):
         trainset = dataset(root='./data', train=True,
@@ -87,17 +88,17 @@ class Experiment(ABC):
             assert isinstance(batch_size, int)
             bs = batch_size
             val_bs = len(valset)
-            num_workers = workers if workers else 1
+            num_workers = workers if workers else 0
 
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
-                                                  shuffle=True, num_workers=num_workers)
+                                                  shuffle=True, num_workers=0)
         # todo batch size?
         valloader = torch.utils.data.DataLoader(valset, batch_size=bs,
-                                                shuffle=True, num_workers=num_workers)
+                                                shuffle=True, num_workers=0)
 
         # todo batch size?
         testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
-                                                 shuffle=True, num_workers=num_workers)
+                                                 shuffle=True, num_workers=0)
         return trainloader, valloader, testloader
 
     def _split_testset(self, dataset, transform):
@@ -162,7 +163,12 @@ class MnistExperiment(Experiment):
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-        return self._init_torchvision_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
+        # return self._init_torchvision_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
+        # self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
+
+        self.trainloader, self.valloader, self.testloader = \
+            self._init_torchvision_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
+        self._orig_trainloader_lth = len(self.trainloader)
 
 
 class Cifar10Experiment(Experiment):
@@ -175,7 +181,11 @@ class Cifar10Experiment(Experiment):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        return self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
+        # return self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
+
+        self.trainloader, self.valloader, self.testloader = \
+            self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
+        self._orig_trainloader_lth = len(self.trainloader)
 
 
 _opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
@@ -219,7 +229,9 @@ class MSCocoExperiment(Experiment):
         valloader = MSCocoDataLdrWrapper(loader=vloader, split='val')
         testloader = MSCocoDataLdrWrapper(loader=vloader, split='test')
 
-        return trainloader, valloader, testloader
+        # return trainloader, valloader, testloader
+        self.trainloader, self.valloader, self.testloader = trainloader, valloader, testloader
+        self._orig_trainloader_lth = len(self.trainloader)
 
 
 class MSCocoDataLdrWrapper:

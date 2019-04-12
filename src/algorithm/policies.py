@@ -63,6 +63,8 @@ class Policy(ABC):
             Net.FC_CAPTION: FCModel,
         }
 
+        self.init_model(self.generate_model())
+
     def save(self, path, filename):
         # todo! also save serial?
         assert self.policy_net is not None, 'set model first!'
@@ -92,10 +94,10 @@ class Policy(ABC):
     def serialized(self, path=''):
         return self.policy_net.serialize(path=path)
 
-    def rollout(self, data, config):
+    def rollout(self, placeholder, data, config) -> float:
         raise NotImplementedError
 
-    def accuracy_on(self, data, config, directory):
+    def accuracy_on(self, data, config, directory) -> float:
         raise NotImplementedError
 
     def evolve_model(self, sigma):
