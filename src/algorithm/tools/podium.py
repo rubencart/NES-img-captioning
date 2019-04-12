@@ -65,9 +65,7 @@ class Podium(object):
         new_best_elites = []
         new_best_el_filenames = []
         for i, (elite, sc) in enumerate(best_cands):
-            if not elite:
-                new_best_elites.append((elite, sc))
-            else:
+            if elite:
                 new_elite_path = self._new_best_elite_path.format(i=i)
                 new_best_elites.append((new_elite_path, sc))
                 new_best_el_filenames.append(new_elite_path)

@@ -2,6 +2,7 @@
 import gc
 import logging
 import os
+from functools import reduce
 
 import psutil
 import time
@@ -73,6 +74,7 @@ class GAWorker(object):
 
             policy: Policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
                                                   net=Net(exp['net']), exp=exp)
+            # policy.init_model(policy.generate_model())
 
             if rs.rand() < config.eval_prob:
                 logger.info('EVAL RUN')
@@ -101,6 +103,8 @@ class GAWorker(object):
 
             del policy, task_data
             gc.collect()
+            self.write_alive_tensors()
+            input('...')
 
     def accuracy(self, config, experiment, policy, task_data):
 
@@ -165,6 +169,22 @@ class GAWorker(object):
             fitness=np.array([fitness], dtype=np.float32),
             mem_usage=max(mem_usages)
         )
+
+    def write_alive_tensors(self):
+        fn = os.path.join(self.eval_dir, 'alive_tensors.txt')
+
+        to_write = ''
+        for obj in gc.get_objects():
+            try:
+                if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                    # print(type(obj), obj.size())
+                    # print(reduce(torch.mul, obj.size()) if len(obj.size()) > 0 else 0, type(obj), obj.size())
+                    to_write += 'type: {}, size: {} \n'.format(type(obj), obj.size())
+            except:
+                pass
+
+        with open(fn, 'a+') as f:
+            f.write(to_write)
 
 
 def start_and_run_worker(i, master_redis_cfg, relay_redis_cfg):

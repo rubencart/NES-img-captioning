@@ -63,6 +63,8 @@ class Policy(ABC):
             Net.FC_CAPTION: FCModel,
         }
 
+        self.init_model(self.generate_model())
+
     def save(self, path, filename):
         # todo! also save serial?
         assert self.policy_net is not None, 'set model first!'

@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 class GenPolicy(Policy, ABC):
 
     def rollout(self, data, config):
+        torch.set_grad_enabled(False)
+
         init_scorer(cached_tokens='coco-train-idxs')
 
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
@@ -45,8 +47,9 @@ class GenPolicy(Policy, ABC):
         return reward * 100  # scores.sum() / (fc_feats.size(0) / 256)
 
     def accuracy_on(self, dataloader, config, directory) -> float:
-        # return self.rollout(next(iter(dataloader)))
         assert directory is not None
+
+        torch.set_grad_enabled(False)
 
         # num_batches = config.num_val_batches if config and config.num_val_batches else 0
         num = config.num_val_items

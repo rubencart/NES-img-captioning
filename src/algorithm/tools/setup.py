@@ -18,7 +18,7 @@ def setup_worker(exp):
 
     experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
-    policy.init_model(policy.generate_model())
+    # policy.init_model(policy.generate_model())
     return config, policy, experiment
 
 
@@ -49,6 +49,6 @@ def setup_master(exp):
         iteration.init_parents(exp['truncation'], exp['num_elite_cands'], policy)
         experiment.init_loaders(config=config, exp=exp)
 
-    policy.init_model(policy.generate_model())
+    # policy.init_model(policy.generate_model())
     # policy.set_model(iteration.elite())
     return config, policy, statistics, iteration, experiment
