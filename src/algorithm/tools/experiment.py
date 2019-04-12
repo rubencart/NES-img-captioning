@@ -88,17 +88,17 @@ class Experiment(ABC):
             assert isinstance(batch_size, int)
             bs = batch_size
             val_bs = len(valset)
-            num_workers = workers if workers else 1
+            num_workers = workers if workers else 0
 
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
-                                                  shuffle=True, num_workers=num_workers)
+                                                  shuffle=True, num_workers=0)
         # todo batch size?
         valloader = torch.utils.data.DataLoader(valset, batch_size=bs,
-                                                shuffle=True, num_workers=num_workers)
+                                                shuffle=True, num_workers=0)
 
         # todo batch size?
         testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
-                                                 shuffle=True, num_workers=num_workers)
+                                                 shuffle=True, num_workers=0)
         return trainloader, valloader, testloader
 
     def _split_testset(self, dataset, transform):

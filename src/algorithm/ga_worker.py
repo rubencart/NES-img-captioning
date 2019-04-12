@@ -2,14 +2,13 @@
 import gc
 import logging
 import os
-from functools import reduce
 
 import psutil
 import time
 
 import numpy as np
 import torch
-from memory_profiler import profile
+# from memory_profiler import profile
 
 from algorithm.tools.experiment import Experiment
 from dist import WorkerClient
@@ -46,7 +45,7 @@ class GAWorker(object):
 
         self.placeholder = torch.FloatTensor(1)
 
-    @profile(stream=open('output/memory_profile_worker.txt', 'w+'))
+    # @profile(stream=open('output/memory_profile_worker.txt', 'w+'))
     def run_worker(self):
         logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class GAWorker(object):
 
         _it_id = 0
 
-        while _it_id < 100:
+        while True:
 
             _it_id += 1
             torch.set_grad_enabled(False)

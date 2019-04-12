@@ -58,6 +58,8 @@ logger = logging.getLogger(__name__)
 #   -->  torch.cuda.empty_cache()
 #
 # https://github.com/pytorch/pytorch/issues/13246 !!
+#   --> use panda dicts and numpy arrays instead of python lists in dataloaders
+#       when multiprocessing!!!!!!!
 
 # next things:
 # - PROFILE run on server
