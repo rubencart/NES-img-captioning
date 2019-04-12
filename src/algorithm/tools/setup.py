@@ -12,7 +12,7 @@ def setup_worker(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
-    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, master=False)
+    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, None, master=False)
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
                                   net=Net(exp['net']), exp=exp)
 
@@ -26,11 +26,11 @@ def setup_master(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
-    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config)
+    iteration = Iteration(config, exp)
+    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, iteration)
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
                                   net=Net(exp['net']), exp=exp)
     statistics = Statistics()
-    iteration = Iteration(config, exp)
 
     if 'from_population' in exp and exp['from_population'] is not None:
 
@@ -40,14 +40,14 @@ def setup_master(exp):
         statistics.init_from_infos(infos)
         iteration.init_from_infos(infos)
         experiment.init_from_infos(infos)
-        experiment.init_loaders(batch_size=iteration.batch_size(), exp=exp)
+        # experiment.init_loaders(batch_size=iteration.batch_size(), exp=exp)
 
     elif 'from_single' in exp and exp['from_single'] is not None:
         iteration.init_from_single(exp['from_single'], exp['truncation'], exp['num_elite_cands'], policy)
-        experiment.init_loaders(config=config, exp=exp)
+        # experiment.init_loaders(config=config, exp=exp)
     else:
         iteration.init_parents(exp['truncation'], exp['num_elite_cands'], policy)
-        experiment.init_loaders(config=config, exp=exp)
+        # experiment.init_loaders(config=config, exp=exp)
 
     # policy.init_model(policy.generate_model())
     # policy.set_model(iteration.elite())

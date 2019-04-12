@@ -16,7 +16,7 @@ class Experiment(ABC):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config, master=True):
+    def __init__(self, exp, config, iteration, master=True):
         self._exp = exp
         self._population_size = exp['population_size']
         self._truncation = exp['truncation']
@@ -29,8 +29,12 @@ class Experiment(ABC):
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
 
-        self.trainloader, self.valloader, self.testloader = None, None, None
-        self._orig_trainloader_lth = 0
+        # self.trainloader, self.valloader, self.testloader = None, None, None
+        # self._orig_trainloader_lth = 0
+
+        bs = iteration.batch_size() if iteration else config.batch_size
+        self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=bs)
+        self._orig_trainloader_lth = len(self.trainloader)
 
         self._master = master
         if master:
@@ -154,10 +158,10 @@ class Experiment(ABC):
 
 
 class MnistExperiment(Experiment):
-    def __init__(self, exp, config, master=True):
-        super().__init__(exp, config, master=master)
+    def __init__(self, exp, config, iteration, master=True):
+        super().__init__(exp, config, iteration, master=master)
 
-    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
@@ -172,10 +176,10 @@ class MnistExperiment(Experiment):
 
 
 class Cifar10Experiment(Experiment):
-    def __init__(self, exp, config, master=True):
-        super().__init__(exp, config, master=master)
+    def __init__(self, exp, config, iteration, master=True):
+        super().__init__(exp, config, iteration, master=master)
 
-    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -194,7 +198,7 @@ CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=
 
 
 class MSCocoExperiment(Experiment):
-    def __init__(self, exp, config, master=True):
+    def __init__(self, exp, config, iteration, master=True):
         self.opt: CaptionOptions = CaptionOptions(**exp['caption_options'])
         # self.fitness = Fitness(self.opt.get('fitness', 'sc_loss'))
 
@@ -206,7 +210,7 @@ class MSCocoExperiment(Experiment):
         # self.options.vocab_size = loader.vocab_size
         # self.options.seq_length = loader.seq_length
 
-        super().__init__(exp, config, master=master)
+        super().__init__(exp, config, iteration, master=master)
 
         self.vocab_size = self.trainloader.loader.vocab_size
         self.seq_length = self.trainloader.loader.seq_length
@@ -216,7 +220,7 @@ class MSCocoExperiment(Experiment):
             'seq_length': self.seq_length,
         })
 
-    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
+    def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
         # TODO MSCOCO as torchvision.dataset?????
         assert not (config is None and batch_size is None)
 
@@ -262,10 +266,10 @@ class MSCocoDataLdrWrapper:
 
 class ExperimentFactory:
     @staticmethod
-    def create(dataset: SuppDataset, exp, config, master=True):
+    def create(dataset: SuppDataset, exp, config, iteration, master=True):
         if dataset == SuppDataset.MNIST:
-            return MnistExperiment(exp, config, master=master)
+            return MnistExperiment(exp, config, iteration, master=master)
         elif dataset == SuppDataset.CIFAR10:
-            return Cifar10Experiment(exp, config, master=master)
+            return Cifar10Experiment(exp, config, iteration, master=master)
         elif dataset == SuppDataset.MSCOCO:
-            return MSCocoExperiment(exp, config, master=master)
+            return MSCocoExperiment(exp, config, iteration, master=master)
