@@ -43,6 +43,8 @@ class Policy(ABC):
         if options:
             from captioning.nets import CaptModelOptions
             self.options = CaptModelOptions(**options)
+            from captioning.policies import Fitness
+            self.fitness = Fitness(self.options.fitness)
         else:
             self.options = None
 
