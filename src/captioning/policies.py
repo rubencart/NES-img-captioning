@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class Fitness(Enum):
+    # todo beam?
     SAMPLE = 'sample'
+    GREEDY = 'greedy'
     SELF_CRITICAL = 'self_critical'
     SC_LOSS = 'sc_loss'
     DEFAULT = SAMPLE
@@ -24,7 +26,7 @@ class GenPolicy(Policy, ABC):
     def rollout(self, placeholder, data, config):
         fitness = self.fitness
         # logger.warning('fitness: %s, %s, %s', fitness, type(fitness), str(fitness != Fitness.SAMPLE))
-        self_critical = fitness != Fitness.SAMPLE
+        self_critical = (fitness == Fitness.SELF_CRITICAL or fitness == Fitness.SC_LOSS)
 
         torch.set_grad_enabled(False)
 
@@ -40,8 +42,9 @@ class GenPolicy(Policy, ABC):
         # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
+        sample_max = 1 if fitness == Fitness.GREEDY else 0
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
-                                                      opt={'sample_max': 0}, mode='sample')
+                                                      opt={'sample_max': sample_max}, mode='sample')
 
         reward, rewards = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
                                                    att_masks, data, gen_result, self_critical)
