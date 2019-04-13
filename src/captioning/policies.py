@@ -16,15 +16,14 @@ class Fitness(Enum):
     SAMPLE = 'sample'
     SELF_CRITICAL = 'self_critical'
     SC_LOSS = 'sc_loss'
+    DEFAULT = SAMPLE
 
 
 class GenPolicy(Policy, ABC):
 
     def rollout(self, placeholder, data, config):
-        # cuda = options.get('cuda', False)
-        # fitness = options.get('fitness', Fitness.SC_LOSS)
-        fitness = self.options.fitness
-        logger.warning('fitness: %s, %s', fitness, str(fitness != Fitness.SAMPLE))
+        fitness = self.fitness
+        # logger.warning('fitness: %s, %s, %s', fitness, type(fitness), str(fitness != Fitness.SAMPLE))
         self_critical = fitness != Fitness.SAMPLE
 
         torch.set_grad_enabled(False)
@@ -51,7 +50,7 @@ class GenPolicy(Policy, ABC):
             rl_crit = RewardCriterion()
 
             # device = next(data).device
-            loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().to(device))
+            loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(rewards).float().to(device))
             # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
             result = float(loss.detach().item())
             del loss, rl_crit

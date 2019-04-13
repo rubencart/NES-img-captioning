@@ -82,7 +82,7 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
         res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
         gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
 
-    score, cider_scores = CiderD_scorer.compute_score(gts, res_)
+    score, scores = CiderD_scorer.compute_score(gts, res_)
 
     # if opt.cider_reward_weight > 0:
     #     _, cider_scores = CiderD_scorer.compute_score(gts, res_)
@@ -97,10 +97,9 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     #     bleu_scores = 0
     # scores = opt.cider_reward_weight * cider_scores + opt.bleu_reward_weight * bleu_scores
 
-    scores = cider_scores
-
     if self_critical:
         scores = scores[:batch_size] - scores[batch_size:]
+        score = np.mean(scores)
 
     # scores[:, np.newaxis] makes a column vector of 1d array scores
     # scores = [1, 2, 3] --> scores[:, np.newaxis] = [[1], [2], [3]]
