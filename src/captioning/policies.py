@@ -24,6 +24,7 @@ class GenPolicy(Policy, ABC):
         # cuda = options.get('cuda', False)
         # fitness = options.get('fitness', Fitness.SC_LOSS)
         fitness = self.options.fitness
+        logger.warning('fitness: %s, %s', fitness, str(fitness != Fitness.SAMPLE))
         self_critical = fitness != Fitness.SAMPLE
 
         torch.set_grad_enabled(False)
