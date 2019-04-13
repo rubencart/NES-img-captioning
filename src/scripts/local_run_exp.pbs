@@ -30,6 +30,8 @@ EXP_FILE=${exp}
 NUM_WORKERS=${workers}
 ID=${id}
 
+echo "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt
+
 if test -z "$NUM_WORKERS"
 then
       WORKERS=''
@@ -38,4 +40,4 @@ else
 fi
 
 python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
-python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga "$WORKERS" > ./"$ID"_output/worker_outputfile.txt 2>&1
+python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga --num_workers 35
