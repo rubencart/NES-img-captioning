@@ -58,7 +58,7 @@ class Experiment(ABC):
             #     'offspring_dir': self._offspring_dir,
             # })
 
-            with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
+            with open(os.path.join(self._snapshot_dir, 'experiment.json'), 'w') as f:
                 json.dump(exp, f)
 
     def to_dict(self):

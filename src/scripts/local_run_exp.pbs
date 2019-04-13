@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -l nodes=1:ppn=16
+#PBS -l nodes=1:ppn=32
 
 #PBS -l pmem=20gb
 
@@ -28,7 +28,7 @@ source $HOME/.bashrc
 . src/scripts/local_env_setup.sh
 
 #ALGO=${algo}
-#EXP_FILE=${exp}
+EXP_FILE=${exp}
 NUM_WORKERS=${workers}
 
 if test -z "$NUM_WORKERS"
@@ -38,5 +38,5 @@ else
       WORKERS=' --num_workers '"$NUM_WORKERS"
 fi
 
-python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file experiments/mscoco_ga.json > ./output/master_outputfile.txt 2>&1 &
+python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file "$EXP_FILE" > ./output/master_outputfile.txt 2>&1 &
 python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga "$WORKERS" > ./output/worker_outputfile.txt 2>&1 &
