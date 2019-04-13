@@ -1,14 +1,12 @@
 #!/bin/bash
 
-#PBS -l nodes=1:ppn=32
+#PBS -l nodes=2:ppn=18
 
-#PBS -l pmem=20gb
+#PBS -l pmem=10gb
 
 #PBS -l walltime=12:00:00
 
 #PBS -j oe
-
-#PBS -o logs/terminal_output.txt
 
 #PBS -m abe
 
@@ -30,6 +28,7 @@ source $HOME/.bashrc
 #ALGO=${algo}
 EXP_FILE=${exp}
 NUM_WORKERS=${workers}
+ID=${id}
 
 if test -z "$NUM_WORKERS"
 then
@@ -38,5 +37,5 @@ else
       WORKERS=' --num_workers '"$NUM_WORKERS"
 fi
 
-python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file "$EXP_FILE" > ./output/master_outputfile.txt 2>&1 &
-python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga "$WORKERS" > ./output/worker_outputfile.txt 2>&1 &
+python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
+python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga "$WORKERS" > ./"$ID"_output/worker_outputfile.txt 2>&1
