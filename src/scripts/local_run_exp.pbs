@@ -34,12 +34,12 @@ echo "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt
 
 if test -z "$NUM_WORKERS"
 then
-      WORKERS=''
+      WORKERS='-1'
 else
-      WORKERS=' --num_workers '"$NUM_WORKERS"
+      WORKERS="$NUM_WORKERS"
 fi
 
 redis-server redis_config/redis_master.conf > ./output/"$ID"_redis_m_outputfile.txt 2>&1 &
 redis-server redis_config/redis_local_mirror.conf > ./output/"$ID"_redis_w_outputfile.txt 2>&1 &
-python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
-python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga --num_workers 35 > ./output/"$ID"_worker_outputfile.txt 2>&1
+python -u src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
+python -u src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga --num_workers "$WORKERS" > ./output/"$ID"_worker_outputfile.txt 2>&1
