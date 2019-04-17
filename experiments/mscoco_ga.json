@@ -19,6 +19,8 @@
   "policy_options": {
     "net": "fc_caption",
     "safe_mutations": "",
+    "fitness": "sc_loss",
+    "safe_mutation_underflow": "",
 
     "model_options": {
       "input_encoding_size":  128,
@@ -26,7 +28,7 @@
       "rnn_size": 128,
       "num_layers": 1,
       "drop_prob_lm": 0.0,
-      "fc_feat_size": 2048,
+      "fc_feat_size": 2048
     }
   },
 
@@ -34,7 +36,6 @@
 
   "population_size": 1000,
   "truncation": 30,
-
   "num_elites": 3,
   "num_elite_cands": 3,
 

@@ -46,40 +46,43 @@ def array_to_str(arr):
     return out.strip()
 
 
-# TODO try with and without self critical!!!!
-def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_result):
+def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_result, self_critical):
     batch_size = gen_result.size(0)  # batch_size = sample_size * seq_per_img
     seq_per_img = batch_size // len(data['gts'])
-
-    # get greedy decoding baseline
-    # model.eval()
-    # with torch.no_grad():
-        # mode sample but sample_max = 1 by default so greedy
-        # greedy_res, _ = model(fc_feats, att_feats, att_masks=att_masks, mode='sample')
-
-    # model.train()
 
     res = OrderedDict()
 
     gen_result = gen_result.data.cpu().numpy()
-    # greedy_res = greedy_res.data.cpu().numpy()
     for i in range(batch_size):
         res[i] = [array_to_str(gen_result[i])]
-    # for i in range(batch_size):
-    #     res[batch_size + i] = [array_to_str(greedy_res[i])]
 
     gts = OrderedDict()
     for i in range(len(data['gts'])):
         gts[i] = [array_to_str(data['gts'][i][j]) for j in range(len(data['gts'][i]))]
 
-    # res_ = [{'image_id': i, 'caption': res[i]} for i in range(2 * batch_size)]
-    # res__ = {i: res[i] for i in range(2 * batch_size)}
-    # gts = {i: gts[i % batch_size // seq_per_img] for i in range(2 * batch_size)}
+    if self_critical:
+        # get greedy decoding baseline
+        model.eval()
+        # with torch.no_grad():
+        # mode sample but sample_max = 1 by default so greedy
+        greedy_res, _ = model(fc_feats, att_feats, att_masks=att_masks, mode='sample')
+        greedy_res = greedy_res.data.cpu().numpy()
 
-    res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
-    gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
+        for i in range(batch_size):
+            res[batch_size + i] = [array_to_str(greedy_res[i])]
 
-    score, cider_scores = CiderD_scorer.compute_score(gts, res_)
+        # necessary?
+        # model.train()
+
+        res_ = [{'image_id': i, 'caption': res[i]} for i in range(2 * batch_size)]
+        # res__ = {i: res[i] for i in range(2 * batch_size)}
+        gts = {i: gts[i % batch_size // seq_per_img] for i in range(2 * batch_size)}
+
+    else:
+        res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
+        gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
+
+    score, scores = CiderD_scorer.compute_score(gts, res_)
 
     # if opt.cider_reward_weight > 0:
     #     _, cider_scores = CiderD_scorer.compute_score(gts, res_)
@@ -94,10 +97,9 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     #     bleu_scores = 0
     # scores = opt.cider_reward_weight * cider_scores + opt.bleu_reward_weight * bleu_scores
 
-    scores = cider_scores
-
-    # todo is this the self critical part?
-    # scores = scores[:batch_size] - scores[batch_size:]
+    if self_critical:
+        scores = scores[:batch_size] - scores[batch_size:]
+        score = np.mean(scores)
 
     # scores[:, np.newaxis] makes a column vector of 1d array scores
     # scores = [1, 2, 3] --> scores[:, np.newaxis] = [[1], [2], [3]]
@@ -106,7 +108,7 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     # [[1], [2], [3]] --> [[1, 1], [2, 2], [3, 3]]
     rewards = np.repeat(scores[:, np.newaxis], gen_result.shape[1], 1)
 
-    return score, rewards, scores
+    return score, rewards
 
 
 class RewardCriterion(nn.Module):

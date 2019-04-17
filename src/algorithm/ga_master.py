@@ -67,8 +67,6 @@ logger = logging.getLogger(__name__)
 #   --> save figs as pdf and not png
 # - make bad generation smarter than loss
 # - fix trainloader generator etc, nicer solution to incr bs than breaking loop
-# - Test if GPU goes faster!
-# - todo remove files from offspring folder on except KeyIntterupt
 # - cococaption uses CIDEr and not CIDErD
 # - leave unused BLEU / METEOR / ... scores out of validation run
 # - model.eval() / .train() --> so no dropout is used

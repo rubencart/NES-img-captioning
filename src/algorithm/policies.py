@@ -40,17 +40,21 @@ class Mutation(Enum):
     DEFAULT = ''
 
 
-_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow']
-PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.0])
+_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness']
+PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.0, None])
 
 
 class Policy(ABC):
     def __init__(self, dataset: SuppDataset, options: PolicyOptions):
-        if options.model_options:
+        if dataset == SuppDataset.MSCOCO:
             from captioning.nets import CaptModelOptions
             self.model_options = CaptModelOptions(**options.model_options)
+
+            from captioning.policies import Fitness
+            self.fitness = Fitness(options.fitness if options.fitness else Fitness.DEFAULT)
         else:
             self.model_options = None
+            self.fitness = None
 
         self.policy_net: PolicyNet = None
         self.serial_net = None

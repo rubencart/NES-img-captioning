@@ -205,7 +205,6 @@ def eval_split(model, loader, directory, num=-1, split='val'):
         if num >= 0 and n >= num:
             break
 
-    print('OUT OF WHILE LOOP')
     # lang_stats = None
     # if lang_eval == 1:
         # lang_stats = language_eval(predictions, eval_kwargs['id'], split)
