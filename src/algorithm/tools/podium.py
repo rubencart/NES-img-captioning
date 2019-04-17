@@ -2,8 +2,7 @@
 import logging
 import os
 
-from algorithm.tools.utils import mkdir_p, copy_file_from_to, \
-    remove_all_files_from_dir, remove_all_files_but
+from algorithm.tools.utils import mkdir_p, copy_file_from_to, remove_all_files_from_dir, remove_all_files_but
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +26,8 @@ class Podium(object):
         # mkdir_p(_best_directory)
         mkdir_p(self._best_elite_dir)
         mkdir_p(self._best_parents_dir)
+
+        self._bad_generation = True
 
     def init_from_infos(self, infos):
 
@@ -72,9 +73,20 @@ class Podium(object):
 
                 if elite != new_elite_path:
                     copy_file_from_to(elite, new_elite_path)
+                    # this means a new elite is added to the podium
+                    self._bad_generation = False
 
         self._best_elites = new_best_elites
         remove_all_files_but(self._best_elite_dir, new_best_el_filenames)
+
+    def is_bad_generation(self):
+        status = self._bad_generation
+        if status:
+            logger.info('BAD GENERATION')
+        else:
+            logger.info('GOOD GENERATION')
+        self._bad_generation = True
+        return status
 
     def record_parents(self, parents, score):
         best_parent_score, best_parents = self._best_parents
@@ -92,13 +104,13 @@ class Podium(object):
 
             self._best_parents = (score, new_best_parents)
 
-            logger.info('GOOD GENERATION: {}'.format(self._best_parents[0]))
-            return True
+            # logger.info('GOOD GENERATION: {}'.format(self._best_parents[0]))
+            # return True
 
-        elif self._patience:
-            logger.info('BAD GENERATION')
-            return False
-        return True
+        # elif self._patience:
+        #     logger.info('BAD GENERATION')
+        #     return False
+        # return True
 
     # def set_best_elites(self, best_elites):
     #     assert not self._best_elites[0][0]

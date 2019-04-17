@@ -16,6 +16,7 @@ class Iteration(object):
         self._batch_size = config.batch_size
         self._times_orig_bs = 1
         self._bad_generations = 0
+        self._patience_reached = False
         self._epoch = 0
         self._iteration = 0
 
@@ -30,6 +31,7 @@ class Iteration(object):
         # ENTIRE EXPERIMENT
         self._stdev_decr_divisor = config.stdev_decr_divisor
         self._patience = config.patience
+        self._population_size = exp['population_size']
 
         self._log_dir = exp['log_dir']
         _models_dir = os.path.join(self._log_dir, 'models')
@@ -143,7 +145,8 @@ class Iteration(object):
     #     self._elites = self._copy_and_clean_elite(elite)
 
     def record_parents(self, parents, score):
-        if not self._podium.record_parents(parents, score):
+        self._podium.record_parents(parents, score)
+        if self._podium.is_bad_generation():
 
             self._bad_generations += 1
 
@@ -151,20 +154,28 @@ class Iteration(object):
 
                 logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
                 self._noise_stdev /= self._stdev_decr_divisor
-                self._batch_size *= 2
+                self._batch_size = self._batch_size + int(float(self._batch_size) / self._times_orig_bs)
                 self._bad_generations = 0
-                self._times_orig_bs *= 2
+                self._times_orig_bs += 1
+                self._patience_reached = True
                 logger.warning('Max patience reached; new std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
 
-                new_parents = self._new_parents_from_best()
-                self._parents = self._copy_and_clean_parents(new_parents)
-                return self._parents
+                # new_parents = self._new_parents_from_best()
+                # self._parents = self._copy_and_clean_parents(new_parents)
+                # return self._parents
         else:
             self._bad_generations = 0
 
         new_parents = [(i, p) for i, p in enumerate(parents)]
         self._parents = self._copy_and_clean_parents(new_parents)
+        self._add_elites_to_parents()
+        self._clean_offspring_dir()
         return None
+
+    def patience_reached(self):
+        status = self._patience_reached
+        # self._patience_reached = False
+        return status
 
     def _new_parents_from_best(self):
         _, prev_best_parents = self._podium.best_parents()
@@ -190,7 +201,7 @@ class Iteration(object):
         elites_to_evaluate = [(i, ind) for i, ind in enumerate(best_individuals)]
         self._elites_to_evaluate = self._copy_and_clean_elites(elites_to_evaluate)
 
-    def add_elites_to_parents(self):
+    def _add_elites_to_parents(self):
         elites = [e for (e, sc) in self.best_elites()]
         parents = [p for (i, p) in self._parents]
         self._parents = [(i, m) for i, m in enumerate(elites + parents)]
@@ -233,7 +244,7 @@ class Iteration(object):
 
         return copy.deepcopy(new_elites_to_ev)
 
-    def clean_offspring_dir(self):
+    def _clean_offspring_dir(self):
         # clean offspring dir
         remove_all_files_from_dir(self.offspring_dir())
 
@@ -259,6 +270,14 @@ class Iteration(object):
         self._epoch += 1
 
     def incr_iteration(self, n=1):
+        self.reset_task_results()
+        self.reset_eval_results()
+        self.reset_worker_ids()
+
+        self.set_nb_models_to_evaluate(self._population_size)
+        self.set_waiting_for_elite_ev(False)
+        self._patience_reached = False
+
         self._iteration += n
 
     def set_batch_size(self, value):
@@ -324,7 +343,7 @@ class Iteration(object):
         #     print(evaluated)
         #     print([idx for idx, _ in self._elites_to_evaluate])
         # return not all([idx in evaluated for idx, _ in self._elites_to_evaluate])
-        return len(evaluated) < 1
+        return len(evaluated) < len(self._elites_to_evaluate) / 2.0
 
     def epoch(self):
         return self._epoch
