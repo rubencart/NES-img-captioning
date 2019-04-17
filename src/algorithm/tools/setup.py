@@ -13,8 +13,7 @@ def setup_worker(exp):
 
     config = Config(**exp['config'])
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, master=False)
-    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                  net=Net(exp['net']), exp=exp)
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
 
     experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
@@ -27,8 +26,7 @@ def setup_master(exp):
 
     config = Config(**exp['config'])
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config)
-    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                  net=Net(exp['net']), exp=exp)
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
     statistics = Statistics()
     iteration = Iteration(config, exp)
 

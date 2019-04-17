@@ -65,12 +65,13 @@ class Statistics(object):
         self._plot(log_dir, self._score_stats,
                    time=(self._time_stats, 'Time per gen'),
                    norm=(self._norm_stats, 'Norm of params'),
-                   acc=(self._acc_stats, 'Elite accuracy'),
+                   acc=(self._acc_stats, 'Elite score'),
                    master_mem=(self._mem_stats[0], 'Master mem usage'),
                    worker_mem=(self._mem_stats[2], 'Worker mem usage'),
                    virtmem=(self._mem_stats[1], 'Virt mem usage'),
                    batch_size=(self._bs_stats, 'Batch size'),
-                   noise_std=(self._std_stats, 'Noise stdev'))
+                   noise_std=(self._std_stats, 'Noise stdev'),
+                   reward_std=(self._score_stds, 'Score stdev'))
 
     @staticmethod
     def _plot(log_dir, score_stats=None, **kwargs):
@@ -84,7 +85,7 @@ class Statistics(object):
             x = np.arange(len(score_stats[1]))
             plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
             plt.plot(x, score_stats[1], color='blue')
-            plt.title('Training loss')
+            plt.title('Training score')
             plt.savefig(log_dir + '/loss_plot.png')
             plt.close(fig)
 

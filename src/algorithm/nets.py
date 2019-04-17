@@ -1,12 +1,20 @@
-import copy
+"""
+contains code from https://github.com/uber-research/safemutations
+and https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
+"""
+import json
+import logging
 import os
+import time
 
 import torch
 from abc import abstractmethod, ABC
 
 from torch import nn
 
-from algorithm.tools.utils import random_state
+from algorithm.tools.utils import random_state, find_file_with_pattern
+
+logger = logging.getLogger(__name__)
 
 
 class SerializableModel:
@@ -35,6 +43,11 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         self.add_tensors = {}
 
         self.nb_learnable_params = 0
+        self.nb_params = 0
+        self.sensitivity = None
+        self.it = -1
+        self.orig_batch_size = 0
+
         self.grad = grad
 
     def _initialize_params(self):
@@ -60,6 +73,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                     tensor.data.zero_()
 
         self.nb_learnable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        self.nb_params = self._count_parameters()
 
         # freeze all params
         if not self.grad:
@@ -86,6 +100,104 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         for param in self.parameters():
             param.requires_grad = False
 
+    def evolve_safely(self, sigma):
+        # sensitivity = self._get_sensitivity()
+
+        torch.manual_seed(random_state())
+
+        param_vector = nn.utils.parameters_to_vector(self.parameters())
+        noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
+
+        # noise_spread = noise.max() - noise.min()
+
+        # logger.info('Old Params: {}'.format((param_vector.min(), param_vector.mean(), param_vector.max())))
+        # logger.info('Noise: {}'.format((noise.min(), noise.mean(), noise.max())))
+        noise /= self.sensitivity
+
+        # new_noise_spread = noise.max() - noise.min()
+
+        # logger.info('Noise / sens: {}'.format((noise.min(), noise.mean(), noise.max())))
+        # noise[noise > sigma] = sigma
+        # noise = noise * (noise_spread / new_noise_spread)
+        # logger.info('Noise norm: {}'.format((noise.min(), noise.mean(), noise.max())))
+
+        new_param_vector = param_vector + noise
+        # logger.info('New Params: {}'.format((param_vector.min(), param_vector.mean(), param_vector.max())))
+
+        nn.utils.vector_to_parameters(new_param_vector, self.parameters())
+
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow):
+        sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
+        if find_file_with_pattern(sensitivity_filename, directory):
+            # logger.info('Loaded sensitivity for known parent')
+            self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+        else:
+            if self.orig_batch_size == 0:
+                self.orig_batch_size = experiences.size(0)
+
+            start_time = time.time()
+            torch.set_grad_enabled(True)
+            for param in self.parameters():
+                param.requires_grad = True
+
+            # self.it = it
+
+            # todo experiences requires grad?
+            experiences = torch.Tensor(experiences)  # .requires_grad_()
+            old_output = self.forward(experiences)
+            num_outputs = old_output.size(1)
+
+            jacobian = torch.zeros(num_outputs, self.nb_params)
+            grad_output = torch.zeros(*old_output.size())
+
+            for k in range(num_outputs):
+                self.zero_grad()
+                grad_output.zero_()
+                grad_output[:, k] = 1.0
+
+                # torch.autograd.backward(tensors=old_output, grad_tensors=grad_output, retain_graph=True)
+                # torch.autograd.grad(outputs=old_output, inputs=input_data, grad_outputs=...)
+                old_output.backward(gradient=grad_output, retain_graph=True)
+                jacobian[k] = self._extract_grad()
+
+            # sum over the outputs, keeping params separate
+            proportion = float(self.orig_batch_size) / experiences.size(0)
+            sensitivity = torch.sqrt((jacobian ** 2).sum(0)) * proportion
+            # sensitivity[sensitivity < 1e-6] = 1.0
+            sensitivity[sensitivity < underflow] = underflow
+
+            torch.set_grad_enabled(False)
+            for param in self.parameters():
+                param.requires_grad = False
+            for param in sensitivity:
+                param.requires_grad = False
+
+            time_elapsed = time.time() - start_time
+            logger.info('Safe mutation sensitivity computed in {0:.2f}s'.format(time_elapsed))
+            torch.save(sensitivity.clone().detach().requires_grad_(False),
+                       os.path.join(directory, sensitivity_filename))
+            self.sensitivity = sensitivity.clone().detach().requires_grad_(False)
+            logger.info('Sensitivity parent {}: {}'
+                        .format(parent_id, (sensitivity.min(), sensitivity.mean(), sensitivity.max())))
+            del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
+
+    def _extract_grad(self):
+        tot_size = self.nb_params
+        pvec = torch.zeros(tot_size, dtype=torch.float32)
+        count = 0
+        for param in self.parameters():
+            sz = param.grad.data.flatten().shape[0]
+            pvec[count:count + sz] = param.grad.data.flatten()
+            count += sz
+        return pvec.clone().detach()
+
+    def _count_parameters(self):
+        count = nn.utils.parameters_to_vector(self.parameters()).size(0)
+        return count
+
     def get_nb_learnable_params(self):
         return self.nb_learnable_params
 
@@ -104,7 +216,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
     def from_serialized(self, serialized):
         # assert isinstance(serialized, dict)
         # self.load_state_dict(serialized)
+        # todo map_location not cpu if on gpu!
         state_dict = torch.load(serialized, map_location='cpu')
+        self.from_param_file = serialized
         self.load_state_dict(state_dict)
 
     # def forward(self, x):

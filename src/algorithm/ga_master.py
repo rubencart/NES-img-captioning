@@ -63,9 +63,9 @@ logger = logging.getLogger(__name__)
 
 # next things:
 # - PROFILE run on server
-# - fix permissions of entire ga-img-capt folder
-
-# - include last generation's elite but also best elite so far!!!!
+# - https://stackoverflow.com/questions/11328958/save-the-plots-into-a-pdf
+#   --> save figs as pdf and not png
+# - make bad generation smarter than loss
 # - fix trainloader generator etc, nicer solution to incr bs than breaking loop
 # - Test if GPU goes faster!
 # - todo remove files from offspring folder on except KeyIntterupt

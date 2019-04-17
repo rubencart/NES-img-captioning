@@ -1,6 +1,7 @@
 
 import errno
 import os
+import re
 import shutil
 import sys
 from collections import namedtuple
@@ -120,6 +121,19 @@ def remove_file_if_exists(path):
         os.remove(path)
     except FileNotFoundError:
         pass
+
+
+def remove_file_with_pattern(pattern, directory):
+    for file in os.listdir(directory):
+        if re.search(pattern, file):
+            os.remove(os.path.join(directory, file))
+
+
+def find_file_with_pattern(pattern, directory):
+    # pattern like r'z_info_e[0-9]*?_i[0-9]*?-[0-9]*?.json'
+    for file in os.listdir(directory):
+        if re.search(pattern, file):
+            return file
 
 
 def get_platform():
