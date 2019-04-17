@@ -46,6 +46,7 @@ class GAWorker(object):
         self.placeholder = torch.FloatTensor(1)
 
     # @profile(stream=open('output/memory_profile_worker.txt', 'w+'))
+    # @profile
     def run_worker(self):
         logger = logging.getLogger(__name__)
 

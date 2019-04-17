@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 
 import torch
 from abc import ABC
@@ -11,9 +12,22 @@ from captioning.rewards import init_scorer, get_self_critical_reward, RewardCrit
 logger = logging.getLogger(__name__)
 
 
+class Fitness(Enum):
+    # todo beam?
+    SAMPLE = 'sample'
+    GREEDY = 'greedy'
+    SELF_CRITICAL = 'self_critical'
+    SC_LOSS = 'sc_loss'
+    DEFAULT = SAMPLE
+
+
 class GenPolicy(Policy, ABC):
 
     def rollout(self, placeholder, data, config):
+        fitness = self.fitness
+        # logger.warning('fitness: %s, %s, %s', fitness, type(fitness), str(fitness != Fitness.SAMPLE))
+        self_critical = (fitness == Fitness.SELF_CRITICAL or fitness == Fitness.SC_LOSS)
+
         torch.set_grad_enabled(False)
 
         init_scorer(cached_tokens='coco-train-idxs')
@@ -21,7 +35,6 @@ class GenPolicy(Policy, ABC):
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
 
         device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
-        # logger.info('***** DEVICE : {} *****'.format(device))
 
         self.policy_net.to(device)
 
@@ -29,22 +42,26 @@ class GenPolicy(Policy, ABC):
         # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
-        # logger.info('evaluating {} images'.format(labels.size()))
-
+        sample_max = 1 if fitness == Fitness.GREEDY else 0
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
-                                                      opt={'sample_max': 0}, mode='sample')
+                                                      opt={'sample_max': sample_max}, mode='sample')
 
-        reward, rewards, scores = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
-                                                           att_masks, data, gen_result)
+        reward, rewards = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
+                                                   att_masks, data, gen_result, self_critical)
 
-        # rl_crit = RewardCriterion()
+        if fitness == Fitness.SC_LOSS:
+            rl_crit = RewardCriterion()
 
-        # device = next(data).device
-        # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().to(device))
-        # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
+            # device = next(data).device
+            loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(rewards).float().to(device))
+            # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
+            result = float(loss.detach().item())
+            del loss, rl_crit
+        else:
+            result = float(reward * 100)
 
-        # return loss.item()
-        return reward * 100  # scores.sum() / (fc_feats.size(0) / 256)
+        del reward, rewards, gen_result, sample_logprobs, fc_feats, att_feats, labels, masks, att_masks, tmp,
+        return result
 
     def accuracy_on(self, dataloader, config, directory) -> float:
         assert directory is not None
