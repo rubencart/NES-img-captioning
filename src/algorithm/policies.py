@@ -36,12 +36,12 @@ DATASETS = {
 
 
 class Mutation(Enum):
-    GRAD_SUM = 'SM-G-SUM'
+    SAFE_GRAD_SUM = 'SM-G-SUM'
     DEFAULT = ''
 
 
 _opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness']
-PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.0, None])
+PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.01, None])
 
 
 class Policy(ABC):
@@ -63,7 +63,7 @@ class Policy(ABC):
         self.dataset = dataset
         self.net = Net(options.net)
         self.options = options
-        self.safe_mutations = Mutation(options.safe_mutations)
+        self.mutations = Mutation(options.safe_mutations)
 
         from classification.nets import Cifar10Net, Cifar10Net_Small, MnistNet
         from captioning.nets import FCModel
@@ -79,7 +79,7 @@ class Policy(ABC):
 
     def set_sensitivity(self, task_id, parent_id, experiences, directory):
         assert self.policy_net is not None, 'set model first!'
-        if self.safe_mutations == Mutation.GRAD_SUM:
+        if self.mutations == Mutation.SAFE_GRAD_SUM:
             underflow = self.options.safe_mutation_underflow
             self.policy_net.set_sensitivity(task_id, parent_id, experiences, directory, underflow)
 
@@ -186,12 +186,10 @@ class NetsPolicy(Policy, ABC):
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        if not self.safe_mutations:
-            self.policy_net.evolve(sigma)
-        elif self.safe_mutations == Mutation.GRAD_SUM:
-            # logger.warning('safe mutations!')
+        if self.mutations == Mutation.SAFE_GRAD_SUM:
             self.policy_net.evolve_safely(sigma)
-        # self.serial_net = copy.deepcopy(self.policy_net.state_dict())
+        else:
+            self.policy_net.evolve(sigma)
 
     def get_model(self):
         return self.policy_net

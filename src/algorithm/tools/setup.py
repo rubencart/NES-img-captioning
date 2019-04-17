@@ -24,7 +24,7 @@ def setup_worker(exp):
 def setup_master(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
-    _log_dir = 'logs/es_{}_{}_{}_{}'.format(exp['dataset'], exp['net'], exp['mode'], os.getpid())
+    _log_dir = 'logs/es_{}_{}_{}_{}'.format(exp['dataset'], exp['policy_options']['net'], exp['mode'], os.getpid())
     mkdir_p(_log_dir)
     exp.update({'log_dir': _log_dir})
 

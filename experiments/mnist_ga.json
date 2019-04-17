@@ -6,7 +6,7 @@
 
     "cuda": false,
     "eval_prob": 0.01,
-    "noise_stdev": 0.002,
+    "noise_stdev": 0.01,
     "snapshot_freq": 5,
     "batch_size": 128,
     "patience": 10,
@@ -17,8 +17,9 @@
   "policy_options": {
     "net": "mnist"
   },
-    "_safe_mutation_underflow": 0.5,
-    "_safe_mutations": "SM-G-SUM",
+
+  "_safe_mutation_underflow": 0.5,
+  "_safe_mutations": "SM-G-SUM",
 
   "dataset": "mnist",
   "population_size": 600,
