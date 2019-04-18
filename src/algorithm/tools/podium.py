@@ -72,9 +72,12 @@ class Podium(object):
                 new_best_el_filenames.append(new_elite_path)
 
                 if elite != new_elite_path:
-                    copy_file_from_to(elite, new_elite_path)
-                    # this means a new elite is added to the podium
-                    self._bad_generation = False
+                    try:
+                        copy_file_from_to(elite, new_elite_path)
+                        # this means a new elite is added to the podium
+                        self._bad_generation = False
+                    except OSError:
+                        logging.error('[Podium]: tried to copy non existing elite')
 
         self._best_elites = new_best_elites
         remove_all_files_but(self._best_elite_dir, new_best_el_filenames)

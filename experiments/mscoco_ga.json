@@ -39,7 +39,7 @@
   "num_elites": 3,
   "num_elite_cands": 3,
 
-  "from_single": "logs/log_xent_fc_128/checkpt/model-best.pth",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
