@@ -3,7 +3,8 @@ import logging
 import os
 
 from algorithm.tools.podium import Podium
-from algorithm.tools.utils import copy_file_from_to, remove_all_files_from_dir, Result, remove_all_files_but
+from algorithm.tools.utils import copy_file_from_to, remove_all_files_from_dir, Result, remove_all_files_but, \
+    check_if_filepath_exists
 
 logger = logging.getLogger(__name__)
 
@@ -190,11 +191,15 @@ class Iteration(object):
 
     def process_evaluated_elites(self):
         best_sc, best_ind = float('-inf'), None
-        for (ind, sc) in self._eval_results.values():
-            if sc > best_sc:
-                best_sc, best_ind = sc, ind
 
-        self._podium.record_elites(list(self._eval_results.values()))
+        elite_candidates = []
+        for (ind, sc) in self._eval_results.values():
+            if check_if_filepath_exists(ind):
+                elite_candidates.append((ind, sc))
+                if sc > best_sc:
+                    best_sc, best_ind = sc, ind
+
+        self._podium.record_elites(elite_candidates)
         return best_sc, best_ind
 
     def set_next_elites_to_evaluate(self, best_individuals):

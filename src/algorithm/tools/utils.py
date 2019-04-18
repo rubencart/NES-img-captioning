@@ -136,6 +136,10 @@ def find_file_with_pattern(pattern, directory):
             return file
 
 
+def check_if_filepath_exists(path):
+    return os.path.isfile(path)
+
+
 def get_platform():
     """
     From https://www.webucator.com/how-to/how-check-the-operating-system-with-python.cfm
