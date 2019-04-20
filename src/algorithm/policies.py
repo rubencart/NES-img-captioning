@@ -153,13 +153,15 @@ class NetsPolicy(Policy, ABC):
 
     def set_model(self, model):
         assert isinstance(model, PolicyNet) or isinstance(model, dict) \
-               or isinstance(model, str), '{}'.format(type(model))
+               or isinstance(model, str) or model is None, '{}'.format(type(model))
         if isinstance(model, PolicyNet):
             self._set_from_statedict_model(model.state_dict())
         elif isinstance(model, dict):
             self._set_from_statedict_model(model)
-        else:
+        elif isinstance(model, str):
             self._set_from_path_model(model)
+        else:
+            self._set_from_statedict_model(self.generate_model().state_dict())
 
     def _set_from_path_model(self, serialized):
         # assert isinstance(serialized, dict), '{}'.format(type(serialized))
