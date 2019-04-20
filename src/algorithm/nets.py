@@ -148,7 +148,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             for param in self.parameters():
                 param.requires_grad = True
 
-            sensitivity = self._calc_sensitivity(experiences, method)
+            sensitivity, batch_size = self._calc_sensitivity(experiences, method)
             sensitivity[sensitivity < underflow] = underflow
 
             torch.set_grad_enabled(False)
@@ -158,12 +158,14 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                 param.requires_grad = False
 
             time_elapsed = time.time() - start_time
-            logger.info('Safe mutation sensitivity computed in {0:.2f}s'.format(time_elapsed))
+            logger.info('Safe mutation sensitivity computed in {:.2f}s on {} samples'
+                        .format(time_elapsed, batch_size))
             torch.save(sensitivity.clone().detach().requires_grad_(False),
                        os.path.join(directory, sensitivity_filename))
             self.sensitivity = sensitivity.clone().detach().requires_grad_(False)
-            logger.info('Sensitivity parent {}: {}'
-                        .format(parent_id, (sensitivity.min(), sensitivity.mean(), sensitivity.max())))
+            logger.info('Sensitivity parent {}: min {:.2f}, mean {:.2f}, max {:.2f}'
+                        .format(parent_id, sensitivity.min().item(), sensitivity.mean().item(),
+                                sensitivity.max().item()))
             del sensitivity, experiences
 
     def _calc_sensitivity(self, experiences, method):
@@ -181,6 +183,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         # print(old_output)
         # print(old_output.size())
         num_outputs = old_output.size(1)
+        batch_size = old_output.size(0)
 
         # print('OO ', old_output.size())
 
@@ -207,7 +210,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy
+        return copy, batch_size
 
     def _calc_abs_sensitivity(self, experiences):
 
@@ -236,7 +239,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy
+        return copy, batch_size
 
     def _calc_second_sensitivity(self):
         raise NotImplementedError
