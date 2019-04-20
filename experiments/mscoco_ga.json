@@ -13,13 +13,13 @@
     "num_val_items": 5000,
 
     "patience": 30,
-    "stdev_decr_divisor": 0.9
+    "stdev_decr_divisor": 1.0
   },
 
   "policy_options": {
     "net": "fc_caption",
     "safe_mutations": "",
-    "fitness": "sc_loss",
+    "fitness": "greedy",
     "safe_mutation_underflow": "",
 
     "model_options": {
@@ -39,7 +39,8 @@
   "num_elites": 3,
   "num_elite_cands": 3,
 
-  "from_single": "logs/log_xent_fc_128/checkpt/model-best.pth",
+  "_from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "from_population": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",

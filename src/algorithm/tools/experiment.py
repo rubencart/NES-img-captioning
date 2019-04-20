@@ -214,7 +214,7 @@ class MSCocoExperiment(Experiment):
         self.vocab_size = self.trainloader.loader.vocab_size
         self.seq_length = self.trainloader.loader.seq_length
 
-        exp['model_options'].update({
+        exp['policy_options']['model_options'].update({
             'vocab_size': self.vocab_size,
             'seq_length': self.seq_length,
         })
