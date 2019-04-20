@@ -6,7 +6,7 @@
     "eval_prob": 0.1,
     "noise_stdev": 0.002,
     "snapshot_freq": 5,
-    "batch_size": 128,
+    "batch_size": 2,
 
     "val_batch_size": 256,
     "num_val_batches": 4,
@@ -40,8 +40,8 @@
   "num_elites": 3,
   "num_elite_cands": 3,
 
-  "_from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
-  "from_population": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "_from_population": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",

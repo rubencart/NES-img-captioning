@@ -9,14 +9,14 @@
     "noise_stdev": 0.1,
     "snapshot_freq": 5,
     "batch_size": 128,
-    "patience": 5,
+    "patience": 10,
     "stdev_decr_divisor": 1.0,
     "num_val_batches": 2
   },
 
   "policy_options": {
     "net": "mnist",
-    "safe_mutation_underflow": 0.1,
+    "safe_mutation_underflow": 0.05,
     "safe_mutations": "SM-G-SUM"
   },
   "_safe_mutation_underflow": 0.2,

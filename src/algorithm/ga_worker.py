@@ -1,4 +1,4 @@
-
+import copy
 import gc
 import logging
 import os
@@ -72,7 +72,9 @@ class GAWorker(object):
             #     time.sleep(10)
             #     continue
 
+            logger.info('getting task')
             task_id, task_data = worker.get_current_task()
+            logger.info('got task')
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
@@ -93,7 +95,7 @@ class GAWorker(object):
                     raise Exception
 
             else:
-                # logging.info('EVOLVE RUN')
+                logging.info('EVOLVE RUN')
                 try:
 
                     result = self.fitness(_it_id, policy, task_data, task_id)
@@ -138,6 +140,8 @@ class GAWorker(object):
 
         # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
 
+        batch_data = copy.deepcopy(task_data.batch_data)
+
         index = self.rs.randint(len(task_data.parents))
         # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
         #   time.sleep(1)
@@ -158,13 +162,13 @@ class GAWorker(object):
             # exact copy of the elite, which will be evolved)
             # if index < experiment.num_elites():
             #    policy.evolve_model(task_data.noise_stdev)
-            policy.set_sensitivity(task_id, parent_id, task_data.batch_data, self.offspring_dir)
+            policy.set_sensitivity(task_id, parent_id, batch_data, self.offspring_dir)
             policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         fitness = policy.rollout(placeholder=self.placeholder,
-                                 data=task_data.batch_data, config=self.config)
+                                 data=batch_data, config=self.config)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 

@@ -134,13 +134,14 @@ class GAMaster(object):
                         it.incr_iteration(it.times_orig_bs())
                         stats.set_step_tstart()
 
+                        data = copy.deepcopy(batch_data)
                         curr_task_id = master.declare_task(GATask(
                             elites=it.elites_to_evaluate(),
                             # val_data=next(iter(experiment.valloader)),
                             # val_loader=copy.deepcopy(experiment.valloader),
                             # val_loader=experiment.valloader,
                             parents=it.parents(),
-                            batch_data=batch_data,
+                            batch_data=data,
                             noise_stdev=it.get_noise_stdev(),
                         ))
 

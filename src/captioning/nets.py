@@ -39,6 +39,13 @@ class CaptionModel(PolicyNet):
         self.to(device)
         fc_feats, _, _, _, _ = tmp
 
+        # print('In C FW')
+
+        fc_feats = torch.zeros_like(fc_feats).copy_(fc_feats)
+
+        # warning we assume 5 seqs per image
+        fc_feats = fc_feats.index_select(dim=0, index=torch.arange(0, fc_feats.size(0), 5))
+
         if i >= 0:
             fc_feats = fc_feats[i].unsqueeze(0)
 
@@ -54,7 +61,11 @@ class CaptionModel(PolicyNet):
         state = self.init_hidden(batch_size)
         xt = self.img_embed(fc_feats)
 
+        # print('fc_feats ', fc_feats.size())
+        # print('xt ', xt.size())
+
         output, state = self.core(xt, state)
+        # print('output ', output.size())
         # logprobs = F.log_softmax(self.logit(output), dim=1)
 
         # sampleLogprobs, it = torch.max(logprobs.data, 1)
@@ -65,11 +76,15 @@ class CaptionModel(PolicyNet):
 
         output, state = self.core(xt, state)
         logprobs = F.log_softmax(self.logit(output), dim=1)
+        # print('logprobs ', logprobs.size())
 
-        sample_logprobs, it = torch.max(logprobs.data, 1)
+        # sample_logprobs, it = torch.max(logprobs.data, 1)
         # it = it.view(-1).long()
-
-        return sample_logprobs.view(-1)
+        # print('sample logprobs ', sample_logprobs.size())
+        # print('sample logprobs -1', sample_logprobs.view(-1).size())
+        # return sample_logprobs.view(-1)
+        # print(logprobs.size())
+        return logprobs
 
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
 

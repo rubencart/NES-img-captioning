@@ -175,12 +175,21 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
     def _calc_sum_sensitivity(self, experiences):
         # experiences = torch.Tensor(experiences).requires_grad_(False)
+        # print('going into cont fw')
         old_output = self._contained_forward(experiences)
+        # print('Out of cont fw')
+        # print(old_output)
+        # print(old_output.size())
         num_outputs = old_output.size(1)
+
+        # print('OO ', old_output.size())
 
         jacobian = torch.zeros(num_outputs, self.nb_params)
         grad_output = torch.zeros(*old_output.size())
+
+        # print('going into for loop')
         for k in range(num_outputs):
+            # print(k)
             self.zero_grad()
             grad_output.zero_()
             grad_output[:, k] = 1.0
