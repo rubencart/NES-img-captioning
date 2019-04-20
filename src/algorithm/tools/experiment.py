@@ -24,7 +24,7 @@ class Experiment(ABC):
         self._num_elite_cands = exp['num_elite_cands']
 
         self._dataset = exp['dataset']
-        self._net = exp['net']
+        self._net = exp['policy_options']['net']
 
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
@@ -214,7 +214,7 @@ class MSCocoExperiment(Experiment):
         self.vocab_size = self.trainloader.loader.vocab_size
         self.seq_length = self.trainloader.loader.seq_length
 
-        exp['caption_model_options'].update({
+        exp['policy_options']['model_options'].update({
             'vocab_size': self.vocab_size,
             'seq_length': self.seq_length,
         })

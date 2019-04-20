@@ -1,4 +1,4 @@
-
+import copy
 import gc
 import logging
 import os
@@ -12,7 +12,7 @@ import torch
 
 from algorithm.tools.experiment import Experiment
 from dist import WorkerClient
-from algorithm.policies import Policy, PolicyFactory, SuppDataset, Net
+from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
 from algorithm.tools.utils import GATask, Result, mkdir_p
 
@@ -40,7 +40,7 @@ class GAWorker(object):
 
         setup_tuple = setup_worker(self.exp)
         self.config: Config = setup_tuple[0]
-        # policy: Policy = setup_tuple[1]
+        self.policy: Policy = setup_tuple[1]
         self.experiment: Experiment = setup_tuple[2]
 
         self.placeholder = torch.FloatTensor(1)
@@ -55,7 +55,8 @@ class GAWorker(object):
         torch.set_num_threads(0)
 
         # self.exp = self.worker.get_experiment()
-        exp, config, experiment, rs, worker = self.exp, self.config, self.experiment, self.rs, self.worker
+        exp, config, experiment, rs, worker, policy = \
+            self.exp, self.config, self.experiment, self.rs, self.worker, self.policy
 
         _it_id = 0
 
@@ -71,12 +72,14 @@ class GAWorker(object):
             #     time.sleep(10)
             #     continue
 
+            logger.info('getting task')
             task_id, task_data = worker.get_current_task()
+            logger.info('got task')
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
-            policy: Policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                                  net=Net(exp['net']), exp=exp)
+            # policy: Policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']),
+            #                                       mode=exp['mode'], exp=exp)
             # policy.init_model(policy.generate_model())
 
             if rs.rand() < config.eval_prob:
@@ -92,10 +95,10 @@ class GAWorker(object):
                     raise Exception
 
             else:
-                # logging.info('EVOLVE RUN')
+                logging.info('EVOLVE RUN')
                 try:
 
-                    result = self.fitness(_it_id, policy, task_data)
+                    result = self.fitness(_it_id, policy, task_data, task_id)
                     worker.push_result(task_id, result)
 
                 except FileNotFoundError as e:
@@ -104,7 +107,8 @@ class GAWorker(object):
                 except Exception as e:
                     raise Exception
 
-            del policy, task_data
+            # del policy, task_data
+            del task_data
             gc.collect()
             # self.write_alive_tensors()
 
@@ -112,7 +116,8 @@ class GAWorker(object):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        index = self.rs.randint(len(task_data.elites))
+        # index = self.rs.randint(len(task_data.elites))
+        index = os.getpid() % len(task_data.elites)
         cand_id, cand = task_data.elites[index]
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
@@ -131,9 +136,11 @@ class GAWorker(object):
             mem_usage=max(mem_usages)
         )
 
-    def fitness(self, it_id, policy, task_data):
+    def fitness(self, it_id, policy, task_data, task_id):
 
         # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
+
+        batch_data = copy.deepcopy(task_data.batch_data)
 
         index = self.rs.randint(len(task_data.parents))
         # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
@@ -155,12 +162,13 @@ class GAWorker(object):
             # exact copy of the elite, which will be evolved)
             # if index < experiment.num_elites():
             #    policy.evolve_model(task_data.noise_stdev)
+            policy.set_sensitivity(task_id, parent_id, batch_data, self.offspring_dir)
             policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         fitness = policy.rollout(placeholder=self.placeholder,
-                                 data=task_data.batch_data, config=self.config)
+                                 data=batch_data, config=self.config)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 

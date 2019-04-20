@@ -6,6 +6,7 @@ Based on & took code from:
 - https://github.com/ruotianluo/self-critical.pytorch
 - https://github.com/uber-research/deep-neuroevolution
 - https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
+- https://github.com/uber-research/safemutations
 
 
 #### Installation
@@ -36,7 +37,7 @@ https://bugs.python.org/issue33725
 
 ```
 screen -S redis
-'echo never > /sys/kernel/mm/transparent_hugepage/enabled' as root
+echo never > /sys/kernel/mm/transparent_hugepage/enabled as root
 . src/scripts/local_run_redis.sh
 
 screen -S ga

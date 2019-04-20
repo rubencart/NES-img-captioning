@@ -1,11 +1,12 @@
 {
 
   "mode":  "nets",
+
   "config": {
 
     "cuda": false,
-    "eval_prob": 0.04,
-    "noise_stdev": 0.01,
+    "eval_prob": 0.01,
+    "noise_stdev": 0.1,
     "snapshot_freq": 5,
     "batch_size": 128,
     "patience": 10,
@@ -13,13 +14,20 @@
     "num_val_batches": 2
   },
 
-  "dataset": "mnist",
-  "net": "mnist",
-  "population_size": 50,
+  "policy_options": {
+    "net": "mnist",
+    "safe_mutation_underflow": 0.05,
+    "safe_mutations": "SM-G-SUM"
+  },
+  "_safe_mutation_underflow": 0.2,
+  "_safe_mutations": "SM-G-SUM",
 
-  "truncation": 20,
+  "dataset": "mnist",
+  "population_size": 600,
+
+  "truncation": 30,
   "num_elites": 3,
-  "num_elite_cands": 2,
+  "num_elite_cands": 3,
 
   "_from_population": "logs/es_mnist_mnist_nets_98538/snapshot/z_info_e1_i37-235.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth",

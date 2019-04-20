@@ -1,15 +1,13 @@
 import json
 import logging
 import os
-import re
 
-import torch
 
 from algorithm.tools.experiment import Experiment
 from algorithm.tools.iteration import Iteration
 from algorithm.policies import Policy
 from algorithm.tools.statistics import Statistics
-from algorithm.tools.utils import mkdir_p
+from algorithm.tools.utils import mkdir_p, remove_file_with_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +38,6 @@ def save_snapshot(stats: Statistics, it: Iteration, experiment: Experiment, poli
 #                 r=round(stats.acc_stats()[-1], 2))
 #     policy.save(path=directory, filename=elite_filename)
 
-
-def remove_existing(pattern, directory):
-    for file in os.listdir(directory):
-        if re.search(pattern, file):
-            os.remove(os.path.join(directory, file))
-
-
 # def save_parents(experiment, it, stats):
 #     directory = experiment.snapshot_dir()
 #
@@ -70,7 +61,7 @@ def save_infos(experiment, it, stats):
     directory = experiment.snapshot_dir()
 
     infos_pattern = r'z_info_e[0-9]*?_i[0-9]*?-[0-9]*?.json'
-    remove_existing(infos_pattern, directory)
+    remove_file_with_pattern(infos_pattern, directory)
 
     filename = 'z_info_e{e}_i{i}-{n}.json'.format(e=it.epoch(), i=it.iteration(),
                                                   n=experiment.orig_trainloader_lth())
