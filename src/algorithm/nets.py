@@ -45,8 +45,8 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         self.nb_learnable_params = 0
         self.nb_params = 0
         self.sensitivity = None
-        self.it = -1
-        self.orig_batch_size = 0
+        # self.it = -1
+        # self.orig_batch_size = 0
 
         self.grad = grad
 
@@ -106,6 +106,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         torch.manual_seed(random_state())
 
         param_vector = nn.utils.parameters_to_vector(self.parameters())
+        # print(next(self.parameters()))
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
         # noise_spread = noise.max() - noise.min()
@@ -113,6 +114,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         # logger.info('Old Params: {}'.format((param_vector.min(), param_vector.mean(), param_vector.max())))
         # logger.info('Noise: {}'.format((noise.min(), noise.mean(), noise.max())))
         noise /= self.sensitivity
+        # noise.clamp(min(param_vector), max(param_vector))
 
         # new_noise_spread = noise.max() - noise.min()
 
@@ -126,47 +128,27 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         nn.utils.vector_to_parameters(new_param_vector, self.parameters())
 
+        # print(next(self.parameters()))
+        # time.sleep(100)
         for param in self.parameters():
             param.requires_grad = False
 
-    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow):
+    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
             # logger.info('Loaded sensitivity for known parent')
             self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
         else:
-            if self.orig_batch_size == 0:
-                self.orig_batch_size = experiences.size(0)
+            # if self.orig_batch_size == 0:
+            #     # todo doesn't work for capt
+            #     self.orig_batch_size = experiences.size(0)
 
             start_time = time.time()
             torch.set_grad_enabled(True)
             for param in self.parameters():
                 param.requires_grad = True
 
-            # self.it = it
-
-            # todo experiences requires grad?
-            experiences = torch.Tensor(experiences)  # .requires_grad_()
-            old_output = self.forward(experiences)
-            num_outputs = old_output.size(1)
-
-            jacobian = torch.zeros(num_outputs, self.nb_params)
-            grad_output = torch.zeros(*old_output.size())
-
-            for k in range(num_outputs):
-                self.zero_grad()
-                grad_output.zero_()
-                grad_output[:, k] = 1.0
-
-                # torch.autograd.backward(tensors=old_output, grad_tensors=grad_output, retain_graph=True)
-                # torch.autograd.grad(outputs=old_output, inputs=input_data, grad_outputs=...)
-                old_output.backward(gradient=grad_output, retain_graph=True)
-                jacobian[k] = self._extract_grad()
-
-            # sum over the outputs, keeping params separate
-            proportion = float(self.orig_batch_size) / experiences.size(0)
-            sensitivity = torch.sqrt((jacobian ** 2).sum(0)) * proportion
-            # sensitivity[sensitivity < 1e-6] = 1.0
+            sensitivity = self._calc_sensitivity(experiences, method)
             sensitivity[sensitivity < underflow] = underflow
 
             torch.set_grad_enabled(False)
@@ -182,7 +164,73 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             self.sensitivity = sensitivity.clone().detach().requires_grad_(False)
             logger.info('Sensitivity parent {}: {}'
                         .format(parent_id, (sensitivity.min(), sensitivity.mean(), sensitivity.max())))
-            del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
+            del sensitivity, experiences
+
+    def _calc_sensitivity(self, experiences, method):
+        from algorithm.policies import Mutation
+        if method == Mutation.SAFE_GRAD_SUM:
+            return self._calc_sum_sensitivity(experiences)
+        elif method == Mutation.SAFE_GRAD_ABS:
+            return self._calc_abs_sensitivity(experiences)
+
+    def _calc_sum_sensitivity(self, experiences):
+        # experiences = torch.Tensor(experiences).requires_grad_(False)
+        old_output = self._contained_forward(experiences)
+        num_outputs = old_output.size(1)
+
+        jacobian = torch.zeros(num_outputs, self.nb_params)
+        grad_output = torch.zeros(*old_output.size())
+        for k in range(num_outputs):
+            self.zero_grad()
+            grad_output.zero_()
+            grad_output[:, k] = 1.0
+
+            old_output.backward(gradient=grad_output, retain_graph=True)
+            jacobian[k] = self._extract_grad()
+        self.zero_grad()
+
+        # proportion = float(self.orig_batch_size) / experiences.size(0)
+        # proportion = float(self.orig_batch_size) / old_output.size(0)
+        # sum over the outputs, keeping params separate
+        sensitivity = torch.sqrt((jacobian ** 2).sum(0))  # * proportion
+        # sensitivity[sensitivity < 1e-6] = 1.0
+        # sensitivity *= 1.0 / min(sensitivity)
+
+        copy = sensitivity.clone().detach().requires_grad_(False)
+        del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
+        return copy
+
+    def _calc_abs_sensitivity(self, experiences):
+
+        old_output = self._contained_forward(experiences)
+        num_outputs = old_output.size(1)
+        batch_size = old_output.size(0)
+
+        jacobian = torch.zeros(num_outputs, self.nb_params, batch_size)
+        grad_output = torch.zeros((1, num_outputs))
+
+        for k in range(num_outputs):
+            for i in range(batch_size):
+                old_output_i = self._contained_forward(experiences, i=i)
+
+                self.zero_grad()
+                grad_output.zero_()
+                grad_output[0, k] = 1.0
+
+                old_output_i.backward(gradient=grad_output, retain_graph=True)
+                jacobian[k, :, i] = self._extract_grad()
+
+        self.zero_grad()
+
+        jacobian = torch.abs(jacobian).mean(2)
+        sensitivity = torch.sqrt((jacobian ** 2).sum(0))
+
+        copy = sensitivity.clone().detach().requires_grad_(False)
+        del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
+        return copy
+
+    def _calc_second_sensitivity(self):
+        raise NotImplementedError
 
     def _extract_grad(self):
         tot_size = self.nb_params
@@ -221,8 +269,8 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         self.from_param_file = serialized
         self.load_state_dict(state_dict)
 
-    # def forward(self, x):
-    #     pass
+    def _contained_forward(self, x, i=-1):
+        raise NotImplementedError
 
 
 class CompressedModel(SerializableModel):

@@ -37,6 +37,7 @@ DATASETS = {
 
 class Mutation(Enum):
     SAFE_GRAD_SUM = 'SM-G-SUM'
+    SAFE_GRAD_ABS = 'SM-G-ABS'
     DEFAULT = ''
 
 
@@ -79,9 +80,9 @@ class Policy(ABC):
 
     def set_sensitivity(self, task_id, parent_id, experiences, directory):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations == Mutation.SAFE_GRAD_SUM:
+        if self.mutations != Mutation.DEFAULT:
             underflow = self.options.safe_mutation_underflow
-            self.policy_net.set_sensitivity(task_id, parent_id, experiences, directory, underflow)
+            self.policy_net.set_sensitivity(task_id, parent_id, experiences, directory, underflow, self.mutations)
 
     def save(self, path, filename):
         assert self.policy_net is not None, 'set model first!'

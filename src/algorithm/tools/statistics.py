@@ -86,14 +86,14 @@ class Statistics(object):
             plt.fill_between(x=x, y1=score_stats[0], y2=score_stats[2], facecolor='blue', alpha=0.3)
             plt.plot(x, score_stats[1], color='blue')
             plt.title('Training score')
-            plt.savefig(log_dir + '/loss_plot.png')
+            plt.savefig(log_dir + '/loss_plot.pdf', format='pdf')
             plt.close(fig)
 
         for (name, (lst, label)) in kwargs.items():
             fig = plt.figure()
             plt.plot(np.arange(len(lst)), lst)
             plt.title(label)
-            plt.savefig(log_dir + '/{}_plot.png'.format(name))
+            plt.savefig(log_dir + '/{}_plot.pdf'.format(name), format='pdf')
             plt.close(fig)
 
     def log_stats(self, tlogger):

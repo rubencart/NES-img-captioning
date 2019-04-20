@@ -30,6 +30,8 @@ def setup_master(exp):
 
     config = Config(**exp['config'])
     iteration = Iteration(config, exp)
+    # todo when init from infos experiment will still take batch size from exp.json and not
+    # from infos!!!
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, iteration)
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
     statistics = Statistics()

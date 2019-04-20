@@ -32,6 +32,45 @@ class CaptionModel(PolicyNet):
             del kwargs['mode']
         return getattr(self, '_' + mode)(*args, **kwargs)
 
+    def _contained_forward(self, data, i=-1):
+        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+        device = next(self.parameters()).device
+        tmp = [_ if _ is None else torch.from_numpy(_).to(device) for _ in tmp]
+        self.to(device)
+        fc_feats, _, _, _, _ = tmp
+
+        if i >= 0:
+            fc_feats = fc_feats[i].unsqueeze(0)
+
+        # if self.orig_batch_size == 0:
+        #     self.orig_batch_size = fc_feats.size(0)
+
+        # gen_result, sample_logprobs = self._sample(fc_feats, att_feats, att_masks,
+        #                                            opt={'sample_max': 1}, mode='sample')
+        # print('GEN RESULT: ', gen_result.size())
+        # print('SAMPLE PROBS: ', sample_logprobs.size())
+
+        batch_size = fc_feats.size(0)
+        state = self.init_hidden(batch_size)
+        xt = self.img_embed(fc_feats)
+
+        output, state = self.core(xt, state)
+        # logprobs = F.log_softmax(self.logit(output), dim=1)
+
+        # sampleLogprobs, it = torch.max(logprobs.data, 1)
+        # it = it.view(-1).long()
+
+        it = fc_feats.data.new(batch_size).long().zero_()
+        xt = self.embed(it)
+
+        output, state = self.core(xt, state)
+        logprobs = F.log_softmax(self.logit(output), dim=1)
+
+        sample_logprobs, it = torch.max(logprobs.data, 1)
+        # it = it.view(-1).long()
+
+        return sample_logprobs.view(-1)
+
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
 
         # function computes the similarity score to be augmented
