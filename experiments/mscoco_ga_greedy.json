@@ -3,28 +3,45 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.004,
+    "eval_prob": 0.006,
     "noise_stdev": 0.002,
     "snapshot_freq": 5,
-    "batch_size": 256,
+    "batch_size": 512,
 
     "val_batch_size": 256,
     "num_val_batches": 4,
     "num_val_items": 5000,
 
-    "patience": 30,
-    "stdev_decr_divisor": 0.9
+    "patience": 20,
+    "stdev_decr_divisor": 1.0
+  },
+
+  "policy_options": {
+    "net": "fc_caption",
+    "fitness": "greedy",
+
+    "safe_mutation_underflow": 0,
+    "safe_mutations": "",
+
+    "model_options": {
+      "input_encoding_size":  128,
+      "rnn_type": "lstm",
+      "rnn_size": 128,
+      "num_layers": 1,
+      "drop_prob_lm": 0.0,
+      "fc_feat_size": 2048
+    }
   },
 
   "dataset": "mscoco",
-  "net": "fc_caption",
-  "population_size": 1000,
-  "truncation": 30,
 
+  "population_size": 1000,
+  "truncation": 40,
   "num_elites": 3,
   "num_elite_cands": 3,
 
-  "from_single": "logs/log_xent_fc_128/checkpt/model-best.pth",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "_from_population": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
@@ -39,24 +56,5 @@
 
     "seq_per_img": 5,
     "train_only": 1
-  },
-
-  "caption_model_options": {
-    "fitness": "greedy",
-
-    "input_encoding_size":  128,
-    "rnn_type": "lstm",
-    "rnn_size": 128,
-    "num_layers": 1,
-    "drop_prob_lm": 0.0,
-    "fc_feat_size": 2048
-
-  },
-  "_seq_length":  0,
-  "_vocab_size":  0,
-
-  "parents_dir": "parents",
-  "offspring_dir": "offspring",
-  "elite_dir": "elite",
-  "best_dir": "best"
+  }
 }
