@@ -15,6 +15,7 @@ class Sensitivity(object):
     def __init__(self, net):
         self.sensitivity = None
         self.net = net
+        self._orig_batch_size = 0
 
     def get_sensitivity(self):
         return self.sensitivity
@@ -23,11 +24,12 @@ class Sensitivity(object):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
             # logger.info('Loaded sensitivity for known parent')
-            self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+            try:
+                self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+            except RuntimeError:
+                time.sleep(5)
+                self.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
         else:
-            # if self.orig_batch_size == 0:
-            #     # todo doesn't work for capt
-            #     self.orig_batch_size = experiences.size(0)
 
             start_time = time.time()
             torch.set_grad_enabled(True)
@@ -36,6 +38,9 @@ class Sensitivity(object):
 
             sensitivity, batch_size = self._calc_sensitivity(experiences, method)
             sensitivity[sensitivity < underflow] = underflow
+
+            if self._orig_batch_size == 0:
+                self._orig_batch_size = batch_size
 
             torch.set_grad_enabled(False)
             for param in self.net.parameters():
@@ -62,7 +67,7 @@ class Sensitivity(object):
             return self._calc_abs_sensitivity(experiences)
 
     def _calc_sum_sensitivity(self, experiences):
-        old_output = self.net._contained_forward(experiences)
+        old_output = self.net._contained_forward(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
         batch_size = old_output.size(0)
 
@@ -86,7 +91,7 @@ class Sensitivity(object):
 
     def _calc_abs_sensitivity(self, experiences):
 
-        old_output = self.net._contained_forward(experiences)
+        old_output = self.net._contained_forward(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
         batch_size = old_output.size(0)
 

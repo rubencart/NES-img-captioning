@@ -152,7 +152,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         self.from_param_file = serialized
         self.load_state_dict(state_dict)
 
-    def _contained_forward(self, x, i=-1):
+    def _contained_forward(self, x, orig_bs=0, i=-1):
         raise NotImplementedError
 
 
