@@ -114,8 +114,8 @@ class GAWorker(object):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        # index = self.rs.randint(len(task_data.elites))
-        index = os.getpid() % len(task_data.elites)
+        index = self.rs.randint(len(task_data.elites))
+        # index = os.getpid() % len(task_data.elites)
         cand_id, cand = task_data.elites[index]
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
