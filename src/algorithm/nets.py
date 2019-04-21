@@ -2,17 +2,15 @@
 contains code from https://github.com/uber-research/safemutations
 and https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 """
-import json
 import logging
-import os
-import time
 
 import torch
 from abc import abstractmethod, ABC
 
 from torch import nn
 
-from algorithm.tools.utils import random_state, find_file_with_pattern
+from algorithm.safe_mutations import Sensitivity
+from algorithm.tools.utils import random_state
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +42,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         self.nb_learnable_params = 0
         self.nb_params = 0
-        self.sensitivity = None
-        # self.it = -1
-        # self.orig_batch_size = 0
-
         self.grad = grad
+
+        self.sensitivity_wrapper = Sensitivity(self)
 
     def _initialize_params(self):
         if self.from_param_file:
@@ -101,148 +97,23 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             param.requires_grad = False
 
     def evolve_safely(self, sigma):
-        # sensitivity = self._get_sensitivity()
+        sensitivity = self.sensitivity_wrapper.get_sensitivity()
 
         torch.manual_seed(random_state())
 
         param_vector = nn.utils.parameters_to_vector(self.parameters())
-        # print(next(self.parameters()))
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
-        # noise_spread = noise.max() - noise.min()
-
-        # logger.info('Old Params: {}'.format((param_vector.min(), param_vector.mean(), param_vector.max())))
-        # logger.info('Noise: {}'.format((noise.min(), noise.mean(), noise.max())))
-        noise /= self.sensitivity
-        # noise.clamp(min(param_vector), max(param_vector))
-
-        # new_noise_spread = noise.max() - noise.min()
-
-        # logger.info('Noise / sens: {}'.format((noise.min(), noise.mean(), noise.max())))
-        # noise[noise > sigma] = sigma
-        # noise = noise * (noise_spread / new_noise_spread)
-        # logger.info('Noise norm: {}'.format((noise.min(), noise.mean(), noise.max())))
+        noise /= sensitivity
 
         new_param_vector = param_vector + noise
-        # logger.info('New Params: {}'.format((param_vector.min(), param_vector.mean(), param_vector.max())))
-
         nn.utils.vector_to_parameters(new_param_vector, self.parameters())
 
-        # print(next(self.parameters()))
-        # time.sleep(100)
         for param in self.parameters():
             param.requires_grad = False
 
     def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
-        sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
-        if find_file_with_pattern(sensitivity_filename, directory):
-            # logger.info('Loaded sensitivity for known parent')
-            self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
-        else:
-            # if self.orig_batch_size == 0:
-            #     # todo doesn't work for capt
-            #     self.orig_batch_size = experiences.size(0)
-
-            start_time = time.time()
-            torch.set_grad_enabled(True)
-            for param in self.parameters():
-                param.requires_grad = True
-
-            sensitivity, batch_size = self._calc_sensitivity(experiences, method)
-            sensitivity[sensitivity < underflow] = underflow
-
-            torch.set_grad_enabled(False)
-            for param in self.parameters():
-                param.requires_grad = False
-            for param in sensitivity:
-                param.requires_grad = False
-
-            time_elapsed = time.time() - start_time
-            logger.info('Safe mutation sensitivity computed in {:.2f}s on {} samples'
-                        .format(time_elapsed, batch_size))
-            torch.save(sensitivity.clone().detach().requires_grad_(False),
-                       os.path.join(directory, sensitivity_filename))
-            self.sensitivity = sensitivity.clone().detach().requires_grad_(False)
-            logger.info('Sensitivity parent {}: min {:.2f}, mean {:.2f}, max {:.2f}'
-                        .format(parent_id, sensitivity.min().item(), sensitivity.mean().item(),
-                                sensitivity.max().item()))
-            del sensitivity, experiences
-
-    def _calc_sensitivity(self, experiences, method):
-        from algorithm.policies import Mutation
-        if method == Mutation.SAFE_GRAD_SUM:
-            return self._calc_sum_sensitivity(experiences)
-        elif method == Mutation.SAFE_GRAD_ABS:
-            return self._calc_abs_sensitivity(experiences)
-
-    def _calc_sum_sensitivity(self, experiences):
-        # experiences = torch.Tensor(experiences).requires_grad_(False)
-        # print('going into cont fw')
-        old_output = self._contained_forward(experiences)
-        # print('Out of cont fw')
-        # print(old_output)
-        # print(old_output.size())
-        num_outputs = old_output.size(1)
-        batch_size = old_output.size(0)
-
-        # print('OO ', old_output.size())
-
-        jacobian = torch.zeros(num_outputs, self.nb_params)
-        grad_output = torch.zeros(*old_output.size())
-
-        # print('going into for loop')
-        for k in range(num_outputs):
-            # print(k)
-            self.zero_grad()
-            grad_output.zero_()
-            grad_output[:, k] = 1.0
-
-            old_output.backward(gradient=grad_output, retain_graph=True)
-            jacobian[k] = self._extract_grad()
-        self.zero_grad()
-
-        # proportion = float(self.orig_batch_size) / experiences.size(0)
-        # proportion = float(self.orig_batch_size) / old_output.size(0)
-        # sum over the outputs, keeping params separate
-        sensitivity = torch.sqrt((jacobian ** 2).sum(0))  # * proportion
-        # sensitivity[sensitivity < 1e-6] = 1.0
-        # sensitivity *= 1.0 / min(sensitivity)
-
-        copy = sensitivity.clone().detach().requires_grad_(False)
-        del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy, batch_size
-
-    def _calc_abs_sensitivity(self, experiences):
-
-        old_output = self._contained_forward(experiences)
-        num_outputs = old_output.size(1)
-        batch_size = old_output.size(0)
-
-        jacobian = torch.zeros(num_outputs, self.nb_params, batch_size)
-        grad_output = torch.zeros((1, num_outputs))
-
-        for k in range(num_outputs):
-            for i in range(batch_size):
-                old_output_i = self._contained_forward(experiences, i=i)
-
-                self.zero_grad()
-                grad_output.zero_()
-                grad_output[0, k] = 1.0
-
-                old_output_i.backward(gradient=grad_output, retain_graph=True)
-                jacobian[k, :, i] = self._extract_grad()
-
-        self.zero_grad()
-
-        jacobian = torch.abs(jacobian).mean(2)
-        sensitivity = torch.sqrt((jacobian ** 2).sum(0))
-
-        copy = sensitivity.clone().detach().requires_grad_(False)
-        del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy, batch_size
-
-    def _calc_second_sensitivity(self):
-        raise NotImplementedError
+        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
 
     def _extract_grad(self):
         tot_size = self.nb_params

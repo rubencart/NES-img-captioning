@@ -63,9 +63,9 @@ logger = logging.getLogger(__name__)
 
 # next things:
 # - PROFILE run on server
-# - https://stackoverflow.com/questions/11328958/save-the-plots-into-a-pdf
-#   --> save figs as pdf and not png
-# - make bad generation smarter than loss
+# - java tokenizer cpu affinity
+#       http://xmodulo.com/run-program-process-specific-cpu-cores-linux.html
+#       https://linux.die.net/man/1/taskset
 # - fix trainloader generator etc, nicer solution to incr bs than breaking loop
 # - cococaption uses CIDEr and not CIDErD
 # - leave unused BLEU / METEOR / ... scores out of validation run
