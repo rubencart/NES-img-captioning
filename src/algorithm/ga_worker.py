@@ -72,9 +72,7 @@ class GAWorker(object):
             #     time.sleep(10)
             #     continue
 
-            logger.info('getting task')
             task_id, task_data = worker.get_current_task()
-            logger.info('got task')
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
@@ -95,7 +93,7 @@ class GAWorker(object):
                     raise Exception
 
             else:
-                logging.info('EVOLVE RUN')
+                # logging.info('EVOLVE RUN')
                 try:
 
                     result = self.fitness(_it_id, policy, task_data, task_id)
@@ -116,8 +114,8 @@ class GAWorker(object):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        # index = self.rs.randint(len(task_data.elites))
-        index = os.getpid() % len(task_data.elites)
+        index = self.rs.randint(len(task_data.elites))
+        # index = os.getpid() % len(task_data.elites)
         cand_id, cand = task_data.elites[index]
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 

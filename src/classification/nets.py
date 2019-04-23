@@ -151,7 +151,7 @@ class MnistNet(PolicyNet):
         # logging.info('[FW] OUT OF FW')
         return x
 
-    def _contained_forward(self, x, i=-1):
+    def _contained_forward(self, x, orig_bs=0, i=-1):
         # if self.orig_batch_size == 0:
         #     self.orig_batch_size = x.size(0)
         if i >= 0:

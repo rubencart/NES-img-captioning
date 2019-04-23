@@ -147,7 +147,7 @@ class Iteration(object):
 
     def record_parents(self, parents, score):
         self._podium.record_parents(parents, score)
-        if self._podium.is_bad_generation():
+        if self._patience and self._podium.is_bad_generation():
 
             self._bad_generations += 1
 
