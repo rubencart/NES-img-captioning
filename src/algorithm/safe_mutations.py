@@ -3,6 +3,7 @@ import os
 import time
 
 import torch
+from torch import nn
 
 from algorithm.tools.utils import find_file_with_pattern
 
@@ -80,8 +81,14 @@ class Sensitivity(object):
             grad_output[:, k] = 1.0
 
             old_output.backward(gradient=grad_output, retain_graph=True)
-            jacobian[k] = self.net._extract_grad()
+            jacobian[k] = self.net.extract_grad()
         self.net.zero_grad()
+
+        # logger.info('extracted params: {}'.format(param_ex))
+        # param_vec = nn.utils.parameters_to_vector(self.net.parameters())
+        # logger.info('vector params: {}'.format(nn.utils.parameters_to_vector(self.net.parameters())))
+        # assert torch.equal(param_ex, param_vec)
+        # time.sleep(100)
 
         sensitivity = torch.sqrt((jacobian ** 2).sum(0))  # * proportion
 

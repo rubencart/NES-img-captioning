@@ -115,15 +115,17 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
     def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
         self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
 
-    def _extract_grad(self):
+    def extract_grad(self):
         tot_size = self.nb_params
         pvec = torch.zeros(tot_size, dtype=torch.float32)
         count = 0
+        # params = torch.zeros(tot_size, dtype=torch.float32)
         for param in self.parameters():
             sz = param.grad.data.flatten().shape[0]
             pvec[count:count + sz] = param.grad.data.flatten()
+            # params[count:count + sz] = param.data.flatten()
             count += sz
-        return pvec.clone().detach()
+        return pvec.clone().detach()  # , params
 
     def _count_parameters(self):
         count = nn.utils.parameters_to_vector(self.parameters()).size(0)
