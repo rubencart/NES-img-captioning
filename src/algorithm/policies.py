@@ -1,19 +1,16 @@
 import copy
+from collections import namedtuple
 from enum import Enum
 import logging
 import os
 from abc import ABC
-from typing import Union
 
 import torchvision
 import torch
 from torch import nn
 
 from algorithm.nets import CompressedModel, PolicyNet
-# from captioning.nets import FCModel
-# from classification.nets import Cifar10Net  # , Cifar10Net, MnistNet, Cifar10Net_Small
 from algorithm.tools.utils import mkdir_p, random_state
-# from classification.policies import SeedsClfPolicy, NetsClfPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -38,22 +35,36 @@ DATASETS = {
 }
 
 
+class Mutation(Enum):
+    SAFE_GRAD_SUM = 'SM-G-SUM'
+    SAFE_GRAD_ABS = 'SM-G-ABS'
+    DEFAULT = ''
+
+
+_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness']
+PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.01, None])
+
+
 class Policy(ABC):
-    def __init__(self, dataset: SuppDataset, net: Net, options=None):
-        if options:
+    def __init__(self, dataset: SuppDataset, options: PolicyOptions):
+        if dataset == SuppDataset.MSCOCO:
             from captioning.nets import CaptModelOptions
-            self.options = CaptModelOptions(**options)
+            self.model_options = CaptModelOptions(**options.model_options)
+
             from captioning.policies import Fitness
-            self.fitness = Fitness(self.options.fitness if self.options.fitness else Fitness.DEFAULT)
+            self.fitness = Fitness(options.fitness if options.fitness else Fitness.DEFAULT)
         else:
-            self.options = None
+            self.model_options = None
+            self.fitness = None
 
         self.policy_net: PolicyNet = None
         self.serial_net = None
 
         assert isinstance(dataset, SuppDataset)
         self.dataset = dataset
-        self.net = net
+        self.net = Net(options.net)
+        self.options = options
+        self.mutations = Mutation(options.safe_mutations)
 
         from classification.nets import Cifar10Net, Cifar10Net_Small, MnistNet
         from captioning.nets import FCModel
@@ -67,8 +78,13 @@ class Policy(ABC):
 
         self.init_model(self.generate_model())
 
+    def set_sensitivity(self, task_id, parent_id, experiences, directory):
+        assert self.policy_net is not None, 'set model first!'
+        if self.mutations != Mutation.DEFAULT:
+            underflow = self.options.safe_mutation_underflow
+            self.policy_net.set_sensitivity(task_id, parent_id, experiences, directory, underflow, self.mutations)
+
     def save(self, path, filename):
-        # todo! also save serial?
         assert self.policy_net is not None, 'set model first!'
         mkdir_p(path)
         assert not os.path.exists(os.path.join(path, filename))
@@ -137,13 +153,15 @@ class NetsPolicy(Policy, ABC):
 
     def set_model(self, model):
         assert isinstance(model, PolicyNet) or isinstance(model, dict) \
-               or isinstance(model, str), '{}'.format(type(model))
+               or isinstance(model, str) or model is None, '{}'.format(type(model))
         if isinstance(model, PolicyNet):
             self._set_from_statedict_model(model.state_dict())
         elif isinstance(model, dict):
             self._set_from_statedict_model(model)
-        else:
+        elif isinstance(model, str):
             self._set_from_path_model(model)
+        else:
+            self._set_from_statedict_model(self.generate_model().state_dict())
 
     def _set_from_path_model(self, serialized):
         # assert isinstance(serialized, dict), '{}'.format(type(serialized))
@@ -163,16 +181,18 @@ class NetsPolicy(Policy, ABC):
 
     def generate_model(self, from_param_file=None, start_rng=None):
         if from_param_file:
-            return self.get_net_class()(from_param_file=from_param_file, options=self.options)
+            return self.get_net_class()(from_param_file=from_param_file, options=self.model_options)
         elif start_rng:
-            return self.get_net_class()(rng_state=start_rng, options=self.options)
+            return self.get_net_class()(rng_state=start_rng, options=self.model_options)
         else:
-            return self.get_net_class()(rng_state=random_state(), options=self.options)
+            return self.get_net_class()(rng_state=random_state(), options=self.model_options)
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        self.policy_net.evolve(sigma)
-        # self.serial_net = copy.deepcopy(self.policy_net.state_dict())
+        if self.mutations == Mutation.SAFE_GRAD_SUM:
+            self.policy_net.evolve_safely(sigma)
+        else:
+            self.policy_net.evolve(sigma)
 
     def get_model(self):
         return self.policy_net
@@ -210,18 +230,19 @@ class SeedsPolicy(Policy, ABC):
 
 class PolicyFactory:
     @staticmethod
-    def create(dataset: SuppDataset, mode, net: Net, exp):
+    def create(dataset: SuppDataset, mode, exp):
+        options = PolicyOptions(**exp['policy_options'])
 
         if dataset == SuppDataset.MNIST or dataset == SuppDataset.CIFAR10:
             from classification.policies import SeedsClfPolicy, NetsClfPolicy
             if mode == 'seeds':
-                return SeedsClfPolicy(dataset, net)
+                return SeedsClfPolicy(dataset, options)
             else:
-                return NetsClfPolicy(dataset, net)
+                return NetsClfPolicy(dataset, options)
 
         elif dataset == SuppDataset.MSCOCO:
             from captioning.policies import NetsGenPolicy, SeedsGenPolicy
             if mode == 'seeds':
-                return SeedsGenPolicy(dataset, net, exp['caption_model_options'])
+                return SeedsGenPolicy(dataset, options)
             else:
-                return NetsGenPolicy(dataset, net, exp['caption_model_options'])
+                return NetsGenPolicy(dataset, options)

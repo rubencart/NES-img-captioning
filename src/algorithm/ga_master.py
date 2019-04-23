@@ -63,7 +63,9 @@ logger = logging.getLogger(__name__)
 
 # next things:
 # - PROFILE run on server
-
+# - java tokenizer cpu affinity
+#       http://xmodulo.com/run-program-process-specific-cpu-cores-linux.html
+#       https://linux.die.net/man/1/taskset
 # - fix trainloader generator etc, nicer solution to incr bs than breaking loop
 # - cococaption uses CIDEr and not CIDErD
 # - leave unused BLEU / METEOR / ... scores out of validation run
@@ -132,25 +134,26 @@ class GAMaster(object):
                         it.incr_iteration(it.times_orig_bs())
                         stats.set_step_tstart()
 
+                        data = copy.deepcopy(batch_data)
                         curr_task_id = master.declare_task(GATask(
                             elites=it.elites_to_evaluate(),
                             # val_data=next(iter(experiment.valloader)),
                             # val_loader=copy.deepcopy(experiment.valloader),
                             # val_loader=experiment.valloader,
                             parents=it.parents(),
-                            batch_data=batch_data,
+                            batch_data=data,
                             noise_stdev=it.get_noise_stdev(),
                         ))
 
                         tlogger.log('********** Iteration {} **********'.format(it.iteration()))
                         logger.info('Searching {nb} params for NW'.format(nb=policy.nb_learnable_params()))
 
-                        it.reset_task_results()
-                        it.reset_eval_results()
-                        it.reset_worker_ids()
-
-                        it.set_nb_models_to_evaluate(experiment.population_size())
-                        it.set_waiting_for_elite_ev(False)
+                        # it.reset_task_results()
+                        # it.reset_eval_results()
+                        # it.reset_worker_ids()
+                        #
+                        # it.set_nb_models_to_evaluate(experiment.population_size())
+                        # it.set_waiting_for_elite_ev(False)
                         stats.reset_it_mem_usages()
 
                         while it.models_left_to_evaluate() or it.elite_cands_left_to_evaluate():
@@ -206,13 +209,13 @@ class GAMaster(object):
                         #     [(len(parents) + i, copy.copy(elite)) for i, elite in enumerate(elites)]
                         # )
 
-                        reset_parents = it.record_parents(parents, scores.max())
-                        if reset_parents:
+                        it.record_parents(parents, scores.max())
+                        if it.patience_reached():
                             # parents = reset_parents
                             experiment.increase_loader_batch_size(it.batch_size())
 
-                        it.add_elites_to_parents()
-                        it.clean_offspring_dir()
+                        # it.add_elites_to_parents()
+                        # it.clean_offspring_dir()
 
                         stats.record_score_stats(scores)
                         stats.record_bs_stats(it.batch_size())
@@ -226,7 +229,7 @@ class GAMaster(object):
                         it.log_stats(tlogger)
                         tlogger.dump_tabular()
 
-                        if reset_parents:
+                        if it.patience_reached():
                             # to use new trainloader!
                             break
 

@@ -1,4 +1,5 @@
 import logging
+import torch
 
 from torch import nn
 import torch.nn.functional as F
@@ -150,3 +151,18 @@ class MnistNet(PolicyNet):
         # logging.info('[FW] OUT OF FW')
         return x
 
+    def _contained_forward(self, x, orig_bs=0, i=-1):
+        # if self.orig_batch_size == 0:
+        #     self.orig_batch_size = x.size(0)
+        if i >= 0:
+            data, _ = x
+            # print(data.size())
+            data = data[i]
+            # print(data.size())
+            data.unsqueeze_(0)
+            # print(data.size())
+        else:
+            data, _ = x
+        _data = torch.Tensor(data).clone().detach().requires_grad_(False)
+        del data, _
+        return self.forward(_data)

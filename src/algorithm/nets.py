@@ -1,12 +1,18 @@
-import copy
-import os
+"""
+contains code from https://github.com/uber-research/safemutations
+and https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
+"""
+import logging
 
 import torch
 from abc import abstractmethod, ABC
 
 from torch import nn
 
+from algorithm.safe_mutations import Sensitivity
 from algorithm.tools.utils import random_state
+
+logger = logging.getLogger(__name__)
 
 
 class SerializableModel:
@@ -35,7 +41,10 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         self.add_tensors = {}
 
         self.nb_learnable_params = 0
+        self.nb_params = 0
         self.grad = grad
+
+        self.sensitivity_wrapper = Sensitivity(self)
 
     def _initialize_params(self):
         if self.from_param_file:
@@ -60,6 +69,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                     tensor.data.zero_()
 
         self.nb_learnable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        self.nb_params = self._count_parameters()
 
         # freeze all params
         if not self.grad:
@@ -86,6 +96,41 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         for param in self.parameters():
             param.requires_grad = False
 
+    def evolve_safely(self, sigma):
+        sensitivity = self.sensitivity_wrapper.get_sensitivity()
+
+        torch.manual_seed(random_state())
+
+        param_vector = nn.utils.parameters_to_vector(self.parameters())
+        noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
+
+        noise /= sensitivity
+
+        new_param_vector = param_vector + noise
+        nn.utils.vector_to_parameters(new_param_vector, self.parameters())
+
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
+        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
+
+    def extract_grad(self):
+        tot_size = self.nb_params
+        pvec = torch.zeros(tot_size, dtype=torch.float32)
+        count = 0
+        # params = torch.zeros(tot_size, dtype=torch.float32)
+        for param in self.parameters():
+            sz = param.grad.data.flatten().shape[0]
+            pvec[count:count + sz] = param.grad.data.flatten()
+            # params[count:count + sz] = param.data.flatten()
+            count += sz
+        return pvec.clone().detach()  # , params
+
+    def _count_parameters(self):
+        count = nn.utils.parameters_to_vector(self.parameters()).size(0)
+        return count
+
     def get_nb_learnable_params(self):
         return self.nb_learnable_params
 
@@ -104,11 +149,13 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
     def from_serialized(self, serialized):
         # assert isinstance(serialized, dict)
         # self.load_state_dict(serialized)
+        # todo map_location not cpu if on gpu!
         state_dict = torch.load(serialized, map_location='cpu')
+        self.from_param_file = serialized
         self.load_state_dict(state_dict)
 
-    # def forward(self, x):
-    #     pass
+    def _contained_forward(self, x, orig_bs=0, i=-1):
+        raise NotImplementedError
 
 
 class CompressedModel(SerializableModel):

@@ -32,6 +32,49 @@ class CaptionModel(PolicyNet):
             del kwargs['mode']
         return getattr(self, '_' + mode)(*args, **kwargs)
 
+    def _contained_forward(self, data, orig_bs=0, i=-1, split=100):
+        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+        device = next(self.parameters()).device
+        tmp = [_ if _ is None else torch.from_numpy(_).to(device) for _ in tmp]
+        self.to(device)
+        fc_feats, _, _, _, _ = tmp
+
+        fc_feats = torch.zeros_like(fc_feats).copy_(fc_feats)
+
+        # warning we assume 5 seqs per image
+        # fc feats has length seq_per_img x batch_size, and every # seq_per_img imgs are equal
+        fc_feats = fc_feats.index_select(dim=0, index=torch.arange(0, fc_feats.size(0), 5))
+
+        if fc_feats.size(0) > orig_bs > 0:
+            fc_feats = fc_feats[:orig_bs]
+        if i >= 0:
+            fc_feats = fc_feats[i].unsqueeze(0)
+
+        batch_size = fc_feats.size(0)
+        state = self.init_hidden(batch_size)
+        xt = self.img_embed(fc_feats)
+
+        output, state = self.core(xt, state)
+
+        it = fc_feats.data.new(batch_size).long().zero_()
+        xt = self.embed(it)
+
+        output, state = self.core(xt, state)
+        # |batch_size| x |vocab size|
+        logprobs = F.log_softmax(self.logit(output), dim=1)
+
+        extended_lp = torch.cat((logprobs, torch.zeros((batch_size, 10**4 - logprobs.size(1)))), 1)
+
+        # print('extended_lp ', extended_lp.size())
+
+        split_lp = extended_lp.split(split, dim=1)
+
+        # print('split_lp ', split_lp.size())
+
+        summed_lp = torch.stack(split_lp).sum(2).permute(1, 0)
+        # todo del the rest
+        return summed_lp
+
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
 
         # function computes the similarity score to be augmented

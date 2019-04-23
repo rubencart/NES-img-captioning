@@ -13,8 +13,7 @@ def setup_worker(exp):
 
     config = Config(**exp['config'])
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, None, master=False)
-    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                  net=Net(exp['net']), exp=exp)
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
 
     # experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
@@ -25,15 +24,16 @@ def setup_worker(exp):
 def setup_master(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
-    _log_dir = 'logs/es_{}_{}_{}_{}'.format(exp['dataset'], exp['net'], exp['mode'], os.getpid())
+    _log_dir = 'logs/es_{}_{}_{}_{}'.format(exp['dataset'], exp['policy_options']['net'], exp['mode'], os.getpid())
     mkdir_p(_log_dir)
     exp.update({'log_dir': _log_dir})
 
     config = Config(**exp['config'])
     iteration = Iteration(config, exp)
+    # todo when init from infos experiment will still take batch size from exp.json and not
+    # from infos!!!
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, iteration)
-    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'],
-                                  net=Net(exp['net']), exp=exp)
+    policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
     statistics = Statistics()
 
     if 'from_population' in exp and exp['from_population'] is not None:
