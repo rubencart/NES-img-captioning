@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from algorithm.nets import PolicyNet
 
 
+# todo throw out
 class Cifar10Net_Small(PolicyNet):
     def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
         super(Cifar10Net_Small, self).__init__(rng_state, from_param_file, grad=grad)
@@ -29,6 +30,7 @@ class Cifar10Net_Small(PolicyNet):
         return x
 
 
+# todo throw out
 class Cifar10Net(PolicyNet):
     def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
         super(Cifar10Net, self).__init__(rng_state, from_param_file, grad=grad)
@@ -61,6 +63,7 @@ class Cifar10Net(PolicyNet):
         return x
 
 
+# todo throw out
 class BlockSlidesNet32(nn.Module):
 
     def __init__(self):
@@ -113,42 +116,33 @@ class BlockSlidesNet32(nn.Module):
 
 
 class MnistNet(PolicyNet):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
-        super(MnistNet, self).__init__(rng_state=rng_state, from_param_file=from_param_file, grad=grad)
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
+        super(MnistNet, self).__init__(rng_state=rng_state, from_param_file=from_param_file, grad=grad, vbn=vbn)
 
-        # todo compare fitness incr rate with and without weight norm + time per generation
-        # self.conv1 = nn.utils.weight_norm(nn.Conv2d(1, 10, 5, 1))
-        # self.conv2 = nn.utils.weight_norm(nn.Conv2d(10, 20, 5, 1))
-        # self.fc1 = nn.utils.weight_norm(nn.Linear(4*4*20, 100))
-        # self.fc2 = nn.utils.weight_norm(nn.Linear(100, 10))
-
-        # self.conv1 = nn.Conv2d(1, 20, 5, 1)
-        # self.conv2 = nn.Conv2d(20, 40, 5, 1)
-        # self.fc1 = nn.Linear(4*4*40, 100)
         self.conv1 = nn.Conv2d(1, 10, 5, 1)
         self.conv2 = nn.Conv2d(10, 20, 5, 1)
         self.fc1 = nn.Linear(4*4*20, 10)
-        # self.fc2 = nn.Linear(80, 10)
+
+        if self.vbn:
+            # running stats = false because we only ever keep normalization values calculated
+            # on the reference minibatch, which should be small. So keeping running stats
+            # should amount to the same but with more overhead
+            self.bn1 = nn.BatchNorm2d(10, track_running_stats=False)
+            self.bn2 = nn.BatchNorm2d(20, track_running_stats=False)
 
         self._initialize_params()
 
     def forward(self, x):
-        # logging.info('[FW] IN FW')
-
-        x = F.relu(self.conv1(x))
+        x = self.conv1(x)
+        x = self.bn1(x) if self.vbn else x
+        x = F.relu(x)
         x = F.max_pool2d(x, 2, 2)
-        x = F.relu(self.conv2(x))
+        x = self.conv2(x)
+        x = self.bn2(x) if self.vbn else x
+        x = F.relu(x)
         x = F.max_pool2d(x, 2, 2)
         x = x.view(-1, 4*4*20)
-        # logging.info('[FW] BEGINNING FIRST FC')
-        # logging.info('[FW] FC: {}'.format(self.fc1))
-        # logging.info('[FW] FC: {}'.format(self.fc1(x)))
         x = self.fc1(x)
-        # x = F.relu(self.fc1(x))
-        # logging.info('[FW] BEGINNING SECOND FC')
-        # x = self.fc2(x)
-
-        # logging.info('[FW] OUT OF FW')
         return x
 
     def _contained_forward(self, x, i=-1):

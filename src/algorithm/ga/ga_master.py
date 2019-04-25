@@ -3,6 +3,7 @@ import gc
 import logging
 import os
 import time
+from collections import namedtuple
 
 import psutil
 
@@ -11,15 +12,20 @@ import torch
 # from memory_profiler import profile
 
 from dist import MasterClient
-from algorithm.tools.experiment import Experiment
-from algorithm.tools.iteration import Iteration
+from algorithm.tools.experiment import GAExperiment
+from algorithm.tools.iteration import GAIteration
 from algorithm.policies import Policy
 from algorithm.tools.setup import setup_master, Config
 from algorithm.tools.snapshot import save_snapshot
 from algorithm.tools.statistics import Statistics
-from algorithm.tools.utils import GATask, Result, IterationFailedException
+from algorithm.tools import tabular_logger as tlogger
+from algorithm.tools.utils import GAResult, IterationFailedException
 
 logger = logging.getLogger(__name__)
+
+ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev',
+                  'log_dir', 'val_loader', 'elites']  # , 'policy'
+GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
 
 
 # todo cpu profile_exp on server! --> a lot of waiting in workers??
@@ -92,31 +98,33 @@ logger = logging.getLogger(__name__)
 
 class GAMaster(object):
 
+    def __init__(self, exp, master_redis_cfg):
+        setup_tuple = setup_master(exp)
+        self.config: Config = setup_tuple[0]
+        self.policy: Policy = setup_tuple[1]
+        self.stats: Statistics = setup_tuple[2]
+        self.it: GAIteration = setup_tuple[3]
+        self.experiment: GAExperiment = setup_tuple[4]
+
+        # redis master
+        self.master = MasterClient(master_redis_cfg)
+        # this puts up a redis key, value pair with the experiment
+        self.master.declare_experiment(exp)
+
+        self.rs = np.random.RandomState()
+
+        logger.info('Tabular logging to {}'.format(self.experiment.snapshot_dir()))
+        tlogger.start(self.experiment.snapshot_dir())
+
     # @profile(stream=open('../output/memory_profile_worker.txt', 'w+'))
-    def run_master(self, master_redis_cfg, exp, plot):
+    def run_master(self, plot):
         logger.info('run_master: {}'.format(locals()))
 
-        setup_tuple = setup_master(exp)
-        config: Config = setup_tuple[0]
-        policy: Policy = setup_tuple[1]
-        stats: Statistics = setup_tuple[2]
-        it: Iteration = setup_tuple[3]
-        experiment: Experiment = setup_tuple[4]
-
-        from algorithm.tools import tabular_logger as tlogger
-        logger.info('Tabular logging to {}'.format(experiment.snapshot_dir()))
-        tlogger.start(experiment.snapshot_dir())
+        config, experiment, rs, master, policy, stats, it = \
+            self.config, self.experiment, self.rs, self.master, self.policy, self.stats, self.it
 
         torch.set_grad_enabled(False)
         torch.set_num_threads(0)
-
-        # redis master
-        master = MasterClient(master_redis_cfg)
-
-        rs = np.random.RandomState()
-
-        # this puts up a redis key, value pair with the experiment
-        master.declare_experiment(exp)
 
         max_nb_epochs = config.max_nb_epochs if config.max_nb_epochs else 0
 
@@ -156,10 +164,10 @@ class GAMaster(object):
                         # it.set_waiting_for_elite_ev(False)
                         stats.reset_it_mem_usages()
 
-                        while it.models_left_to_evaluate() or it.elite_cands_left_to_evaluate():
+                        while it.models_left_to_evolve() or it.models_left_to_eval():
 
                             # this is just for logging
-                            it.warn_waiting_for_elite_evaluations()
+                            it.warn_waiting_for_evaluations()
 
                             # if len(os.listdir(experiment.offspring_dir())) > 2 * experiment.population_size():
                             #     time.sleep(2)
@@ -170,7 +178,7 @@ class GAMaster(object):
 
                             # wait for a result
                             task_id, result = master.pop_result()
-                            assert isinstance(task_id, int) and isinstance(result, Result)
+                            assert isinstance(task_id, int) and isinstance(result, GAResult)
 
                             # https://psutil.readthedocs.io/en/latest/#memory
                             master_mem_usage = psutil.Process(os.getpid()).memory_info().rss
@@ -182,7 +190,7 @@ class GAMaster(object):
                             if result.evaluated_cand_id is not None:
                                 # this was an eval job, store the result only for current tasks
                                 if task_id == curr_task_id:
-                                    it.record_evaluated_elite_cand(result)
+                                    it.record_eval_result(result)
 
                             elif result.evaluated_model_id is not None:
                                 # assert result.returns_n2.dtype == np.float32
@@ -190,7 +198,6 @@ class GAMaster(object):
 
                                 # store results only for current tasks
                                 if task_id == curr_task_id:
-
                                     it.record_task_result(result)
 
                         best_ev_acc, best_ev_elite = it.process_evaluated_elites()

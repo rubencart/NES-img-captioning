@@ -1,0 +1,37 @@
+{
+  "algorithm": "es",
+  "mode":  "nets",
+  "config": {
+
+    "cuda": false,
+    "eval_prob": 0.004,
+    "noise_stdev": 0.05,
+    "snapshot_freq": 2,
+    "batch_size": 64,
+    "patience": 10,
+    "stdev_decr_divisor": 1.0,
+
+    "ref_batch_size": 16,
+    "l2coeff": 0.0002,
+    "return_proc_mode": "centered_rank"
+  },
+
+  "policy_options": {
+    "net": "mnist",
+    "vbn": true
+  },
+
+  "optimizer_options": {
+    "type": "adam",
+    "args": {
+      "stepsize": 0.01
+    }
+  },
+
+  "dataset": "mnist",
+  "population_size": 500,
+  "num_elites": 3,
+
+  "_from_infos": "logs/es_mnist_mnist_nets_98538/snapshot/z_info_e1_i37-235.json",
+  "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"
+}

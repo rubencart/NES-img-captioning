@@ -9,12 +9,12 @@ import time
 import numpy as np
 import torch
 # from memory_profiler import profile
-
-from algorithm.tools.experiment import Experiment
+from algorithm.ga.ga_master import GATask
+from algorithm.tools.experiment import GAExperiment
 from dist import WorkerClient
 from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
-from algorithm.tools.utils import GATask, Result, mkdir_p
+from algorithm.tools.utils import GAResult, mkdir_p
 
 
 class GAWorker(object):
@@ -41,7 +41,7 @@ class GAWorker(object):
         setup_tuple = setup_worker(self.exp)
         self.config: Config = setup_tuple[0]
         self.policy: Policy = setup_tuple[1]
-        self.experiment: Experiment = setup_tuple[2]
+        self.experiment: GAExperiment = setup_tuple[2]
 
         self.placeholder = torch.FloatTensor(1)
 
@@ -126,7 +126,7 @@ class GAWorker(object):
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         # del task_data, cand, score
-        return Result(
+        return GAResult(
             worker_id=self.worker_id,
             score=score,
             evaluated_cand_id=cand_id,
@@ -170,7 +170,7 @@ class GAWorker(object):
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        return Result(
+        return GAResult(
             worker_id=self.worker_id,
             evaluated_model_id=parent_id,
             evaluated_model=policy.serialized(path=self.offspring_path.format(w=self.worker_id,

@@ -5,6 +5,7 @@
 Based on & took code from:
 - https://github.com/ruotianluo/self-critical.pytorch
 - https://github.com/uber-research/deep-neuroevolution
+- https://github.com/openai/evolution-strategies-starter/
 - https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 - https://github.com/uber-research/safemutations
 
@@ -68,7 +69,7 @@ Example json:
   "truncation": 30,
   "num_elites": 1,
   // ONE OF:
-  "from_population": {
+  "from_infos": {
     "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
     "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
   },

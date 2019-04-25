@@ -7,6 +7,7 @@ import torch
 import torchvision
 from torchvision.transforms import transforms
 
+from algorithm.es.optimizers import SGD, Adam
 from algorithm.policies import SuppDataset
 from algorithm.tools.utils import mkdir_p
 
@@ -16,18 +17,12 @@ class Experiment(ABC):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config, iteration, master=True):
+    def __init__(self, exp, config, iteration=None, master=True):
         self._exp = exp
-        self._population_size = exp['population_size']
-        self._truncation = exp['truncation']
-        self._num_elites = exp['num_elites']
-        self._num_elite_cands = exp['num_elite_cands']
-
         self._dataset = exp['dataset']
+        self._algorithm = exp['algorithm']
         self._net = exp['policy_options']['net']
-
-        assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
-        self._mode = exp['mode']
+        self._population_size = exp['population_size']
 
         self.trainloader, self.valloader, self.testloader = None, None, None
         self._orig_trainloader_lth = 0
@@ -37,42 +32,28 @@ class Experiment(ABC):
 
         self._master = master
         if master:
-            self._log_dir = 'logs/es_{}_{}_{}_{}'.format(self._dataset,
-                                                         self._net, self._mode, os.getpid())
-            mkdir_p(self._log_dir)
-            exp.update({'log_dir': self._log_dir})
+            # self._log_dir = 'logs/es_{}_{}_{}'.format(self._dataset, self._net, os.getpid())
+            # mkdir_p(self._log_dir)
+            # exp.update({'log_dir': self._log_dir})
 
+            self._log_dir = exp['log_dir']
             self._snapshot_dir = os.path.join(self._log_dir, 'snapshot')
             mkdir_p(self._snapshot_dir)
-
-            _models_dir = os.path.join(self._log_dir, 'models')
-            self._parents_dir = os.path.join(_models_dir, 'parents')
-            self._offspring_dir = os.path.join(_models_dir, 'parents')
-            self._elite_dir = os.path.join(_models_dir, 'elite')
-
-            mkdir_p(self._parents_dir)
-            mkdir_p(self._offspring_dir)
-            mkdir_p(self._elite_dir)
-            # exp.update({
-            #     'parents_dir': self._parents_dir,
-            #     'offspring_dir': self._offspring_dir,
-            # })
 
             with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
                 json.dump(exp, f)
 
     def to_dict(self):
         return {
-            # todo other stuff? + needs from_dict method as well
-            # like log dir?
             'trainloader_lth': self._orig_trainloader_lth,
-            # 'orig_bs': self._orig_bs
+            'algorithm': self._algorithm
         }
 
     def init_from_infos(self, infos: dict):
         # self._orig_bs = infos['orig_bs'] if 'orig_bs' in infos else self._orig_bs
         self._orig_trainloader_lth = infos['trainloader_lth'] if 'trainloader_lth' in infos \
             else self._orig_trainloader_lth
+        self._algorithm = infos['algorithm'] if 'algorithm' in infos else self._algorithm
 
     def increase_loader_batch_size(self, batch_size):
         # self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
@@ -111,26 +92,17 @@ class Experiment(ABC):
         valset, testset = torch.utils.data.random_split(comp_testset, (n1, n2))
         return valset, testset
 
+    def take_ref_batch(self, batch_size):
+        return next(iter(self.trainloader))[0][:batch_size]
+
     def get_trainloader(self):
         return self.trainloader
 
     def population_size(self):
         return self._population_size
 
-    def truncation(self):
-        return self._truncation
-
     def orig_trainloader_lth(self):
         return self._orig_trainloader_lth
-
-    def mode(self):
-        return self._mode
-
-    def num_elites(self):
-        return self._num_elites
-
-    def num_elite_cands(self):
-        return self._num_elite_cands
 
     def log_dir(self):
         assert self._master
@@ -139,6 +111,55 @@ class Experiment(ABC):
     def snapshot_dir(self):
         assert self._master
         return self._snapshot_dir
+
+    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
+        raise NotImplementedError
+
+
+class ESExperiment(Experiment, ABC):
+    def __init__(self, exp, config, iteration, master=True):
+        super(ESExperiment, self).__init__(exp, config, iteration, master)
+
+        if master:
+            self.Optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer_options']['type']]
+            self.ref_batch_size = config.ref_batch_size if config.ref_batch_size else config.batch_size
+            self.ref_batch = self.take_ref_batch(self.ref_batch_size)
+
+    def init_optimizer(self, params, exp):
+        return self.Optimizer(params, **exp['optimizer_options']['args'])
+
+    def get_ref_batch(self):
+        return self.ref_batch
+
+
+class GAExperiment(Experiment, ABC):
+    """
+    Wrapper class for a bunch of experiment wide settings
+    """
+
+    def __init__(self, exp, config, iteration, master=True):
+        super(GAExperiment, self).__init__(exp, config, iteration, master)
+
+        self._truncation = exp['truncation']
+        self._num_elites = exp['num_elites']
+        self._num_elite_cands = exp['num_elite_cands']
+
+        assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
+        self._mode = exp['mode']
+
+        if master:
+
+            _models_dir = os.path.join(self._log_dir, 'models')
+            self._parents_dir = os.path.join(_models_dir, 'parents')
+            self._offspring_dir = os.path.join(_models_dir, 'parents')
+            self._elite_dir = os.path.join(_models_dir, 'elite')
+
+            mkdir_p(self._parents_dir)
+            mkdir_p(self._offspring_dir)
+            mkdir_p(self._elite_dir)
+
+    def truncation(self):
+        return self._truncation
 
     def parents_dir(self):
         assert self._master
@@ -152,8 +173,14 @@ class Experiment(ABC):
         assert self._master
         return self._elite_dir
 
-    def init_loaders(self, config=None, batch_size=None, workers=None, exp=None):
-        raise NotImplementedError
+    def num_elites(self):
+        return self._num_elites
+
+    def num_elite_cands(self):
+        return self._num_elite_cands
+
+    def mode(self):
+        return self._mode
 
 
 class MnistExperiment(Experiment):
@@ -237,6 +264,9 @@ class MSCocoExperiment(Experiment):
         self.trainloader, self.valloader, self.testloader = trainloader, valloader, testloader
         self._orig_trainloader_lth = len(self.trainloader)
 
+    def take_ref_batch(self, batch_size):
+        return self.trainloader.take_ref_batch(bs=batch_size)
+
 
 class MSCocoDataLdrWrapper:
     def __init__(self, loader, split):
@@ -262,13 +292,37 @@ class MSCocoDataLdrWrapper:
     def __len__(self):
         return self.loader.length_of_split(self.split) // self.loader.batch_size
 
+    def take_ref_batch(self, bs):
+        return torch.from_numpy(self.loader.get_batch(self.split, batch_size=bs)['fc_feats'])
+
 
 class ExperimentFactory:
     @staticmethod
-    def create(dataset: SuppDataset, exp, config, iteration, master=True):
-        if dataset == SuppDataset.MNIST:
-            return MnistExperiment(exp, config, iteration, master=master)
-        elif dataset == SuppDataset.CIFAR10:
-            return Cifar10Experiment(exp, config, iteration, master=master)
-        elif dataset == SuppDataset.MSCOCO:
-            return MSCocoExperiment(exp, config, iteration, master=master)
+    def create(dataset: SuppDataset, exp, config, iteration=None, master=True):
+        if exp['algorithm'] == 'ga':
+            if dataset == SuppDataset.MNIST:
+                class MnistGAExperiment(MnistExperiment, GAExperiment):
+                    pass
+                return MnistGAExperiment(exp, config, iteration, master=master)
+            elif dataset == SuppDataset.CIFAR10:
+                class Cifar10GAExperiment(Cifar10Experiment, GAExperiment):
+                    pass
+                return Cifar10GAExperiment(exp, config, iteration, master=master)
+            elif dataset == SuppDataset.MSCOCO:
+                class MSCocoGAExperiment(MSCocoExperiment, GAExperiment):
+                    pass
+                return MSCocoGAExperiment(exp, config, iteration, master=master)
+
+        elif exp['algorithm'] == 'es':
+            if dataset == SuppDataset.MNIST:
+                class MnistESExperiment(MnistExperiment, ESExperiment):
+                    pass
+                return MnistESExperiment(exp, config, iteration, master=master)
+            elif dataset == SuppDataset.CIFAR10:
+                class Cifar10ESExperiment(Cifar10Experiment, ESExperiment):
+                    pass
+                return Cifar10ESExperiment(exp, config, iteration, master=master)
+            elif dataset == SuppDataset.MSCOCO:
+                class MSCocoESExperiment(MSCocoExperiment, ESExperiment):
+                    pass
+                return MSCocoESExperiment(exp, config, iteration, master=master)

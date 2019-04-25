@@ -30,6 +30,7 @@ class Podium(object):
         self._bad_generation = True
 
     def init_from_infos(self, infos):
+        # TODO !!!!! make parents optional
 
         self._best_elites = []
         for i, (elite_path, sc) in enumerate(infos['best_elites']):
@@ -37,13 +38,14 @@ class Podium(object):
             copy_file_from_to(elite_path, new_elite_path)
             self._best_elites.append((new_elite_path, sc))
 
-        for (i, parent_path) in enumerate(infos['best_parents'][1]):
-            copy_file_from_to(parent_path, self._new_best_parent_path.format(i=i))
+        if 'best_parents' in infos and infos['best_parents'] is not None:
+            for (i, parent_path) in enumerate(infos['best_parents'][1]):
+                copy_file_from_to(parent_path, self._new_best_parent_path.format(i=i))
 
-        self._best_parents = (
-            infos['best_parents'][0],
-            [self._new_best_parent_path.format(i=i) for i in range(len(infos['best_parents'][1]))]
-        )
+            self._best_parents = (
+                infos['best_parents'][0],
+                [self._new_best_parent_path.format(i=i) for i in range(len(infos['best_parents'][1]))]
+            )
 
     # def serialized(self, log_dir):
     #     assert self._best_elites[0][0]

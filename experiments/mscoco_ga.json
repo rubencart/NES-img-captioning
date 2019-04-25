@@ -1,4 +1,5 @@
 {
+  "algorithm": "ga",
   "mode":  "nets",
   "config": {
     "cuda": false,
@@ -41,7 +42,7 @@
   "num_elite_cands": 3,
 
   "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
-  "_from_population": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
+  "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
