@@ -39,6 +39,7 @@ class Iteration(object):
         self._parents_dir = os.path.join(_models_dir, 'parents')
         self._elite_dir = os.path.join(_models_dir, 'elite')
         self._offspring_dir = os.path.join(_models_dir, 'offspring')
+        # self._gen_dir_pattern = os.path.join(self._offspring_dir, '{i}_offspring')
         # mkdir_p(self._parents_dir)
         self._new_elite_path = os.path.join(self._elite_dir, '0_{i}_elite_params.pth')
         self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
