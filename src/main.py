@@ -122,12 +122,14 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
         counter = 0
         while True:
             # count alive workers and relaunch if necessary
-            alive = len([p for p in processes if p.is_alive()])
-            if num_workers > alive:
+            alive_procs = [p for p in processes if p.is_alive()]
+            nb_alive = len(alive_procs)
+            if num_workers > nb_alive:
                 logging.warning('****************************************************')
-                logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - alive))
+                logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - nb_alive))
                 logging.warning('****************************************************')
-                spawn_workers(num_workers - alive, algo, master_redis_cfg, relay_redis_cfg)
+                new_procs = spawn_workers(num_workers - nb_alive, algo, master_redis_cfg, relay_redis_cfg)
+                processes = alive_procs + new_procs
             # print(psutil.virtual_memory().percent)
             if psutil.virtual_memory().percent > 90.0:
                 logging.warning('****************************************************')
@@ -145,7 +147,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
             if counter > 20:
                 [p.kill() for p in processes]
                 break
-            if alive == 0:
+            if nb_alive == 0:
                 break
             time.sleep(60)
         # os.wait()
