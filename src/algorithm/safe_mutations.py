@@ -27,7 +27,7 @@ class Sensitivity(object):
             # logger.info('Loaded sensitivity for known parent')
             try:
                 self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
-            except RuntimeError:
+            except (RuntimeError, EOFError):
                 time.sleep(5)
                 self.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
         else:
