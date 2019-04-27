@@ -13,9 +13,9 @@ def setup_worker(exp):
 
     config = Config(**exp['config'])
     experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, master=False)
+    # experiment.init_from_zero()
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
 
-    experiment.init_from_zero()
     # experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
     # policy.init_model(policy.generate_model())
@@ -46,10 +46,10 @@ def setup_master(exp):
 
     elif 'from_single' in exp and exp['from_single'] is not None:
         iteration.init_from_single(exp['from_single'], exp['truncation'], exp['num_elite_cands'], policy)
-        experiment.init_from_zero()
+        # experiment.init_from_zero()
     else:
         iteration.init_parents(exp['truncation'], exp['num_elite_cands'], policy)
-        experiment.init_from_zero()
+        # experiment.init_from_zero()
 
     # policy.init_model(policy.generate_model())
     # policy.set_model(iteration.elite())

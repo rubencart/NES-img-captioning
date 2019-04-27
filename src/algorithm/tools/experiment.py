@@ -34,6 +34,7 @@ class Experiment(ABC):
 
         # self._orig_bs = iteration.batch_size() if iteration else config.batch_size
         self._orig_bs = config.batch_size
+        self.init_loaders(batch_size=self._orig_bs)
 
         self._master = master
         if master:
@@ -75,10 +76,11 @@ class Experiment(ABC):
             else self._orig_trainloader_lth
 
         batch_size = infos['batch_size'] if 'batch_size' in infos else self._orig_bs
-        self.init_loaders(batch_size=batch_size)
+        if batch_size != self._orig_bs:
+            self.init_loaders(batch_size=batch_size)
 
-    def init_from_zero(self):
-        self.init_loaders(batch_size=self._orig_bs)
+    # def init_from_zero(self):
+    #     self.init_loaders(batch_size=self._orig_bs)
 
     def increase_loader_batch_size(self, batch_size):
         # self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
