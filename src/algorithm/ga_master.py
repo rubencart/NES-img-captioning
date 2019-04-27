@@ -192,6 +192,8 @@ class GAMaster(object):
                                 if task_id == curr_task_id:
 
                                     it.record_task_result(result)
+                                    if rs.rand() < 0.02:
+                                        logger.info('Incoming result: %.2f' % result.fitness.item())
 
                         best_ev_acc, best_ev_elite = it.process_evaluated_elites()
                         policy.set_model(best_ev_elite)
