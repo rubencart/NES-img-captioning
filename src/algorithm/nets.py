@@ -112,8 +112,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         for param in self.parameters():
             param.requires_grad = False
 
-    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
-        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
+    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
+        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, batch_size, directory,
+                                                 underflow, method)
 
     def extract_grad(self):
         tot_size = self.nb_params

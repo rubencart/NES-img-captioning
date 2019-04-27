@@ -39,6 +39,7 @@ class Iteration(object):
         self._parents_dir = os.path.join(_models_dir, 'parents')
         self._elite_dir = os.path.join(_models_dir, 'elite')
         self._offspring_dir = os.path.join(_models_dir, 'offspring')
+        # self._gen_dir_pattern = os.path.join(self._offspring_dir, '{i}_offspring')
         # mkdir_p(self._parents_dir)
         self._new_elite_path = os.path.join(self._elite_dir, '0_{i}_elite_params.pth')
         self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
@@ -223,8 +224,9 @@ class Iteration(object):
         new_parents = []
         for i, parent in parents:
 
-            _, new_parent_filename = os.path.split(parent)
-            new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
+            # _, new_parent_filename = os.path.split(parent)
+            # new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
+            new_parent_path = self._new_parent_path.format(i=i)
             new_parents.append((i, new_parent_path))
 
             copy_file_from_to(parent, new_parent_path)
@@ -238,8 +240,9 @@ class Iteration(object):
         new_elite_filenames = []
         for i, elite in elites:
 
-            _, new_elite_filename = os.path.split(elite)
-            new_elite_path = os.path.join(self.elite_dir(), new_elite_filename)
+            # _, new_elite_filename = os.path.split(elite)
+            # new_elite_path = os.path.join(self.elite_dir(), new_elite_filename)
+            new_elite_path = self._new_elite_path.format(i=i)
             new_elites_to_ev.append((i, new_elite_path))
             new_elite_filenames.append(new_elite_path)
             copy_file_from_to(elite, new_elite_path)
