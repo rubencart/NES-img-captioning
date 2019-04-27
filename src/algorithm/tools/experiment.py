@@ -221,15 +221,14 @@ class MSCocoExperiment(Experiment):
         # self.options.seq_length = loader.seq_length
 
         super().__init__(exp, config, master=master)
-        self.exp = exp
 
-        # self.vocab_size = self.trainloader.loader.vocab_size
-        # self.seq_length = self.trainloader.loader.seq_length
-        #
-        # exp['policy_options']['model_options'].update({
-        #     'vocab_size': self.vocab_size,
-        #     'seq_length': self.seq_length,
-        # })
+        self.vocab_size = self.trainloader.loader.vocab_size
+        self.seq_length = self.trainloader.loader.seq_length
+
+        exp['policy_options']['model_options'].update({
+            'vocab_size': self.vocab_size,
+            'seq_length': self.seq_length,
+        })
 
     def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
         # TODO MSCOCO as torchvision.dataset?????
@@ -248,14 +247,6 @@ class MSCocoExperiment(Experiment):
         # return trainloader, valloader, testloader
         self.trainloader, self.valloader, self.testloader = trainloader, valloader, testloader
         self._orig_trainloader_lth = len(self.trainloader)
-
-        self.vocab_size = self.trainloader.loader.vocab_size
-        self.seq_length = self.trainloader.loader.seq_length
-
-        self.exp['policy_options']['model_options'].update({
-            'vocab_size': self.vocab_size,
-            'seq_length': self.seq_length,
-        })
 
 
 class MSCocoDataLdrWrapper:
