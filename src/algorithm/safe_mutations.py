@@ -21,7 +21,7 @@ class Sensitivity(object):
     def get_sensitivity(self):
         return self.sensitivity
 
-    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
+    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
             # logger.info('Loaded sensitivity for known parent')
@@ -29,7 +29,7 @@ class Sensitivity(object):
                 self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
             except (RuntimeError, EOFError):
                 time.sleep(5)
-                self.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
+                self.set_sensitivity(task_id, parent_id, experiences, batch_size, directory, underflow, method)
         else:
 
             start_time = time.time()
@@ -37,11 +37,11 @@ class Sensitivity(object):
             for param in self.net.parameters():
                 param.requires_grad = True
 
-            sensitivity, batch_size = self._calc_sensitivity(experiences, method)
-            sensitivity[sensitivity < underflow] = underflow
-
             if self._orig_batch_size == 0:
                 self._orig_batch_size = batch_size
+
+            sensitivity = self._calc_sensitivity(experiences, method)
+            sensitivity[sensitivity < underflow] = underflow
 
             torch.set_grad_enabled(False)
             for param in self.net.parameters():
@@ -70,7 +70,6 @@ class Sensitivity(object):
     def _calc_sum_sensitivity(self, experiences):
         old_output = self.net._contained_forward(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
-        batch_size = old_output.size(0)
 
         jacobian = torch.zeros(num_outputs, self.net.nb_params)
         grad_output = torch.zeros(*old_output.size())
@@ -94,7 +93,7 @@ class Sensitivity(object):
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy, batch_size
+        return copy
 
     def _calc_abs_sensitivity(self, experiences):
 
@@ -123,7 +122,7 @@ class Sensitivity(object):
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy, batch_size
+        return copy
 
     def _calc_second_sensitivity(self):
         raise NotImplementedError

@@ -12,9 +12,10 @@ def setup_worker(exp):
     assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
 
     config = Config(**exp['config'])
-    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, None, master=False)
+    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, master=False)
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
 
+    experiment.init_from_zero()
     # experiment.init_loaders(config=config, exp=exp)
     # elite = policy.generate_model()
     # policy.init_model(policy.generate_model())
@@ -30,9 +31,7 @@ def setup_master(exp):
 
     config = Config(**exp['config'])
     iteration = Iteration(config, exp)
-    # todo when init from infos experiment will still take batch size from exp.json and not
-    # from infos!!!
-    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config, iteration)
+    experiment = ExperimentFactory.create(SuppDataset(exp['dataset']), exp, config)
     policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']), mode=exp['mode'], exp=exp)
     statistics = Statistics()
 
@@ -44,14 +43,13 @@ def setup_master(exp):
         statistics.init_from_infos(infos)
         iteration.init_from_infos(infos)
         experiment.init_from_infos(infos)
-        # experiment.init_loaders(batch_size=iteration.batch_size(), exp=exp)
 
     elif 'from_single' in exp and exp['from_single'] is not None:
         iteration.init_from_single(exp['from_single'], exp['truncation'], exp['num_elite_cands'], policy)
-        # experiment.init_loaders(config=config, exp=exp)
+        experiment.init_from_zero()
     else:
         iteration.init_parents(exp['truncation'], exp['num_elite_cands'], policy)
-        # experiment.init_loaders(config=config, exp=exp)
+        experiment.init_from_zero()
 
     # policy.init_model(policy.generate_model())
     # policy.set_model(iteration.elite())
