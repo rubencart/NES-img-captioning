@@ -3,6 +3,7 @@ import os
 import time
 
 import torch
+from torch import nn
 
 from algorithm.tools.utils import find_file_with_pattern
 
@@ -15,26 +16,31 @@ class Sensitivity(object):
     def __init__(self, net):
         self.sensitivity = None
         self.net = net
+        self._orig_batch_size = 0
 
     def get_sensitivity(self):
         return self.sensitivity
 
-    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
+    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
             # logger.info('Loaded sensitivity for known parent')
-            self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+            try:
+                self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+            except (RuntimeError, EOFError):
+                time.sleep(5)
+                self.set_sensitivity(task_id, parent_id, experiences, batch_size, directory, underflow, method)
         else:
-            # if self.orig_batch_size == 0:
-            #     # todo doesn't work for capt
-            #     self.orig_batch_size = experiences.size(0)
 
             start_time = time.time()
             torch.set_grad_enabled(True)
             for param in self.net.parameters():
                 param.requires_grad = True
 
-            sensitivity, batch_size = self._calc_sensitivity(experiences, method)
+            if self._orig_batch_size == 0:
+                self._orig_batch_size = batch_size
+
+            sensitivity = self._calc_sensitivity(experiences, method)
             sensitivity[sensitivity < underflow] = underflow
 
             torch.set_grad_enabled(False)
@@ -62,9 +68,8 @@ class Sensitivity(object):
             return self._calc_abs_sensitivity(experiences)
 
     def _calc_sum_sensitivity(self, experiences):
-        old_output = self.net._contained_forward(experiences)
+        old_output = self.net._contained_forward(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
-        batch_size = old_output.size(0)
 
         jacobian = torch.zeros(num_outputs, self.net.nb_params)
         grad_output = torch.zeros(*old_output.size())
@@ -75,18 +80,24 @@ class Sensitivity(object):
             grad_output[:, k] = 1.0
 
             old_output.backward(gradient=grad_output, retain_graph=True)
-            jacobian[k] = self.net._extract_grad()
+            jacobian[k] = self.net.extract_grad()
         self.net.zero_grad()
+
+        # logger.info('extracted params: {}'.format(param_ex))
+        # param_vec = nn.utils.parameters_to_vector(self.net.parameters())
+        # logger.info('vector params: {}'.format(nn.utils.parameters_to_vector(self.net.parameters())))
+        # assert torch.equal(param_ex, param_vec)
+        # time.sleep(100)
 
         sensitivity = torch.sqrt((jacobian ** 2).sum(0))  # * proportion
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy, batch_size
+        return copy
 
     def _calc_abs_sensitivity(self, experiences):
 
-        old_output = self.net._contained_forward(experiences)
+        old_output = self.net._contained_forward(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
         batch_size = old_output.size(0)
 
@@ -111,7 +122,7 @@ class Sensitivity(object):
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
-        return copy, batch_size
+        return copy
 
     def _calc_second_sensitivity(self):
         raise NotImplementedError

@@ -109,8 +109,8 @@ class Iteration(ABC):
                     best_sc, best_ind = sc, ind
 
         self._podium.record_elites(elite_candidates)
-        if self._patience and self._podium.is_bad_generation():
 
+        if self._patience and self._podium.is_bad_generation():
             self._bad_generations += 1
 
             if self._bad_generations > self._patience:
@@ -406,8 +406,9 @@ class GAIteration(Iteration):
         new_parents = []
         for i, parent in parents:
 
-            _, new_parent_filename = os.path.split(parent)
-            new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
+            # _, new_parent_filename = os.path.split(parent)
+            # new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
+            new_parent_path = self._new_parent_path.format(i=i)
             new_parents.append((i, new_parent_path))
 
             copy_file_from_to(parent, new_parent_path)
@@ -424,8 +425,9 @@ class GAIteration(Iteration):
         new_elite_filenames = []
         for i, elite in elites:
 
-            _, new_elite_filename = os.path.split(elite)
-            new_elite_path = os.path.join(self.elite_dir(), new_elite_filename)
+            # _, new_elite_filename = os.path.split(elite)
+            # new_elite_path = os.path.join(self.elite_dir(), new_elite_filename)
+            new_elite_path = self._new_elite_path.format(i=i)
             new_elites_to_ev.append((i, new_elite_path))
             new_elite_filenames.append(new_elite_path)
             copy_file_from_to(elite, new_elite_path)

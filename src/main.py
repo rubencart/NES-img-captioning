@@ -31,14 +31,14 @@ def run():
     # MASTER
     parser.add_argument('--algo', type=str, default='ga', help='')
     parser.add_argument('--exp_file', type=str, default='experiments/mnist_ga.json', help='')
-    parser.add_argument('--master_socket_path', type=str, default='/tmp/es_redis_master.sock', help='')
+    parser.add_argument('--master_socket_path', type=str, default='/tmp/es_redis_master_6379.sock', help='')
     parser.add_argument('--log_dir', type=str, default='', help='')
     parser.add_argument('--plot', action='store_true', default=True)
 
     # WORKER
     parser.add_argument('--master_host', type=str, default='localhost', help='')
     parser.add_argument('--master_port', type=int, default=6379, help='')
-    parser.add_argument('--relay_socket_path', type=str, default='/tmp/es_redis_relay.sock', help='')
+    parser.add_argument('--relay_socket_path', type=str, default='/tmp/es_redis_relay_6379.sock', help='')
     parser.add_argument('--num_workers', type=int, help='')
 
     args = parser.parse_args()
@@ -124,7 +124,16 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
         # start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
         counter = 0
         while True:
-
+            # count alive workers and relaunch if necessary
+            alive_procs = [p for p in processes if p.is_alive()]
+            nb_alive = len(alive_procs)
+            if num_workers > nb_alive:
+                logging.warning('****************************************************')
+                logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - nb_alive))
+                logging.warning('****************************************************')
+                new_procs = spawn_workers(num_workers - nb_alive, algo, master_redis_cfg, relay_redis_cfg)
+                processes = alive_procs + new_procs
+            # print(psutil.virtual_memory().percent)
             if psutil.virtual_memory().percent > 90.0:
                 logging.warning('****************************************************')
                 logging.warning('****************************************************')
@@ -137,11 +146,12 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
                 [p.kill() for p in processes]
                 processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
                 counter += 1
-
-            time.sleep(60)
             if counter > 20:
                 [p.kill() for p in processes]
                 break
+            if nb_alive == 0:
+                break
+            time.sleep(60)
         # os.wait()
 
 

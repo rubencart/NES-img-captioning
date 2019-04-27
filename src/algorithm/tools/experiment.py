@@ -17,7 +17,7 @@ class Experiment(ABC):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config, iteration=None, master=True):
+    def __init__(self, exp, config, master=True):
         self._exp = exp
         self._dataset = exp['dataset']
         self._algorithm = exp['algorithm']
@@ -27,8 +27,9 @@ class Experiment(ABC):
         self.trainloader, self.valloader, self.testloader = None, None, None
         self._orig_trainloader_lth = 0
 
-        bs = iteration.batch_size() if iteration else config.batch_size
-        self.init_loaders(batch_size=bs)
+        # self._orig_bs = iteration.batch_size() if iteration else config.batch_size
+        self._orig_bs = config.batch_size
+        self.init_loaders(batch_size=self._orig_bs)
 
         self._master = master
         if master:
@@ -40,20 +41,28 @@ class Experiment(ABC):
             self._snapshot_dir = os.path.join(self._log_dir, 'snapshot')
             mkdir_p(self._snapshot_dir)
 
-            with open(os.path.join(self._log_dir, 'experiment.json'), 'w') as f:
+            with open(os.path.join(self._snapshot_dir, 'experiment.json'), 'w') as f:
                 json.dump(exp, f)
 
     def to_dict(self):
         return {
             'trainloader_lth': self._orig_trainloader_lth,
-            'algorithm': self._algorithm
+            'algorithm': self._algorithm,
+            'orig_bs': self._orig_bs,
         }
 
     def init_from_infos(self, infos: dict):
-        # self._orig_bs = infos['orig_bs'] if 'orig_bs' in infos else self._orig_bs
+        self._orig_bs = infos['orig_bs'] if 'orig_bs' in infos else self._orig_bs
         self._orig_trainloader_lth = infos['trainloader_lth'] if 'trainloader_lth' in infos \
             else self._orig_trainloader_lth
         self._algorithm = infos['algorithm'] if 'algorithm' in infos else self._algorithm
+
+        batch_size = infos['batch_size'] if 'batch_size' in infos else self._orig_bs
+        if batch_size != self._orig_bs:
+            self.init_loaders(batch_size=batch_size)
+
+    # def init_from_zero(self):
+    #     self.init_loaders(batch_size=self._orig_bs)
 
     def increase_loader_batch_size(self, batch_size):
         # self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
@@ -103,6 +112,9 @@ class Experiment(ABC):
 
     def orig_trainloader_lth(self):
         return self._orig_trainloader_lth
+
+    def orig_batch_size(self):
+        return self._orig_bs
 
     def log_dir(self):
         assert self._master
@@ -184,8 +196,8 @@ class GAExperiment(Experiment, ABC):
 
 
 class MnistExperiment(Experiment):
-    def __init__(self, exp, config, iteration, master=True):
-        super().__init__(exp, config, iteration, master=master)
+    def __init__(self, exp, config, master=True):
+        super().__init__(exp, config, master=master)
 
     def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
         transform = transforms.Compose([
@@ -202,8 +214,8 @@ class MnistExperiment(Experiment):
 
 
 class Cifar10Experiment(Experiment):
-    def __init__(self, exp, config, iteration, master=True):
-        super().__init__(exp, config, iteration, master=master)
+    def __init__(self, exp, config, master=True):
+        super().__init__(exp, config, master=master)
 
     def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
         transform = transforms.Compose([
@@ -224,7 +236,7 @@ CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=
 
 
 class MSCocoExperiment(Experiment):
-    def __init__(self, exp, config, iteration, master=True):
+    def __init__(self, exp, config, master=True):
         self.opt: CaptionOptions = CaptionOptions(**exp['caption_options'])
         # self.fitness = Fitness(self.opt.get('fitness', 'sc_loss'))
 
@@ -236,7 +248,7 @@ class MSCocoExperiment(Experiment):
         # self.options.vocab_size = loader.vocab_size
         # self.options.seq_length = loader.seq_length
 
-        super().__init__(exp, config, iteration, master=master)
+        super().__init__(exp, config, master=master)
 
         self.vocab_size = self.trainloader.loader.vocab_size
         self.seq_length = self.trainloader.loader.seq_length
@@ -303,26 +315,26 @@ class ExperimentFactory:
             if dataset == SuppDataset.MNIST:
                 class MnistGAExperiment(MnistExperiment, GAExperiment):
                     pass
-                return MnistGAExperiment(exp, config, iteration, master=master)
+                return MnistGAExperiment(exp, config, master=master)
             elif dataset == SuppDataset.CIFAR10:
                 class Cifar10GAExperiment(Cifar10Experiment, GAExperiment):
                     pass
-                return Cifar10GAExperiment(exp, config, iteration, master=master)
+                return Cifar10GAExperiment(exp, config, master=master)
             elif dataset == SuppDataset.MSCOCO:
                 class MSCocoGAExperiment(MSCocoExperiment, GAExperiment):
                     pass
-                return MSCocoGAExperiment(exp, config, iteration, master=master)
+                return MSCocoGAExperiment(exp, config, master=master)
 
         elif exp['algorithm'] == 'es':
             if dataset == SuppDataset.MNIST:
                 class MnistESExperiment(MnistExperiment, ESExperiment):
                     pass
-                return MnistESExperiment(exp, config, iteration, master=master)
+                return MnistESExperiment(exp, config, master=master)
             elif dataset == SuppDataset.CIFAR10:
                 class Cifar10ESExperiment(Cifar10Experiment, ESExperiment):
                     pass
-                return Cifar10ESExperiment(exp, config, iteration, master=master)
+                return Cifar10ESExperiment(exp, config, master=master)
             elif dataset == SuppDataset.MSCOCO:
                 class MSCocoESExperiment(MSCocoExperiment, ESExperiment):
                     pass
-                return MSCocoESExperiment(exp, config, iteration, master=master)
+                return MSCocoESExperiment(exp, config, master=master)

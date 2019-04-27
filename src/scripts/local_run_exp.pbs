@@ -1,14 +1,12 @@
 #!/bin/bash
 
-#PBS -l nodes=1:ppn=16
+#PBS -l nodes=1:ppn=18
 
-#PBS -l pmem=20gb
+#PBS -l pmem=10gb
 
-#PBS -l walltime=12:00:00
+#PBS -l walltime=24:00:00
 
 #PBS -j oe
-
-#PBS -o logs/terminal_output.txt
 
 #PBS -m abe
 
@@ -16,7 +14,7 @@
 
 #PBS -N ga_ms_coco
 
-#PBS -A default_project
+#PBS -A lp_DEEPTEMPL
 
 # Define the project directory and set it as the working directory.
 PROJECT_ROOT=$VSC_DATA/ga-img-captioning/
@@ -28,15 +26,21 @@ source $HOME/.bashrc
 . src/scripts/local_env_setup.sh
 
 #ALGO=${algo}
-#EXP_FILE=${exp}
+EXP_FILE=${exp}
 NUM_WORKERS=${workers}
+ID=${id}
+PORT=${port}
+
+echo "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt
 
 if test -z "$NUM_WORKERS"
 then
-      WORKERS=''
+      WORKERS='-1'
 else
-      WORKERS=' --num_workers '"$NUM_WORKERS"
+      WORKERS="$NUM_WORKERS"
 fi
 
-python src/main.py master --master_socket_path /tmp/es_redis_master.sock --algo ga --exp_file experiments/mscoco_ga.json > ./output/master_outputfile.txt 2>&1 &
-python src/main.py workers --master_host localhost --relay_socket_path /tmp/es_redis_relay.sock --algo ga "$WORKERS" > ./output/worker_outputfile.txt 2>&1 &
+redis-server redis_config/redis_master_"$PORT".conf > ./output/"$ID"_redis_m_outputfile.txt 2>&1 &
+redis-server redis_config/redis_local_mirror_"$PORT".conf > ./output/"$ID"_redis_w_outputfile.txt 2>&1 &
+python -u src/main.py master --master_socket_path /tmp/es_redis_master_"$PORT".sock --algo ga --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
+python -u src/main.py workers --master_port "$PORT" --master_host localhost --relay_socket_path /tmp/es_redis_relay_"$PORT".sock --algo ga --num_workers "$WORKERS" > ./output/"$ID"_worker_outputfile.txt 2>&1

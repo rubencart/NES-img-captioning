@@ -29,7 +29,7 @@ class CaptionModel(PolicyNet):
             del kwargs['mode']
         return getattr(self, '_' + mode)(*args, **kwargs)
 
-    def _contained_forward(self, data, i=-1, split=100):
+    def _contained_forward(self, data, orig_bs=0, i=-1, split=100):
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
         device = next(self.parameters()).device
         tmp = [_ if _ is None else torch.from_numpy(_).to(device) for _ in tmp]
@@ -39,8 +39,11 @@ class CaptionModel(PolicyNet):
         fc_feats = torch.zeros_like(fc_feats).copy_(fc_feats)
 
         # warning we assume 5 seqs per image
+        # fc feats has length seq_per_img x batch_size, and every # seq_per_img imgs are equal
         fc_feats = fc_feats.index_select(dim=0, index=torch.arange(0, fc_feats.size(0), 5))
 
+        if fc_feats.size(0) > orig_bs > 0:
+            fc_feats = fc_feats[:orig_bs]
         if i >= 0:
             fc_feats = fc_feats[i].unsqueeze(0)
 

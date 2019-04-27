@@ -8,7 +8,7 @@
     "eval_prob": 0.01,
     "noise_stdev": 0.1,
     "snapshot_freq": 5,
-    "batch_size": 128,
+    "batch_size": 64,
     "patience": 10,
     "stdev_decr_divisor": 1.0,
     "num_val_batches": 2

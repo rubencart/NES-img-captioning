@@ -114,8 +114,8 @@ class GAWorker(object):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        # index = self.rs.randint(len(task_data.elites))
-        index = os.getpid() % len(task_data.elites)
+        index = self.rs.randint(len(task_data.elites))
+        # index = os.getpid() % len(task_data.elites)
         cand_id, cand = task_data.elites[index]
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
@@ -160,7 +160,8 @@ class GAWorker(object):
             # exact copy of the elite, which will be evolved)
             # if index < experiment.num_elites():
             #    policy.evolve_model(task_data.noise_stdev)
-            policy.set_sensitivity(task_id, parent_id, batch_data, self.offspring_dir)
+            policy.set_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
+                                   self.offspring_dir)
             policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)

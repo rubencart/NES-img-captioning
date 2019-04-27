@@ -86,11 +86,12 @@ class Policy(ABC):
 
         self.init_model(self.generate_model())
 
-    def set_sensitivity(self, task_id, parent_id, experiences, directory):
+    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         assert self.policy_net is not None, 'set model first!'
         if self.mutations != Mutation.DEFAULT:
             underflow = self.options.safe_mutation_underflow
-            self.policy_net.set_sensitivity(task_id, parent_id, experiences, directory, underflow, self.mutations)
+            self.policy_net.set_sensitivity(task_id, parent_id, experiences, batch_size, directory,
+                                            underflow, self.mutations)
 
     def set_ref_batch(self, ref_batch):
         self.ref_batch = ref_batch

@@ -113,18 +113,21 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         return torch.empty_like(noise).copy_(noise).numpy()
 
-    def set_sensitivity(self, task_id, parent_id, experiences, directory, underflow, method):
-        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, directory, underflow, method)
+    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
+        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, batch_size, directory,
+                                                 underflow, method)
 
-    def _extract_grad(self):
+    def extract_grad(self):
         tot_size = self.nb_params
         pvec = torch.zeros(tot_size, dtype=torch.float)
         count = 0
+        # params = torch.zeros(tot_size, dtype=torch.float32)
         for param in self.parameters():
             sz = param.grad.data.flatten().shape[0]
             pvec[count:count + sz] = param.grad.data.flatten()
+            # params[count:count + sz] = param.data.flatten()
             count += sz
-        return pvec.clone().detach()
+        return pvec.clone().detach()  # , params
 
     def _count_parameters(self):
         count = nn.utils.parameters_to_vector(self.parameters()).size(0)
@@ -157,7 +160,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         assert len(vector) == self.nb_learnable_params
         nn.utils.vector_to_parameters(vector, self.parameters())
 
-    def _contained_forward(self, x, i=-1):
+    def _contained_forward(self, x, orig_bs=0, i=-1):
         raise NotImplementedError
 
 
