@@ -37,12 +37,9 @@ GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len
 # - VCS --> slides graham
 # - start workers from CL
 
-# - multiple elites!
-# - safe mutations
 # - beam search
 # - scheduled sampling (ss_prob in self-critical repo)
 # - different models from paper, att, resnet feats,...
-# - try self critical reward instead of pure cider
 # - improved exploration --> NS/RS?
 # - check if we are using cider right (https://github.com/ruotianluo/cider/)
 # - torchvision.datasets.MSCOCO instead of hacky own version?
@@ -194,7 +191,7 @@ class GAMaster(object):
 
                             elif result.evaluated_model_id is not None:
                                 # assert result.returns_n2.dtype == np.float32
-                                assert result.fitness.dtype == np.float32
+                                assert result.fitness.dtype == np.float
 
                                 # store results only for current tasks
                                 if task_id == curr_task_id:

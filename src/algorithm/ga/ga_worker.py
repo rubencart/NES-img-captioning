@@ -175,7 +175,7 @@ class GAWorker(object):
             evaluated_model_id=parent_id,
             evaluated_model=policy.serialized(path=self.offspring_path.format(w=self.worker_id,
                                                                               i=it_id)),
-            fitness=np.array([fitness], dtype=np.float32),
+            fitness=np.array([fitness], dtype=np.float),
             mem_usage=max(mem_usages)
         )
 

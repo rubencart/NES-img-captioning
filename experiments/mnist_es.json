@@ -9,7 +9,7 @@
     "snapshot_freq": 2,
     "batch_size": 64,
     "patience": 10,
-    "stdev_decr_divisor": 1.0,
+    "stdev_decr_divisor": 1.5,
 
     "ref_batch_size": 16,
     "l2coeff": 0.0002,
@@ -18,7 +18,10 @@
 
   "policy_options": {
     "net": "mnist",
-    "vbn": true
+    "vbn": false,
+
+    "safe_mutation_underflow": 0.5,
+    "safe_mutations": ""
   },
 
   "optimizer_options": {
@@ -30,7 +33,7 @@
 
   "dataset": "mnist",
   "population_size": 500,
-  "num_elites": 3,
+  "num_elites": 1,
 
   "_from_infos": "logs/es_mnist_mnist_nets_98538/snapshot/z_info_e1_i37-235.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"

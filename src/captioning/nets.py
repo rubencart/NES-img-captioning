@@ -16,8 +16,8 @@ from algorithm.nets import PolicyNet
 
 
 class CaptionModel(PolicyNet):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False):
-        super(CaptionModel, self).__init__(rng_state, from_param_file, grad)
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, vbn=False):
+        super(CaptionModel, self).__init__(rng_state, from_param_file, grad, vbn)
 
     # implements beam search
     # calls beam_step and returns the final set of beams
@@ -226,7 +226,7 @@ class CaptionModel(PolicyNet):
 
 
 class LSTMCore(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, vbn=False):
         super(LSTMCore, self).__init__()
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_size = opt.rnn_size
@@ -237,8 +237,18 @@ class LSTMCore(nn.Module):
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
         # self.dropout = nn.Dropout(self.drop_prob_lm)
 
+        # virtual batch normalization
+        self.vbn = vbn
+        if self.vbn:
+            self.i2h_bn = nn.BatchNorm1d(5 * self.rnn_size)
+            self.h2h_bn = nn.BatchNorm1d(5 * self.rnn_size)
+            self.c_bn = nn.BatchNorm1d(self.rnn_size)
+
     def forward(self, xt, state):
-        all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
+        xt_i2h = self.i2h_bn(self.i2h(xt)) if self.vbn else self.i2h(xt)
+        state_h2h = self.h2h_bn(self.h2h(state[0][-1])) if self.vbn else self.h2h(state[0][-1])
+
+        all_input_sums = xt_i2h + state_h2h
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
 
         # sigmoid_chunk = F.sigmoid(sigmoid_chunk)
@@ -248,13 +258,16 @@ class LSTMCore(nn.Module):
         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
+        # todo ????????
         in_transform = torch.max(
             all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size),
             all_input_sums.narrow(1, 4 * self.rnn_size, self.rnn_size)
         )
+
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
+        activated_next_c = torch.tanh(self.c_bn(next_c)) if self.vbn else torch.tanh(next_c)
         # next_h = out_gate * F.tanh(next_c)
-        next_h = out_gate * torch.tanh(next_c)
+        next_h = out_gate * activated_next_c
 
         # output = self.dropout(next_h)
         output = next_h
@@ -263,8 +276,8 @@ class LSTMCore(nn.Module):
 
 
 class FCModel(CaptionModel):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
-        super(FCModel, self).__init__(rng_state, from_param_file, grad)
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
+        super(FCModel, self).__init__(rng_state, from_param_file, grad, vbn)
         opt = options
 
         self.vocab_size = opt.vocab_size
@@ -283,8 +296,17 @@ class FCModel(CaptionModel):
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
-        # todo both necessary?
-        # self.init_weights()
+        # virtual batch normalization
+        self.vbn = opt.vbn
+        if self.vbn:
+            self.img_embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=False)
+            self.embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=False)
+            # self.core_bn = nn.BatchNorm1d(self.rnn_size)
+
+            self.img_embed = torch.nn.Sequential(self.img_embed, self.img_embed_bn)
+            self.embed = torch.nn.Sequential(self.embed, self.embed_bn)
+            # self.core = torch.nn.Sequential(self.core, self.core_bn)
+
         self._initialize_params()
 
     # def init_weights(self):

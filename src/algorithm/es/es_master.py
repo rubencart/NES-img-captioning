@@ -127,6 +127,8 @@ class ESMaster(object):
                     # assert g.shape == (policy.num_params,) and g.dtype == np.float32 and count == len(noise_inds_n)
                     update_ratio, theta = optimizer.update(
                         # todo torch vs numpy!!!!!
+                        # caution l2 * theta is correct because L2 regularization adds a (1/2)*l2 * sum(theta^2) term
+                        # to the loss function, the derivative of this w.r.t. theta = l2 * theta
                         - grad_estimate + config.l2coeff * policy.parameter_vector().numpy()
                     )
 
@@ -135,6 +137,7 @@ class ESMaster(object):
 
                     if it.patience_reached():
                         experiment.increase_loader_batch_size(it.batch_size())
+                        optimizer.stepsize *= .2
 
                     # norm instead of mean norm?
                     stats.record_update_ratio(update_ratio)
@@ -181,7 +184,7 @@ class ESMaster(object):
         return ranks
 
     def compute_centered_ranks(self, x):
-        y = self.compute_ranks(x.ravel()).reshape(x.shape).astype(np.float32)
+        y = self.compute_ranks(x.ravel()).reshape(x.shape).astype(np.float)
         y /= (x.size - 1)
         y -= .5
         return y

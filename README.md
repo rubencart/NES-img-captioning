@@ -94,7 +94,7 @@ https://docs.python.org/3.7/library/profile.html
 import pstats
 from pstats import SortKey
 
-w = pstats.Stats('profile_worker.txt')
+w = pstats.Stats('output/profile_worker.txt')
 w.sort_stats(SortKey.TIME).print_stats(10)
 ```
 

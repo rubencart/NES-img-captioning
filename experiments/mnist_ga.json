@@ -16,7 +16,7 @@
 
   "policy_options": {
     "net": "mnist",
-    "safe_mutation_underflow": 0.05,
+    "safe_mutation_underflow": 0.5,
     "safe_mutations": "SM-G-SUM"
   },
   "_safe_mutation_underflow": 0.2,

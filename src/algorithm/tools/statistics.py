@@ -115,7 +115,7 @@ class Statistics(object):
         tlogger.record_tabular('NormMean', self._norm_stats[-1])
 
         if self._update_ratio_stats:
-            tlogger.record_tabular('UpdateRat', self._update_ratio_stats[-1])
+            tlogger.record_tabular('UpdateRatio', self._update_ratio_stats[-1])
 
         step_tend = time.time()
         tlogger.record_tabular('TimeElapsedThisIter', step_tend - self._step_tstart)

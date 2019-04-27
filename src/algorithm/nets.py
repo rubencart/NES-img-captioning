@@ -45,6 +45,8 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         self.grad = grad
         self.vbn = vbn
 
+        self.eval()
+
         self.sensitivity_wrapper = Sensitivity(self)
 
     def _initialize_params(self):
@@ -57,9 +59,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                 # print('CAUTION: new tensor size: ', tensor.size())
                 # self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
 
-            if not self.from_param_file:
+            if not self.from_param_file and 'bn' not in name:
                 # exclude batch norm layers from xavier initialization
-                if 'weight' in name and 'bn' not in name:
+                if 'weight' in name:
                     # todo kaiming normal or:
                     # We use Xavier initialization (Glorot & Bengio, 2010) as our policy initialization
                     # function φ where all bias weights are set to zero, and connection weights are drawn
@@ -67,7 +69,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                     # incoming connections to a neuron
                     # nn.init.kaiming_normal_(tensor)
                     nn.init.xavier_normal_(param)
-                elif 'bn' not in name:
+                else:
                     param.data.zero_()
 
         self.nb_learnable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -116,7 +118,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
     def _extract_grad(self):
         tot_size = self.nb_params
-        pvec = torch.zeros(tot_size, dtype=torch.float32)
+        pvec = torch.zeros(tot_size, dtype=torch.float)
         count = 0
         for param in self.parameters():
             sz = param.grad.data.flatten().shape[0]

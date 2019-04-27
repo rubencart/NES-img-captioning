@@ -27,7 +27,7 @@ class Optimizer(object):
 class SGD(Optimizer):
     def __init__(self, theta, stepsize, momentum=0.9):
         super().__init__(theta)
-        self.v = np.zeros(self.dim, dtype=np.float32)
+        self.v = np.zeros(self.dim, dtype=np.float)
         self.stepsize, self.momentum = stepsize, momentum
 
     def _compute_step(self, grad):
@@ -43,8 +43,8 @@ class Adam(Optimizer):
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
-        self.m = np.zeros(self.dim, dtype=np.float32)
-        self.v = np.zeros(self.dim, dtype=np.float32)
+        self.m = np.zeros(self.dim, dtype=np.float)
+        self.v = np.zeros(self.dim, dtype=np.float)
 
     def _compute_step(self, grad):
         a = self.stepsize * np.sqrt(1 - self.beta2 ** self.t) / (1 - self.beta1 ** self.t)

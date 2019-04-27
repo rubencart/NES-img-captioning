@@ -23,14 +23,13 @@ class ESWorker(object):
         self.rs = np.random.RandomState()
         self.worker_id = self.rs.randint(2 ** 31)
 
-        self.eval_dir = ''
-
         # redis client
         self.worker = WorkerClient(master_redis_cfg, relay_redis_cfg)
         self.exp = self.worker.get_experiment()
         assert self.exp['mode'] in ['seeds', 'nets'], '{}'.format(self.exp['mode'])
 
         self.eval_dir = os.path.join(self.exp['log_dir'], 'eval_{}'.format(os.getpid()))
+        self.sensitivity_dir = os.path.join(self.exp['log_dir'], 'models', 'current')
         mkdir_p(self.eval_dir)
 
         setup_tuple = setup_worker(self.exp)
@@ -94,7 +93,7 @@ class ESWorker(object):
             # del policy, task_data
             del task_data
             gc.collect()
-            # self.write_alive_tensors()
+            self.write_alive_tensors()
 
     def accuracy(self, policy, task_data):
 
@@ -133,8 +132,8 @@ class ESWorker(object):
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        # todo sensitivity with ES?
-        # policy.set_sensitivity(task_id, parent_id, batch_data, self.offspring_dir)
+        # todo sensitivity with ES? --> no! finite distance approx.
+        policy.set_sensitivity(task_id, 0, batch_data, self.sensitivity_dir)
         noise_vector = policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
