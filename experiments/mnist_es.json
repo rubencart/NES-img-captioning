@@ -5,7 +5,7 @@
 
     "cuda": false,
     "eval_prob": 0.004,
-    "noise_stdev": 0.05,
+    "noise_stdev": 0.1,
     "snapshot_freq": 2,
     "batch_size": 64,
     "patience": 10,
@@ -18,10 +18,10 @@
 
   "policy_options": {
     "net": "mnist",
-    "vbn": false,
+    "vbn": true,
 
     "safe_mutation_underflow": 0.5,
-    "safe_mutations": ""
+    "safe_mutations": "SM-G-SUM"
   },
 
   "optimizer_options": {

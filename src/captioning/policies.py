@@ -43,6 +43,16 @@ class GenPolicy(Policy, ABC):
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
         sample_max = 1 if fitness == Fitness.GREEDY else 0
+
+        # virtual batch norm
+        if self.vbn:
+            self.policy_net.train()
+            # todo will this work with ref_batch being dict with 'fc_feats',...
+            self.policy_net(torch.empty_like(self.ref_batch).copy_(self.ref_batch),
+                            opt={'sample_max': sample_max}, mode='sample')
+
+        self.policy_net.eval()
+
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
                                                       opt={'sample_max': sample_max}, mode='sample')
 

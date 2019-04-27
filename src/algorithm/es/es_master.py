@@ -169,7 +169,7 @@ class ESMaster(object):
 
     def gradient_estimate(self, ranked_fitnesses, noise_vecs):
         weights = ranked_fitnesses[:, 0] - ranked_fitnesses[:, 1]
-        gradient_est, _ = np.dot(weights, noise_vecs), len(weights)
+        gradient_est = np.dot(weights, noise_vecs)
         gradient_est /= ranked_fitnesses.size
         return gradient_est
 

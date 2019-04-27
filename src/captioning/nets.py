@@ -417,7 +417,7 @@ class FCModel(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample(self, fc_feats, att_feats=None, att_masks=None, opt={}):
         # sample_max = 1 --> greedy? 0 --> random?
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
@@ -427,7 +427,7 @@ class FCModel(CaptionModel):
         # Todo we assume model is on single device
         device = next(self.parameters()).device
 
-        if beam_size > 1:
+        if beam_size > 1 and att_feats is not None:
             return self._sample_beam(fc_feats, att_feats, opt)
 
         batch_size = fc_feats.size(0)
