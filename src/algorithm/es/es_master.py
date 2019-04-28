@@ -121,9 +121,9 @@ class ESMaster(object):
                     it.process_evaluated_elites()
 
                     # print(it.fitnesses())
-                    ranked_fitnesses = self.compute_centered_ranks(it.fitnesses())
+                    # ranked_fitnesses = self.compute_centered_ranks(it.fitnesses())
                     # print(ranked_fitnesses)
-                    grad_estimate = self.gradient_estimate(ranked_fitnesses, it.noise_vecs())
+                    grad_estimate = self.gradient_estimate(it.fitnesses(), it.noise_vecs())
                     # assert g.shape == (policy.num_params,) and g.dtype == np.float32 and count == len(noise_inds_n)
                     update_ratio, theta = optimizer.update(
                         # todo torch vs numpy!!!!!
@@ -138,6 +138,8 @@ class ESMaster(object):
                     if it.patience_reached():
                         experiment.increase_loader_batch_size(it.batch_size())
                         optimizer.stepsize *= .2
+
+                    print('flat', it.flat_fitnesses())
 
                     # norm instead of mean norm?
                     stats.record_update_ratio(update_ratio)
@@ -167,7 +169,8 @@ class ESMaster(object):
             if plot:
                 stats.plot_stats(experiment.snapshot_dir())
 
-    def gradient_estimate(self, ranked_fitnesses, noise_vecs):
+    def gradient_estimate(self, fitnesses, noise_vecs):
+        ranked_fitnesses = self.compute_centered_ranks(fitnesses)
         weights = ranked_fitnesses[:, 0] - ranked_fitnesses[:, 1]
         gradient_est = np.dot(weights, noise_vecs)
         gradient_est /= ranked_fitnesses.size

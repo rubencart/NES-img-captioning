@@ -129,11 +129,13 @@ class ESWorker(object):
         batch_data = copy.deepcopy(task_data.batch_data)
         current_path = task_data.current
         policy.set_model(current_path)
+        current_params = policy.parameter_vector()
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         # todo sensitivity with ES? --> no! finite distance approx.
         policy.set_sensitivity(task_id, 0, batch_data, self.experiment.orig_batch_size(), self.sensitivity_dir)
+        # theta <-- theta + noise
         noise_vector = policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
@@ -143,13 +145,14 @@ class ESWorker(object):
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        policy.set_from_parameter_vector(-noise_vector)
+        # theta <-- theta - noise (mirrored sampling)
+        policy.set_from_parameter_vector(current_params - torch.from_numpy(noise_vector))
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         neg_fitness = policy.rollout(placeholder=self.placeholder,
                                      data=batch_data, config=self.config)
-
+        del current_params
         return ESResult(
             worker_id=self.worker_id,
             evolve_noise=noise_vector,

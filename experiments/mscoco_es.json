@@ -23,7 +23,7 @@
   "policy_options": {
     "net": "fc_caption",
     "fitness": "greedy",
-    "vbn": true,
+    "vbn": false,
 
     "safe_mutation_underflow": 0.1,
     "safe_mutations": "",
@@ -48,11 +48,9 @@
   "dataset": "mscoco",
 
   "population_size": 10,
-  "truncation": 5,
   "num_elites": 2,
-  "num_elite_cands": 1,
 
-  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
   "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {

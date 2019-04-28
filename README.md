@@ -12,6 +12,9 @@ Based on & took code from:
 
 #### Installation
 
+requirements: python 3.7, pytorch, torchvision, java, redis-server
+tmux, tee
+
 git clone ...
 git submodule init
 git submodule update
