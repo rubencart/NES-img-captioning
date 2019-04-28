@@ -7,7 +7,7 @@ Code from https://github.com/ruotianluo/self-critical.pytorch
 # from __future__ import print_function
 
 import json
-import h5py
+from h5py import File
 import os
 import numpy as np
 import random
@@ -63,7 +63,7 @@ class DataLoader(data.Dataset):
         # open the hdf5 file
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir,
               opt.input_label_h5)
-        self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
+        self.h5_label_file = File(self.opt.input_label_h5, 'r', driver='core')
 
         self.input_fc_dir = self.opt.input_fc_dir
         self.input_att_dir = self.opt.input_att_dir
