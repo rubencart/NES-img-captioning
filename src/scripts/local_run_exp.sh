@@ -8,6 +8,13 @@ EXP_FILE=$2
 NUM_WORKERS=$3
 PORT=$4
 
+if test -z "$PORT"
+then
+      PORT=6379
+else
+      PORT="$PORT"
+fi
+
 if test -z "$NUM_WORKERS"
 then
       WORKERS=''

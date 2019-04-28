@@ -4,10 +4,10 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.0,
-    "noise_stdev": 0.002,
+    "eval_prob": 0.1,
+    "noise_stdev": 0.001,
     "snapshot_freq": 5,
-    "batch_size": 128,
+    "batch_size": 2,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
@@ -15,7 +15,7 @@
     "patience": 30,
     "stdev_decr_divisor": 1.0,
 
-    "ref_batch_size": 16,
+    "ref_batch_size": 2,
     "l2coeff": 0.0002,
     "return_proc_mode": "centered_rank"
   },
@@ -52,7 +52,7 @@
   "num_elites": 2,
   "num_elite_cands": 1,
 
-  "_from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
   "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {

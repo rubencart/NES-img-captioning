@@ -133,7 +133,7 @@ class ESWorker(object):
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         # todo sensitivity with ES? --> no! finite distance approx.
-        policy.set_sensitivity(task_id, 0, batch_data, self.sensitivity_dir)
+        policy.set_sensitivity(task_id, 0, batch_data, self.experiment.orig_batch_size(), self.sensitivity_dir)
         noise_vector = policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)

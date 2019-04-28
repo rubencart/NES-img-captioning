@@ -129,8 +129,8 @@ class Experiment(ABC):
 
 
 class ESExperiment(Experiment, ABC):
-    def __init__(self, exp, config, iteration, master=True):
-        super(ESExperiment, self).__init__(exp, config, iteration, master)
+    def __init__(self, exp, config, master=True):
+        super(ESExperiment, self).__init__(exp, config, master)
 
         if master:
             self.Optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer_options']['type']]
@@ -149,8 +149,8 @@ class GAExperiment(Experiment, ABC):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config, iteration, master=True):
-        super(GAExperiment, self).__init__(exp, config, iteration, master)
+    def __init__(self, exp, config, master=True):
+        super(GAExperiment, self).__init__(exp, config, master)
 
         self._truncation = exp['truncation']
         self._num_elites = exp['num_elites']
@@ -310,7 +310,7 @@ class MSCocoDataLdrWrapper:
 
 class ExperimentFactory:
     @staticmethod
-    def create(dataset: SuppDataset, exp, config, iteration=None, master=True):
+    def create(dataset: SuppDataset, exp, config, master=True):
         if exp['algorithm'] == 'ga':
             if dataset == SuppDataset.MNIST:
                 class MnistGAExperiment(MnistExperiment, GAExperiment):

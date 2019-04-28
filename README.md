@@ -12,14 +12,16 @@ Based on & took code from:
 
 #### Installation
 
-run pkill python before & after
+git clone ...
+git submodule init
+git submodule update
 
 https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#viewing-a-list-of-your-environments
-conda:
-mkl-service?
-
-pip:
-...
+conda create -n cp3env python=3.7
+conda activate cp3env
+conda install psutil
+conda install -c pytorch pytorch torchvision
+pip install -r requirements.txt
 
 Needs ts from moreutils and tee (unix packages)
 https://superuser.com/questions/1174408/can-you-prefix-each-line-written-with-tee-with-the-current-date-and-time
