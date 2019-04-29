@@ -37,6 +37,6 @@
   "population_size": 500,
   "num_elites": 1,
 
-  "_from_infos": "logs/es_mnist_mnist_nets_98538/snapshot/z_info_e1_i37-235.json",
+  "from_infos": "logs/es_mnist_mnist_4607/snapshot/z_info_e1_i19-938.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"
 }

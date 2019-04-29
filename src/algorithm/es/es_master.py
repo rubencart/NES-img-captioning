@@ -139,7 +139,7 @@ class ESMaster(object):
                         experiment.increase_loader_batch_size(it.batch_size())
                         optimizer.stepsize *= .2
 
-                    print('flat', it.flat_fitnesses())
+                    # print('flat', it.flat_fitnesses())
 
                     # norm instead of mean norm?
                     stats.record_update_ratio(update_ratio)
@@ -172,7 +172,8 @@ class ESMaster(object):
     def gradient_estimate(self, fitnesses, noise_vecs):
         ranked_fitnesses = self.compute_centered_ranks(fitnesses)
         weights = ranked_fitnesses[:, 0] - ranked_fitnesses[:, 1]
-        gradient_est = np.dot(weights, noise_vecs)
+        # gradient_est = np.dot(weights, noise_vecs)
+        gradient_est, _ = self.batched_weighted_sum(weights, noise_vecs)
         gradient_est /= ranked_fitnesses.size
         return gradient_est
 
@@ -192,12 +193,25 @@ class ESMaster(object):
         y -= .5
         return y
 
-    # def batched_weighted_sum(self, weights, noise_vecs):
-        # todo DO IN TORCH
-        # total = 0.
-        # num_items_summed = 0
-        # for wts, vcs in zip(weights, noise_vecs):
-        #     total += np.dot(np.asarray(wts, dtype=np.float32), np.asarray(vcs, dtype=np.float32))
-        #     num_items_summed += len(wts)
-        # return total, num_items_summed
-        # return np.dot(weights, noise_vecs), len(weights)
+    @staticmethod
+    def batched_weighted_sum(weights, vecs, batch_size=500):
+        total = 0.
+        num_items_summed = 0
+        for batch_weights, batch_vecs in zip(ESMaster.itergroups(weights, batch_size),
+                                             ESMaster.itergroups(vecs, batch_size)):
+            assert len(batch_weights) == len(batch_vecs) <= batch_size
+            total += np.dot(np.asarray(batch_weights, dtype=np.float32), np.asarray(batch_vecs, dtype=np.float32))
+            num_items_summed += len(batch_weights)
+        return total, num_items_summed
+
+    @staticmethod
+    def itergroups(items, group_size):
+        assert group_size >= 1
+        group = []
+        for x in items:
+            group.append(x)
+            if len(group) == group_size:
+                yield tuple(group)
+                del group[:]
+        if group:
+            yield tuple(group)
