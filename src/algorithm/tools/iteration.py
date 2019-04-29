@@ -20,6 +20,7 @@ class Iteration(ABC):
         self._noise_stdev = config.noise_stdev
         self._batch_size = config.batch_size
         self._times_orig_bs = 1
+        self._nb_samples_used = 0
         self._bad_generations = 0
         self._patience_reached = False
         self._epoch = 0
@@ -35,6 +36,7 @@ class Iteration(ABC):
         # todo to experiment.py?
         # ENTIRE EXPERIMENT
         self._stdev_divisor = config.stdev_divisor
+        self._bs_multiplier = config.bs_multiplier
         self._patience = config.patience
         self._population_size = exp['population_size']
 
@@ -52,6 +54,7 @@ class Iteration(ABC):
             'batch_size': self._batch_size,
             'bad_generations': self._bad_generations,
             'times_orig_bs': self._times_orig_bs,
+            'nb_samples_used': self._nb_samples_used,
 
             'best_elites': self.best_elites(),
         }
@@ -67,6 +70,8 @@ class Iteration(ABC):
 
         self._batch_size = infos['batch_size'] if 'batch_size' in infos else self._batch_size
         self._times_orig_bs = infos['times_orig_bs'] if 'times_orig_bs' in infos else self._times_orig_bs
+        self._nb_samples_used = infos['nb_samples_used'] if 'nb_samples_used' in infos \
+            else self._nb_samples_used
 
         self._podium.init_from_infos(infos)
 
@@ -117,7 +122,7 @@ class Iteration(ABC):
 
                 logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
                 self._noise_stdev /= self._stdev_divisor
-                self._batch_size = self._batch_size + int(float(self._batch_size) / self._times_orig_bs)
+                self._batch_size *= self._bs_multiplier
                 self._bad_generations = 0
                 self._times_orig_bs += 1
                 self._patience_reached = True
@@ -139,7 +144,7 @@ class Iteration(ABC):
     def incr_epoch(self):
         self._epoch += 1
 
-    def incr_iteration(self, n=1):
+    def incr_iteration(self):
         self.reset_task_results()
         self.reset_eval_results()
         self.reset_worker_ids()
@@ -148,7 +153,8 @@ class Iteration(ABC):
         self.set_waiting_for_elite_ev(False)
         self._patience_reached = False
 
-        self._iteration += n
+        self._iteration += 1
+        self._nb_samples_used += self._batch_size
 
     def set_batch_size(self, value):
         self._batch_size = value
@@ -201,6 +207,9 @@ class Iteration(ABC):
 
     def iteration(self):
         return self._iteration
+
+    def nb_samples_used(self):
+        return self._nb_samples_used
 
     def get_noise_stdev(self):
         return self._noise_stdev

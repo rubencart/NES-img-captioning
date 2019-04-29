@@ -136,7 +136,7 @@ class GAMaster(object):
                     try:
                         gc.collect()
                         # it.incr_iteration(batch_data[1].size(0))
-                        it.incr_iteration(it.times_orig_bs())
+                        it.incr_iteration()
                         stats.set_step_tstart()
 
                         data = copy.deepcopy(batch_data)

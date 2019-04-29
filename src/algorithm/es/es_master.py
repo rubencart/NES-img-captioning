@@ -74,7 +74,7 @@ class ESMaster(object):
                 # todo max generations
                 for batch_data in experiment.get_trainloader():
                     gc.collect()
-                    it.incr_iteration(it.times_orig_bs())
+                    it.incr_iteration()
                     stats.set_step_tstart()
 
                     data = copy.deepcopy(batch_data)
@@ -137,7 +137,7 @@ class ESMaster(object):
 
                     if it.patience_reached():
                         experiment.increase_loader_batch_size(it.batch_size())
-                        optimizer.stepsize *= .2
+                        optimizer.stepsize *= config.stepsize_divisor
 
                     # print('flat', it.flat_fitnesses())
 

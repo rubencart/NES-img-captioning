@@ -29,5 +29,5 @@ tmux send-keys -t $NAME '. src/scripts/local_env_setup.sh' C-m
 tmux send-keys -t $NAME 'python -u src/main.py master --master_socket_path /tmp/es_redis_master_'"$PORT"'.sock --algo '$ALGO' --exp_file '"$EXP_FILE"' 2>&1 | tee ./output/'"$ID"'_master_outputfile.txt' C-m
 tmux split-window -t $NAME
 tmux send-keys -t $NAME '. src/scripts/local_env_setup.sh' C-m
-tmux send-keys -t $NAME 'python -u src/main.py workers --master_port '"$PORT"' --master_host localhost --relay_socket_path /tmp/es_redis_relay_'"$PORT"'.sock --algo '"$ALGO"' '"$WORKERS"' 2>&1 | tee ./output/'"$ID"'worker_outputfile.txt' C-m
+tmux send-keys -t $NAME 'python -u src/main.py workers --master_port '"$PORT"' --master_host localhost --relay_socket_path /tmp/es_redis_relay_'"$PORT"'.sock --algo '"$ALGO"' '"$WORKERS"' 2>&1 | tee ./output/'"$ID"'_worker_outputfile.txt' C-m
 tmux a -t $NAME
