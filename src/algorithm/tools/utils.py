@@ -15,9 +15,9 @@ result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model'
 GAResult = namedtuple('GAResult', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 config_fields = [
-    'l2coeff', 'noise_stdev', 'stdev_decr_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
+    'l2coeff', 'noise_stdev', 'stdev_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
     'return_proc_mode', 'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
-    'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size'
+    'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 

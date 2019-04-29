@@ -34,7 +34,7 @@ class Iteration(ABC):
 
         # todo to experiment.py?
         # ENTIRE EXPERIMENT
-        self._stdev_decr_divisor = config.stdev_decr_divisor
+        self._stdev_divisor = config.stdev_divisor
         self._patience = config.patience
         self._population_size = exp['population_size']
 
@@ -116,7 +116,7 @@ class Iteration(ABC):
             if self._bad_generations > self._patience:
 
                 logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
-                self._noise_stdev /= self._stdev_decr_divisor
+                self._noise_stdev /= self._stdev_divisor
                 self._batch_size = self._batch_size + int(float(self._batch_size) / self._times_orig_bs)
                 self._bad_generations = 0
                 self._times_orig_bs += 1

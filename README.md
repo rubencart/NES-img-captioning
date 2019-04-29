@@ -66,7 +66,7 @@ Example json:
     "snapshot_freq": 5,
     "batch_size": 64,
     "patience": 20,
-    "stdev_decr_divisor": 1.0
+    "stdev_divisor": 1.0
   },
   "dataset": "mnist",
   "net": "mnist",

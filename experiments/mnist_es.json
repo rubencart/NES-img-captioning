@@ -9,7 +9,9 @@
     "snapshot_freq": 2,
     "batch_size": 64,
     "patience": 10,
-    "stdev_decr_divisor": 1.5,
+    "stdev_divisor": 2,
+    "bs_multiplier": 2,
+    "stepsize_divisor": 2,
 
     "ref_batch_size": 16,
     "l2coeff": 0.0002,

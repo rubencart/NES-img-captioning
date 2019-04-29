@@ -10,7 +10,9 @@
     "snapshot_freq": 5,
     "batch_size": 64,
     "patience": 10,
-    "stdev_decr_divisor": 1.0,
+    "stdev_divisor": 2,
+    "bs_multiplier": 2,
+
     "num_val_batches": 2
   },
 

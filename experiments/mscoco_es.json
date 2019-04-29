@@ -13,7 +13,9 @@
     "num_val_items": 5000,
 
     "patience": 30,
-    "stdev_decr_divisor": 1.0,
+    "stdev_divisor": 2,
+    "bs_multiplier": 2,
+    "stepsize_divisor": 2,
 
     "ref_batch_size": 2,
     "l2coeff": 0.0002,
