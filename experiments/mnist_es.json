@@ -8,7 +8,8 @@
     "noise_stdev": 0.1,
     "snapshot_freq": 2,
     "batch_size": 64,
-    "patience": 10,
+
+    "patience": 2,
     "stdev_divisor": 2,
     "bs_multiplier": 2,
     "stepsize_divisor": 2,
@@ -37,6 +38,6 @@
   "population_size": 500,
   "num_elites": 1,
 
-  "from_infos": "logs/es_mnist_mnist_4607/snapshot/z_info_e1_i19-938.json",
+  "from_infos": "logs/es_mnist_mnist_8025/snapshot/z_info_e1_i38-938.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"
 }

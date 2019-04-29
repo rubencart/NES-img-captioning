@@ -47,7 +47,8 @@ PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[N
 
 _model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
                      # todo dropout can go
-                     'drop_prob_lm', 'seq_length', 'fc_feat_size', 'vbn']
+                     'drop_prob_lm', 'seq_length', 'fc_feat_size', 'vbn', 'vbn_e', 'vbn_affine', 'layer_n',
+                     'layer_n_affine']
 ModelOptions = namedtuple('ModelOptions', field_names=_model_opt_fields,
                           defaults=(None,) * len(_model_opt_fields))
 

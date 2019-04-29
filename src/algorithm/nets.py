@@ -59,7 +59,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                 # print('CAUTION: new tensor size: ', tensor.size())
                 # self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
 
-            if not self.from_param_file and 'bn' not in name:
+            if not self.from_param_file and 'bn' not in name and 'ln' not in name:
                 # exclude batch norm layers from xavier initialization
                 if 'weight' in name:
                     # todo kaiming normal or:

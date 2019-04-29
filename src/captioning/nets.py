@@ -1,7 +1,7 @@
 """
 Code from https://github.com/ruotianluo/self-critical.pytorch
 """
-
+import logging
 from collections import namedtuple
 from functools import reduce
 
@@ -229,27 +229,40 @@ class CaptionModel(PolicyNet):
 
 
 class LSTMCore(nn.Module):
-    def __init__(self, opt, vbn=False):
+    def __init__(self, opt):
         super(LSTMCore, self).__init__()
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_size = opt.rnn_size
-        # self.drop_prob_lm = opt.drop_prob_lm
+        self.drop_prob_lm = opt.drop_prob_lm
 
         # Build a LSTM
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
-        # self.dropout = nn.Dropout(self.drop_prob_lm)
+        self.dropout = nn.Dropout(self.drop_prob_lm)
 
         # virtual batch normalization
-        self.vbn = vbn
+        self.vbn = opt.vbn
+        self.layer_n = opt.layer_n
         if self.vbn:
-            self.i2h_bn = nn.BatchNorm1d(5 * self.rnn_size)
-            self.h2h_bn = nn.BatchNorm1d(5 * self.rnn_size)
-            self.c_bn = nn.BatchNorm1d(self.rnn_size)
+            self.i2h_bn = nn.BatchNorm1d(5 * self.rnn_size, track_running_stats=True, affine=opt.vbn_affine)
+            self.h2h_bn = nn.BatchNorm1d(5 * self.rnn_size, track_running_stats=True, affine=opt.vbn_affine)
+            self.c_bn = nn.BatchNorm1d(self.rnn_size, track_running_stats=True, affine=opt.vbn_affine)
+        elif self.layer_n:
+            logging.warning('LAYER NORM ACTIVE')
+            self.i2h_ln = nn.LayerNorm(5 * self.rnn_size, elementwise_affine=opt.layer_n_affine)
+            self.h2h_ln = nn.LayerNorm(5 * self.rnn_size, elementwise_affine=opt.layer_n_affine)
+            self.c_ln = nn.LayerNorm(self.rnn_size, elementwise_affine=opt.layer_n_affine)
 
     def forward(self, xt, state):
-        xt_i2h = self.i2h_bn(self.i2h(xt)) if self.vbn else self.i2h(xt)
-        state_h2h = self.h2h_bn(self.h2h(state[0][-1])) if self.vbn else self.h2h(state[0][-1])
+        if self.vbn:
+            xt_i2h = self.i2h_bn(self.i2h(xt))
+            state_h2h = self.h2h_bn(self.h2h(state[0][-1]))
+        elif self.layer_n:
+            xt_i2h = self.i2h_ln(self.i2h(xt))
+            state_h2h = self.h2h_ln(self.h2h(state[0][-1]))
+        else:
+            xt_i2h = self.i2h(xt)
+            state_h2h = self.h2h(state[0][-1])
 
         all_input_sums = xt_i2h + state_h2h
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
@@ -261,19 +274,23 @@ class LSTMCore(nn.Module):
         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
-        # todo ????????
         in_transform = torch.max(
             all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size),
             all_input_sums.narrow(1, 4 * self.rnn_size, self.rnn_size)
         )
 
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
-        activated_next_c = torch.tanh(self.c_bn(next_c)) if self.vbn else torch.tanh(next_c)
+        if self.vbn:
+            activated_next_c = torch.tanh(self.c_bn(next_c))
+        elif self.layer_n:
+            activated_next_c = torch.tanh(self.c_ln(next_c))
+        else:
+            activated_next_c = torch.tanh(next_c)
         # next_h = out_gate * F.tanh(next_c)
         next_h = out_gate * activated_next_c
 
-        # output = self.dropout(next_h)
-        output = next_h
+        output = self.dropout(next_h)
+        # output = next_h
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
@@ -300,10 +317,12 @@ class FCModel(CaptionModel):
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
         # virtual batch normalization
-        self.vbn = opt.vbn
-        if self.vbn:
-            self.img_embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=False)
-            self.embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=False)
+        self.vbn_e = opt.vbn_e
+        if self.vbn_e:
+            self.img_embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=True,
+                                               affine=opt.vbn_affine)
+            self.embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=True,
+                                           affine=opt.vbn_affine)
             # self.core_bn = nn.BatchNorm1d(self.rnn_size)
 
             self.img_embed = torch.nn.Sequential(self.img_embed, self.img_embed_bn)

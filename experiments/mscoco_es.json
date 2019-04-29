@@ -31,6 +31,11 @@
     "safe_mutations": "",
 
     "model_options": {
+      "vbn_e": false,
+      "vbn_affine": false,
+      "layer_n": false,
+      "layer_n_affine": false,
+
       "input_encoding_size":  128,
       "rnn_type": "lstm",
       "rnn_size": 128,
