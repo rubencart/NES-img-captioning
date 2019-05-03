@@ -108,7 +108,7 @@ class GAWorker(object):
             # del policy, task_data
             del task_data
             gc.collect()
-            # self.write_alive_tensors()
+            self.write_alive_tensors()
 
     def accuracy(self, policy, task_data):
 

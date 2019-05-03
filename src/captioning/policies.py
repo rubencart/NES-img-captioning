@@ -63,9 +63,9 @@ class GenPolicy(Policy, ABC):
             rl_crit = RewardCriterion()
 
             # device = next(data).device
-            loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(rewards).float().to(device))
+            loss = rl_crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
             # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
-            result = float(loss.detach().item())
+            result = float(loss.item())
             del loss, rl_crit
         else:
             result = float(reward * 100)
