@@ -54,18 +54,18 @@ def run():
         workers(args.algo, args.master_host, args.master_port, args.relay_socket_path, args.num_workers)
 
 
-def import_algo(name):
-    if name == 'es':
-        from algorithm.es import es_master as algo
-    # elif name == 'ns-es' or name == "nsr-es":
-    #     from . import nses as algo
-    if name == 'ga':
-        from algorithm.ga import ga_master as algo
-    # elif name == 'rs':
-    #     from . import rs as algo
-    else:
-        raise NotImplementedError()
-    return algo
+# def import_algo(name):
+#     if name == 'es':
+#         from algorithm.es import es_master as algo
+#     # elif name == 'ns-es' or name == "nsr-es":
+#     #     from . import nses as algo
+#     if name == 'ga':
+#         from algorithm.ga import ga_master as algo
+#     # elif name == 'rs':
+#     #     from . import rs as algo
+#     else:
+#         raise NotImplementedError()
+#     return algo
 
 
 # @profile_exp(stream=open('memory_profiler.log', 'w+'))
@@ -131,7 +131,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
                 logging.warning('****************************************************')
                 logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - nb_alive))
                 logging.warning('****************************************************')
-                new_procs = spawn_workers(num_workers - nb_alive, algo, master_redis_cfg, relay_redis_cfg)
+                new_procs = spawn_workers(num_workers - nb_alive, run_func, master_redis_cfg, relay_redis_cfg)
                 processes = alive_procs + new_procs
             # print(psutil.virtual_memory().percent)
             if psutil.virtual_memory().percent > 90.0:
