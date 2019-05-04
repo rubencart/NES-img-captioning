@@ -1,4 +1,5 @@
 import logging
+import random
 from enum import Enum
 
 import torch
@@ -18,10 +19,23 @@ class Fitness(Enum):
     GREEDY = 'greedy'
     SELF_CRITICAL = 'self_critical'
     SC_LOSS = 'sc_loss'
-    DEFAULT = SAMPLE
+    DEFAULT = GREEDY
 
 
 class GenPolicy(Policy, ABC):
+
+    def calculate_all_sensitivities(self, task_data, loader, directory, batch_size):
+        index = random.randrange(len(task_data.parents))
+        parent_id, parent = task_data.parents[index]
+        self.set_model(parent)
+
+        for i, data in enumerate(loader):
+            # torch.set_grad_enabled(False)
+            # tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+            # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
+            # fc_feats, att_feats, labels, masks, att_masks = tmp
+
+            self.policy_net.calc_sensitivity(i, 0, data, batch_size, directory, 0, self.mutations)
 
     def rollout(self, placeholder, data, config):
         fitness = self.fitness

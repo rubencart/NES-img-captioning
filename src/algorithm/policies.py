@@ -39,11 +39,14 @@ DATASETS = {
 class Mutation(Enum):
     SAFE_GRAD_SUM = 'SM-G-SUM'
     SAFE_GRAD_ABS = 'SM-G-ABS'
+    SAFE_PARAM_TYPE = 'SM-PARAM-TYPE'
     DEFAULT = ''
 
 
-_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness', 'vbn']
-PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.01, None, False])
+_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness',
+               'vbn', 'safe_mutation_batch_size', 'safe_mutation_vector']
+PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields,
+                           defaults=[None, '', None, 0.01, None, False, 32, None])
 
 _model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
                      # todo dropout can go
@@ -74,6 +77,8 @@ class Policy(ABC):
         self.vbn = bool(options.vbn)
         self.ref_batch = None
         self.mutations = Mutation(options.safe_mutations)
+        # if self.mutations == Mutation.SAFE_PARAM_TYPE:
+        #     self.policy_net.set_sensitivity_vector(options.safe_mutation_vector)
 
         from classification.nets import Cifar10Net, Cifar10Net_Small, MnistNet
         from captioning.nets import FCModel
@@ -87,12 +92,16 @@ class Policy(ABC):
 
         self.init_model(self.generate_model())
 
-    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
+    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations != Mutation.DEFAULT:
+        if self.mutations == Mutation.SAFE_PARAM_TYPE and \
+                self.policy_net.get_sensitivity_vector() is None:
+            self.policy_net.set_sensitivity_vector(self.options.safe_mutation_vector)
+
+        elif self.mutations == Mutation.SAFE_GRAD_SUM or self.mutations == Mutation.SAFE_GRAD_ABS:
             underflow = self.options.safe_mutation_underflow
-            self.policy_net.set_sensitivity(task_id, parent_id, experiences, batch_size, directory,
-                                            underflow, self.mutations)
+            self.policy_net.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory,
+                                             underflow, self.mutations)
 
     def set_ref_batch(self, ref_batch):
         self.ref_batch = ref_batch
@@ -108,7 +117,7 @@ class Policy(ABC):
 
     def parameter_vector(self):
         assert self.policy_net is not None, 'set model first!'
-        return nn.utils.parameters_to_vector(self.policy_net.parameters())
+        return self.policy_net.parameter_vector()
 
     def set_from_parameter_vector(self, vector):
         assert self.policy_net is not None, 'set model first!'
@@ -131,6 +140,9 @@ class Policy(ABC):
 
     def serialized(self, path=''):
         return self.policy_net.serialize(path=path)
+
+    def calculate_all_sensitivities(self, task_data, loader, directory, batch_size):
+        raise NotImplementedError
 
     def rollout(self, placeholder, data, config) -> float:
         raise NotImplementedError
@@ -212,7 +224,7 @@ class NetsPolicy(Policy, ABC):
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations == Mutation.SAFE_GRAD_SUM or self.mutations == Mutation.SAFE_GRAD_ABS:
+        if self.mutations != Mutation.DEFAULT:
             return self.policy_net.evolve(sigma, safe=True)
         else:
             return self.policy_net.evolve(sigma)

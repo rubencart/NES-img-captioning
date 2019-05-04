@@ -80,6 +80,11 @@ class GAWorker(object):
             #                                       mode=exp['mode'], exp=exp)
             # policy.init_model(policy.generate_model())
 
+            # policy.calculate_all_sensitivities(task_data, self.experiment.trainloader,
+            #                                    self.offspring_dir, self.experiment.orig_batch_size())
+
+            # break
+
             if rs.rand() < config.eval_prob:
                 logger.info('EVAL RUN')
                 try:
@@ -160,8 +165,8 @@ class GAWorker(object):
             # exact copy of the elite, which will be evolved)
             # if index < experiment.num_elites():
             #    policy.evolve_model(task_data.noise_stdev)
-            policy.set_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
-                                   self.offspring_dir)
+            policy.calc_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
+                                    self.offspring_dir)
             policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)

@@ -59,6 +59,8 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                 # print('CAUTION: new tensor size: ', tensor.size())
                 # self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
 
+            logging.info('Params: ', name, param.size(), param.data.abs().mean())
+
             if not self.from_param_file and 'bn' not in name and 'ln' not in name:
                 # exclude batch norm layers from xavier initialization
                 if 'weight' in name:
@@ -113,9 +115,15 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         return torch.empty_like(noise).copy_(noise).numpy()
 
-    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
-        self.sensitivity_wrapper.set_sensitivity(task_id, parent_id, experiences, batch_size, directory,
-                                                 underflow, method)
+    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
+        self.sensitivity_wrapper.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory,
+                                                  underflow, method)
+
+    def set_sensitivity_vector(self, vector):
+        self.sensitivity_wrapper.set_sensitivity(vector)
+
+    def get_sensitivity_vector(self):
+        return self.sensitivity_wrapper.get_sensitivity()
 
     def extract_grad(self):
         tot_size = self.nb_params
@@ -160,8 +168,14 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         assert len(vector) == self.nb_learnable_params
         nn.utils.vector_to_parameters(vector, self.parameters())
 
+    def parameter_vector(self):
+        return nn.utils.parameters_to_vector(self.parameters())
+
     def _contained_forward(self, x, orig_bs=0, i=-1):
         raise NotImplementedError
+
+    # def subject_to_sensitivity_params(self):
+    #     raise NotImplementedError
 
 
 class CompressedModel(SerializableModel):

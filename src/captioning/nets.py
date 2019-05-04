@@ -2,7 +2,7 @@
 Code from https://github.com/ruotianluo/self-critical.pytorch
 """
 import logging
-from collections import namedtuple
+from abc import ABC
 from functools import reduce
 
 import numpy as np
@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from algorithm.nets import PolicyNet
 
 
-class CaptionModel(PolicyNet):
+class CaptionModel(PolicyNet, ABC):
     def __init__(self, rng_state=None, from_param_file=None, grad=False, vbn=False):
         super(CaptionModel, self).__init__(rng_state, from_param_file, grad, vbn)
 
@@ -48,25 +48,29 @@ class CaptionModel(PolicyNet):
             fc_feats = fc_feats[i].unsqueeze(0)
 
         batch_size = fc_feats.size(0)
+        # print('BATCH SIZE ', batch_size)
+
         state = self.init_hidden(batch_size)
         xt = self.img_embed(fc_feats)
 
-        output, state = self.core(xt, state)
+        _, state = self.core(xt, state)
 
         it = fc_feats.data.new(batch_size).long().zero_()
         xt = self.embed(it)
 
-        output, state = self.core(xt, state)
-        # |batch_size| x |vocab size|
-        logprobs = F.log_softmax(self.logit(output), dim=1)
+        for t in range((self.seq_length // 2) + 1):
+            xt = self.embed(it)
+            output, state = self.core(xt, state)
 
-        extended_lp = torch.cat((logprobs, torch.zeros((batch_size, 10**4 - logprobs.size(1)))), 1)
+            # |batch_size| x |vocab size|
+            logprobs = F.log_softmax(self.logit(output), dim=1)
 
-        # print('extended_lp ', extended_lp.size())
+            _, it = torch.max(logprobs.data, 1)
+            it = it.view(-1).long()
 
+        cat_size = split - (logprobs.size(1) % split)
+        extended_lp = torch.cat((logprobs, torch.zeros((batch_size, cat_size))), 1)
         split_lp = extended_lp.split(split, dim=1)
-
-        # print('split_lp ', split_lp.size())
 
         summed_lp = torch.stack(split_lp).sum(2).permute(1, 0)
         # todo del the rest
@@ -311,10 +315,11 @@ class FCModel(CaptionModel):
 
         self.ss_prob = 0.0  # Schedule sampling probability
 
+        # caution order is important when you use safe mutations based on param type!
         self.img_embed = nn.Linear(self.fc_feat_size, self.input_encoding_size)
-        self.core = LSTMCore(opt)
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        self.core = LSTMCore(opt)
 
         # virtual batch normalization
         self.vbn_e = opt.vbn_e

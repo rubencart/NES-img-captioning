@@ -3,7 +3,6 @@ import os
 import time
 
 import torch
-from torch import nn
 
 from algorithm.tools.utils import find_file_with_pattern
 
@@ -21,7 +20,10 @@ class Sensitivity(object):
     def get_sensitivity(self):
         return self.sensitivity
 
-    def set_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
+    def set_sensitivity(self, path):
+        self.sensitivity = torch.load(path)
+
+    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
             # logger.info('Loaded sensitivity for known parent')
@@ -29,7 +31,7 @@ class Sensitivity(object):
                 self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
             except (RuntimeError, EOFError):
                 time.sleep(5)
-                self.set_sensitivity(task_id, parent_id, experiences, batch_size, directory, underflow, method)
+                self.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory, underflow, method)
         else:
 
             start_time = time.time()
@@ -70,6 +72,7 @@ class Sensitivity(object):
     def _calc_sum_sensitivity(self, experiences):
         old_output = self.net._contained_forward(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
+        batch_size = old_output.size(0)
 
         jacobian = torch.zeros(num_outputs, self.net.nb_params)
         grad_output = torch.zeros(*old_output.size())
@@ -90,6 +93,7 @@ class Sensitivity(object):
         # time.sleep(100)
 
         sensitivity = torch.sqrt((jacobian ** 2).sum(0))  # * proportion
+        sensitivity /= batch_size
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity
@@ -119,6 +123,7 @@ class Sensitivity(object):
 
         jacobian = torch.abs(jacobian).mean(2)
         sensitivity = torch.sqrt((jacobian ** 2).sum(0))
+        # sensitivity /= batch_size
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity

@@ -7,10 +7,8 @@
     "eval_prob": 0.1,
     "noise_stdev": 0.002,
     "snapshot_freq": 5,
-    "batch_size": 2,
+    "batch_size": 256,
 
-    "val_batch_size": 256,
-    "num_val_batches": 4,
     "num_val_items": 5000,
 
     "patience": 30,
@@ -20,10 +18,11 @@
 
   "policy_options": {
     "net": "fc_caption",
-    "fitness": "greedy",
+    "fitness": "sc_loss",
 
-    "safe_mutation_underflow": 0.1,
-    "safe_mutations": "SM-G-SUM",
+    "safe_mutation_underflow": 0.5,
+    "safe_mutations": "SM-PARAM-TYPE",
+    "safe_mutation_vector": "logs/sens_test.pth",
 
     "model_options": {
       "input_encoding_size":  128,
@@ -34,6 +33,7 @@
       "fc_feat_size": 2048
     }
   },
+  "_safe_mutation_batch_size": 1024,
 
   "dataset": "mscoco",
 
