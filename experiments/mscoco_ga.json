@@ -22,7 +22,7 @@
 
     "safe_mutation_underflow": 0.5,
     "safe_mutations": "SM-PARAM-TYPE",
-    "safe_mutation_vector": "logs/sens_test.pth",
+    "safe_mutation_vector": "logs/sensitivities/sens_entire_zoned_max_norm.pth",
 
     "model_options": {
       "input_encoding_size":  128,
