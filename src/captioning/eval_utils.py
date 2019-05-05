@@ -45,7 +45,7 @@ def decode_sequence(ix_to_word, seq):
 
 def language_eval(preds, directory, split):
     import sys
-    sys.path.append("cococaption")
+    sys.path.append('cococaption')
     annFile = 'cococaption/annotations/captions_val2014.json'
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
@@ -68,7 +68,7 @@ def language_eval(preds, directory, split):
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt = [p for p in preds if p['image_id'] in valids]
 
-    logging.info('using %d/%d predictions' % (len(preds_filt), len(preds)))
+    # logging.info('using %d/%d predictions' % (len(preds_filt), len(preds)))
 
     with open(cache_path, 'w') as f:
         json.dump(preds_filt, f)  # serialize to temporary json file. Sigh, COCO API...

@@ -84,6 +84,7 @@ class Iteration(ABC):
     def log_stats(self, tlogger):
         tlogger.record_tabular('NoiseStd', self._noise_stdev)
         tlogger.record_tabular('BatchSize', self._batch_size)
+        tlogger.record_tabular('NbSamplesUsed', self._nb_samples_used)
 
         if self._patience:
             tlogger.record_tabular('BadGen', str(self._bad_generations) + '/' + str(self._patience))

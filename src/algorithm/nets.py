@@ -104,8 +104,11 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         param_vector = nn.utils.parameters_to_vector(self.parameters())
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
+        # logging.info('noise %s', noise)
         if safe:
             noise /= self.sensitivity_wrapper.get_sensitivity()
+            # logging.info('sens %s', self.sensitivity_wrapper.get_sensitivity())
+        # logging.info('noise %s', noise)
 
         new_param_vector = param_vector + noise
         self.set_from_vector(new_param_vector)
