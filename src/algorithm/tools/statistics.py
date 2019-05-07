@@ -32,6 +32,7 @@ class Statistics(object):
 
         self._step_tstart = 0
         self._tstart = time.time()
+        self._time_elapsed = 0
 
         self._it_worker_mem_usages = {}
         self._it_master_mem_usages = []
@@ -50,6 +51,7 @@ class Statistics(object):
         self._mem_stats = infos['mem_stats'] if 'mem_stats' in infos else self._mem_stats
         self._update_ratio_stats = infos['update_ratio_stats'] if 'update_ratio_stats' in infos \
             else self._update_ratio_stats
+        self._time_elapsed = infos['time_elapsed'] if 'time_elapsed' in infos else self._time_elapsed
 
     def to_dict(self):
         return {
@@ -62,6 +64,7 @@ class Statistics(object):
             'bs_stats': self._bs_stats,
             'mem_stats': self._mem_stats,
             'update_ratio_stats': self._update_ratio_stats,
+            'time_elapsed': self._time_elapsed,
         }
 
     def plot_stats(self, log_dir):
@@ -119,7 +122,7 @@ class Statistics(object):
 
         step_tend = time.time()
         tlogger.record_tabular('TimeElapsedThisIter', step_tend - self._step_tstart)
-        tlogger.record_tabular('TimeElapsed', step_tend - self._tstart)
+        tlogger.record_tabular('TimeElapsed', self._time_elapsed)
         tlogger.record_tabular('MemUsage', self._mem_stats[1][-1])
 
     def record_score_stats(self, scores: np.ndarray):
@@ -167,6 +170,7 @@ class Statistics(object):
 
     def record_step_time_stats(self):
         step_tend = time.time()
+        self._time_elapsed += step_tend - self._step_tstart
         self._time_stats.append(step_tend - self._step_tstart)
 
     def record_update_ratio(self, update_ratio):
