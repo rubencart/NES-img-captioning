@@ -39,7 +39,8 @@ DATASETS = {
 class Mutation(Enum):
     SAFE_GRAD_SUM = 'SM-G-SUM'
     SAFE_GRAD_ABS = 'SM-G-ABS'
-    SAFE_PARAM_TYPE = 'SM-PARAM-TYPE'
+    SAFE_VECTOR = 'SM-VECTOR'
+    SAFE_PROPORTIONAL = 'SM-PROPORTIONAL'
     DEFAULT = ''
 
 
@@ -94,7 +95,7 @@ class Policy(ABC):
 
     def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations == Mutation.SAFE_PARAM_TYPE and \
+        if self.mutations == Mutation.SAFE_VECTOR and \
                 self.policy_net.get_sensitivity_vector() is None:
             self.policy_net.set_sensitivity_vector(self.options.safe_mutation_vector)
 
@@ -224,8 +225,10 @@ class NetsPolicy(Policy, ABC):
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations != Mutation.DEFAULT:
+        if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS, Mutation.SAFE_VECTOR]:
             return self.policy_net.evolve(sigma, safe=True)
+        elif self.mutations == Mutation.SAFE_PROPORTIONAL:
+            return self.policy_net.evolve(sigma, proportional=True)
         else:
             return self.policy_net.evolve(sigma)
 

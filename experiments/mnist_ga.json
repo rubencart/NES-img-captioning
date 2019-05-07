@@ -6,7 +6,7 @@
 
     "cuda": false,
     "eval_prob": 0.01,
-    "noise_stdev": 0.1,
+    "noise_stdev": 0.05,
     "snapshot_freq": 5,
     "batch_size": 64,
     "patience": 10,
@@ -19,15 +19,18 @@
   "policy_options": {
     "net": "mnist",
     "safe_mutation_underflow": 0.5,
-    "safe_mutations": "SM-G-SUM"
+    "safe_mutations": "SM-PROPORTIONAL"
   },
   "_safe_mutation_underflow": 0.2,
   "_safe_mutations": "SM-G-SUM",
 
   "dataset": "mnist",
-  "population_size": 600,
 
-  "truncation": 30,
+  "population_size": 400,
+  "truncation": 20,
+  "selection": "truncation",
+  "_tournament_size": 10,
+
   "num_elites": 3,
   "num_elite_cands": 3,
 

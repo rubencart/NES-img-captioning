@@ -11,24 +11,16 @@ class Statistics(object):
     Wrapper class for a bunch of running statistics
     """
 
-    DEFAULT_SCORE_STATS = [[], [], []]
-    DEFAULT_SCORE_STDS = []
-    DEFAULT_TIME_STATS = []
-    DEFAULT_ACC_STATS = []
-    DEFAULT_NORM_STATS = []
-    DEFAULT_STD_STATS = []
-    DEFAULT_BS_STATS = []
-    DEFAULT_MEM_STATS = [[], [], []]  # master, virt, worker
-
     def __init__(self):
-        self._score_stats = self.DEFAULT_SCORE_STATS
-        self._score_stds = self.DEFAULT_SCORE_STDS
-        self._time_stats = self.DEFAULT_TIME_STATS
-        self._acc_stats = self.DEFAULT_ACC_STATS
-        self._norm_stats = self.DEFAULT_NORM_STATS
-        self._std_stats = self.DEFAULT_STD_STATS
-        self._bs_stats = self.DEFAULT_BS_STATS
-        self._mem_stats = self.DEFAULT_MEM_STATS
+        self._score_stats = [[], [], []]
+        self._score_stds = []
+        self._time_stats = []
+        self._acc_stats = []
+        self._norm_stats = []
+        self._std_stats = []
+        self._bs_stats = []
+        self._mem_stats = [[], [], []]  # master, virt, worker
+        self._best_acc_so_far_stats = []
 
         self._step_tstart = 0
         self._tstart = time.time()
@@ -52,6 +44,8 @@ class Statistics(object):
         self._update_ratio_stats = infos['update_ratio_stats'] if 'update_ratio_stats' in infos \
             else self._update_ratio_stats
         self._time_elapsed = infos['time_elapsed'] if 'time_elapsed' in infos else self._time_elapsed
+        self._best_acc_so_far_stats = infos['best_acc_so_far_stats'] \
+            if 'best_acc_so_far_stats' in infos else self._best_acc_so_far_stats
 
     def to_dict(self):
         return {
@@ -65,6 +59,7 @@ class Statistics(object):
             'mem_stats': self._mem_stats,
             'update_ratio_stats': self._update_ratio_stats,
             'time_elapsed': self._time_elapsed,
+            'best_acc_so_far_stats': self._best_acc_so_far_stats,
         }
 
     def plot_stats(self, log_dir):
@@ -72,6 +67,7 @@ class Statistics(object):
             'time': (self._time_stats, 'Time per gen'),
             'norm': (self._norm_stats, 'Norm of params'),
             'acc': (self._acc_stats, 'Elite score'),
+            'best_acc': (self._best_acc_so_far_stats, 'Best elite score'),
             'master_mem': (self._mem_stats[0], 'Master mem usage'),
             'worker_mem': (self._mem_stats[2], 'Worker mem usage'),
             'virtmem': (self._mem_stats[1], 'Virt mem usage'),
@@ -112,6 +108,7 @@ class Statistics(object):
         tlogger.record_tabular('RewMin', self._score_stats[0][-1])
         tlogger.record_tabular('RewStd', self._score_stds[-1])
         tlogger.record_tabular('EliteAcc', self._acc_stats[-1])
+        tlogger.record_tabular('BestEliteAcc', self._best_acc_so_far_stats[-1])
 
         # todo apart from norm, would also be interesting to see how far params are from
         # each other in param space (distance between param_vectors)
@@ -139,6 +136,9 @@ class Statistics(object):
 
     def record_acc_stats(self, value):
         self._acc_stats.append(value)
+
+    def record_best_acc_stats(self, value):
+        self._best_acc_so_far_stats.append(value)
 
     def record_norm_stats(self, param_vector):
         # norm = float(np.sqrt(np.square(param_vector).sum()))

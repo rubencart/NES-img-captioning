@@ -21,7 +21,7 @@
     "fitness": "sc_loss",
 
     "safe_mutation_underflow": 0.5,
-    "safe_mutations": "SM-PARAM-TYPE",
+    "safe_mutations": "SM-PROPORTIONAL",
     "safe_mutation_vector": "logs/sensitivities/sens_entire_zoned_max_norm.pth",
 
     "model_options": {
@@ -38,7 +38,10 @@
   "dataset": "mscoco",
 
   "population_size": 20,
-  "truncation": 10,
+  "_truncation": 20,
+  "selection": "tournament",
+  "tournament_size": 5,
+
   "num_elites": 3,
   "num_elite_cands": 3,
 

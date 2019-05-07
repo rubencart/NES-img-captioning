@@ -228,6 +228,7 @@ class GAMaster(object):
                         stats.record_step_time_stats()
                         stats.record_norm_stats(policy.parameter_vector())
                         stats.record_acc_stats(best_ev_acc)
+                        stats.record_best_acc_stats(it.best_elites()[0][1])
                         stats.record_std_stats(it.noise_stdev())
                         stats.update_mem_stats()
 
@@ -266,7 +267,7 @@ class GAMaster(object):
         scores = np.array([fitness for (_, _, fitness) in scored_models])
 
         # pick parents for next generation                            todo - num_elites or not
-        parents = [model for (_, model, _) in scored_models[:truncation]]
+        parents = [model for (_, model, _) in scored_models[:truncation - num_elites]]
         # rest = [model for (_, model, _) in scored_models[truncation - 1:]]
 
         logger.info('Best 5: {}'.format([(i, round(f, 2)) for (i, _, f) in scored_models[:5]]))

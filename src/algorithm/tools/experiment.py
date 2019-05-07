@@ -152,7 +152,7 @@ class GAExperiment(Experiment, ABC):
     def __init__(self, exp, config, master=True):
         super(GAExperiment, self).__init__(exp, config, master)
 
-        self._truncation = exp['truncation']
+        self._truncation = exp['truncation'] if 'truncation' in exp else exp['population_size']
         self._num_elites = exp['num_elites']
         self._num_elite_cands = exp['num_elite_cands']
 

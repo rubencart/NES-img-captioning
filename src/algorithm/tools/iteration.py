@@ -317,6 +317,9 @@ class GAIteration(Iteration):
         self._new_elite_path = os.path.join(self._elite_dir, '0_{i}_elite_params.pth')
         self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
 
+        self._truncation = exp['truncation'] if 'truncation' in exp else self._population_size
+        self._num_elite_cands = exp['num_elite_cands']
+
         self._parents = []
         self._elites_to_evaluate = []
 
@@ -352,38 +355,30 @@ class GAIteration(Iteration):
         self._parents = [(i, self._new_parent_path.format(i=i)) for i, _ in enumerate(infos['parents'])]
 
     def init_from_zero(self, exp, policy):
-        truncation, num_elite_cands = exp['truncation'], exp['num_elite_cands']
-
         # important that this stays None:
         # - if None: workers get None as parent to evaluate so initialize POP_SIZE random initial parents,
         #       of which the best TRUNC get selected ==> first gen: POP_SIZE random parents
         # - if ComprModels: workers get CM as parent ==> first gen: POP_SIZE descendants of
         #       TRUNC random parents == less random!
-        self._parents = [(model_id, None) for model_id in range(truncation)]
+        self._parents = [(model_id, None) for model_id in range(self._truncation)]
 
         # self._elites_to_evaluate = policy.generate_model().serialize(path=self._new_elite_path)
         self._elites_to_evaluate = []
-        for i in range(num_elite_cands):
+        for i in range(self._num_elite_cands):
             cand = policy.generate_model().serialize(path=self._new_elite_path.format(i=i))
             self._elites_to_evaluate.append((i, cand))
 
     def init_from_single(self, param_file_name, exp, policy):
-        truncation, num_elite_cands = exp['truncation'], exp['num_elite_cands']
 
-        self._parents = [
-            (i, policy
-                .generate_model(from_param_file=param_file_name)
-                .serialize(path=self._new_parent_path.format(i=i))
-             )
-            for i in range(truncation)
-        ]
-        self._elites_to_evaluate = [
-            (i, policy
-                .generate_model(from_param_file=param_file_name)
-                .serialize(path=self._new_elite_path.format(i=i))
-             )
-            for i in range(num_elite_cands)
-        ]
+        parent_path = policy \
+            .generate_model(from_param_file=param_file_name) \
+            .serialize(path=self._new_parent_path.format(i=0))
+        elite_path = policy \
+            .generate_model(from_param_file=param_file_name) \
+            .serialize(path=self._new_elite_path.format(i=0))
+
+        self._parents = [(0, parent_path)]
+        self._elites_to_evaluate = [(0, elite_path)]
 
     def record_parents(self, parents, score):
         self._podium.record_parents(parents, score)
@@ -402,7 +397,7 @@ class GAIteration(Iteration):
     def _add_elites_to_parents(self):
         elites = [e for (e, sc) in self.best_elites()]
         parents = [p for (i, p) in self._parents]
-        self._parents = [(i, m) for i, m in enumerate(elites + parents)]
+        self._parents = [(i, m) for i, m in enumerate(elites + elites + parents)]
 
     def _copy_and_clean_parents(self, parents):
         """

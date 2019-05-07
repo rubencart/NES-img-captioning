@@ -51,6 +51,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
     def _initialize_params(self):
         if self.from_param_file:
+            logging.info('From param file!')
             self.load_state_dict(torch.load(self.from_param_file, map_location='cpu'))
 
         for name, param in self.named_parameters():
@@ -58,8 +59,6 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             # if tensor.size() not in self.add_tensors:
                 # print('CAUTION: new tensor size: ', tensor.size())
                 # self.add_tensors[tensor.size()] = torch.Tensor(tensor.size())
-
-            logging.info('Params: %s, %s, %s', name, param.size(), param.data.abs().mean())
 
             if not self.from_param_file and 'bn' not in name and 'ln' not in name:
                 # exclude batch norm layers from xavier initialization
@@ -71,8 +70,10 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
                     # incoming connections to a neuron
                     # nn.init.kaiming_normal_(tensor)
                     nn.init.xavier_normal_(param)
-                else:
+                elif 'bias' in name:
                     param.data.zero_()
+
+            logging.info('Params: %s, %s, %s', name, param.size(), param.data.abs().mean())
 
         self.nb_learnable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         self.nb_params = self._count_parameters()
@@ -84,7 +85,7 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             for param in self.parameters():
                 param.requires_grad = False
 
-    def evolve(self, sigma, rng_state=None, safe=False):
+    def evolve(self, sigma, rng_state=None, safe=False, proportional=False):
         # Evolve params 1 step
         # rng_state = int
         rng = rng_state if rng_state is not None else random_state()
@@ -104,11 +105,13 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         param_vector = nn.utils.parameters_to_vector(self.parameters())
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
-        # logging.info('noise %s', noise)
         if safe:
             noise /= self.sensitivity_wrapper.get_sensitivity()
-            # logging.info('sens %s', self.sensitivity_wrapper.get_sensitivity())
-        # logging.info('noise %s', noise)
+        if proportional:
+            params = torch.empty_like(param_vector).copy_(param_vector)
+            mean = params.mean()
+            params[params == 0.0] = mean
+            noise *= params.abs()
 
         new_param_vector = param_vector + noise
         self.set_from_vector(new_param_vector)

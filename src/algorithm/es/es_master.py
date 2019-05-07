@@ -148,6 +148,7 @@ class ESMaster(object):
                     stats.record_step_time_stats()
                     stats.record_norm_stats(policy.parameter_vector())
                     stats.record_acc_stats(it.score())
+                    stats.record_best_acc_stats(it.best_elites()[0][1])
                     stats.record_std_stats(it.noise_stdev())
                     stats.update_mem_stats()
 

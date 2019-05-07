@@ -145,12 +145,16 @@ class GAWorker(object):
 
         batch_data = copy.deepcopy(task_data.batch_data)
 
-        index = self.rs.randint(len(task_data.parents))
-        # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
-        #   time.sleep(1)
-        #   continue
-        #   index = 0
-        parent_id, parent = task_data.parents[index]
+        if self.config.selection == 'tournament':
+            tournament = self.rs.randint(0, len(task_data.parents), self.config.tournament_size)
+            # parents are sorted highest fitness first so individual winning the tournament
+            # is simply the lowest index sampled
+            index = tournament.min()
+            parent_id, parent = task_data.parents[index]
+        else:
+            # truncation selection, select one uniformly
+            index = self.rs.randint(len(task_data.parents))
+            parent_id, parent = task_data.parents[index]
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
@@ -163,11 +167,10 @@ class GAWorker(object):
             # todo unmodified or not?
             # elite at idx 0 doesn't have to be evolved (last elem of parents list is an
             # exact copy of the elite, which will be evolved)
-            # if index < experiment.num_elites():
-            #    policy.evolve_model(task_data.noise_stdev)
-            policy.calc_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
-                                    self.offspring_dir)
-            policy.evolve_model(task_data.noise_stdev)
+            if index > self.experiment.num_elites():
+                policy.calc_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
+                                        self.offspring_dir)
+                policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
