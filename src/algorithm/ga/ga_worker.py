@@ -67,10 +67,10 @@ class GAWorker(object):
             time.sleep(0.01)
             mem_usages = []
 
-            # deadlocks!!!! if elite hasn't been evaluated when nb files > 2 pop
-            # if len(os.listdir(offspring_dir)) > 2 * exp['population_size']:
-            #     time.sleep(10)
-            #     continue
+            eval_or_evolve = rs.rand()
+            if len(os.listdir(self.offspring_dir)) > 2 * exp['population_size']:
+                time.sleep(30)
+                eval_or_evolve = config.eval_prob - 0.05
 
             task_id, task_data = worker.get_current_task()
             task_tstart = time.time()
@@ -85,7 +85,7 @@ class GAWorker(object):
 
             # break
 
-            if rs.rand() < config.eval_prob:
+            if eval_or_evolve < config.eval_prob:
                 logger.info('EVAL RUN')
                 try:
                     result = self.accuracy(policy, task_data)
