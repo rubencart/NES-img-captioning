@@ -8,7 +8,7 @@ from abc import ABC
 from algorithm.nets import SerializableModel
 from algorithm.tools.podium import Podium
 from algorithm.tools.utils import copy_file_from_to, remove_all_files_from_dir, GAResult, remove_all_files_but, \
-    check_if_filepath_exists, mkdir_p
+    check_if_filepath_exists, mkdir_p, remove_file_if_exists
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +317,8 @@ class GAIteration(Iteration):
         self._new_elite_path = os.path.join(self._elite_dir, '0_{i}_elite_params.pth')
         self._new_parent_path = os.path.join(self._parents_dir, '0_{i}_parent_params.pth')
 
+        self._new_parent_off_path = os.path.join(self._offspring_dir, '0_{i}_parent_params.pth')
+
         self._truncation = exp['truncation'] if 'truncation' in exp else self._population_size
         self._num_elite_cands = exp['num_elite_cands']
 
@@ -351,8 +353,8 @@ class GAIteration(Iteration):
                                     for i, _ in enumerate(infos['elites_to_evaluate'])]
 
         for (i, parent_path) in infos['parents']:
-            copy_file_from_to(parent_path, self._new_parent_path.format(i=i))
-        self._parents = [(i, self._new_parent_path.format(i=i)) for i, _ in enumerate(infos['parents'])]
+            copy_file_from_to(parent_path, self._new_parent_off_path.format(i=i))
+        self._parents = [(i, self._new_parent_off_path.format(i=i)) for i, _ in enumerate(infos['parents'])]
 
     def init_from_zero(self, exp, policy):
         # important that this stays None:
@@ -372,7 +374,7 @@ class GAIteration(Iteration):
 
         parent_path = policy \
             .generate_model(from_param_file=param_file_name) \
-            .serialize(path=self._new_parent_path.format(i=0))
+            .serialize(path=self._new_parent_off_path.format(i=0))
         elite_path = policy \
             .generate_model(from_param_file=param_file_name) \
             .serialize(path=self._new_elite_path.format(i=0))
@@ -381,10 +383,11 @@ class GAIteration(Iteration):
         self._elites_to_evaluate = [(0, elite_path)]
 
     def record_parents(self, parents, score):
-        self._podium.record_parents(parents, score)
+        # self._podium.record_parents(parents, score)
 
         new_parents = [(i, p) for i, p in enumerate(parents)]
         self._parents = self._copy_and_clean_parents(new_parents)
+        # self._parents = copy.copy(new_parents)
         self._add_elites_to_parents()
         self._clean_offspring_dir()
         return None
@@ -405,7 +408,7 @@ class GAIteration(Iteration):
         :return: List<Tuple<int, str: path to parents in parents dir>>
         """
         # remove all parents previously stored in parent dir
-        remove_all_files_from_dir(self.parents_dir())
+        # remove_all_files_from_dir(self.parents_dir())
 
         # copy new parents from offspring dir to parent dir and rename them
         new_parents = []
@@ -413,10 +416,12 @@ class GAIteration(Iteration):
 
             # _, new_parent_filename = os.path.split(parent)
             # new_parent_path = os.path.join(self.parents_dir(), new_parent_filename)
-            new_parent_path = self._new_parent_path.format(i=i)
+            new_parent_path = self._new_parent_off_path.format(i=i)
             new_parents.append((i, new_parent_path))
 
-            copy_file_from_to(parent, new_parent_path)
+            # copy_file_from_to(parent, new_parent_path)
+            remove_file_if_exists(new_parent_path)
+            os.rename(parent, new_parent_path)
 
         return copy.deepcopy(new_parents)
 
@@ -456,7 +461,9 @@ class GAIteration(Iteration):
 
     def _clean_offspring_dir(self):
         # clean offspring dir
-        remove_all_files_from_dir(self.offspring_dir())
+        # remove_all_files_from_dir(self.offspring_dir())
+        remove_all_files_but(self._offspring_dir,
+                             [parent for _, parent in self._parents])
 
     def parents_dir(self):
         return self._parents_dir

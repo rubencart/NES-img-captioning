@@ -68,13 +68,10 @@ class GAWorker(object):
             mem_usages = []
 
             eval_or_evolve = rs.rand()
-            if len(os.listdir(self.offspring_dir)) > 2 * exp['population_size']:
+            if len(os.listdir(self.offspring_dir)) > 3 * exp['population_size']:
                 time.sleep(30)
-                if eval_or_evolve < config.eval_prob:
-                    pass
-                else:
+                if eval_or_evolve > config.eval_prob:
                     continue
-                # eval_or_evolve = config.eval_prob - 0.05
 
             task_id, task_data = worker.get_current_task()
             task_tstart = time.time()

@@ -93,21 +93,21 @@ class Podium(object):
         self._bad_generation = True
         return status
 
-    def record_parents(self, parents, score):
-        best_parent_score, best_parents = self._best_parents
-
-        if not best_parents or (score > best_parent_score):
-            if best_parents:
-                remove_all_files_from_dir(self._best_parents_dir)
-
-            new_best_parents = []
-            for (i, parent) in enumerate(parents):
-
-                new_parent_path = self._new_best_parent_path.format(i=i)
-                new_best_parents.append(new_parent_path)
-                copy_file_from_to(parent, new_parent_path)
-
-            self._best_parents = (score, new_best_parents)
+    # def record_parents(self, parents, score):
+    #     best_parent_score, best_parents = self._best_parents
+    #
+    #     if not best_parents or (score > best_parent_score):
+    #         if best_parents:
+    #             remove_all_files_from_dir(self._best_parents_dir)
+    #
+    #         new_best_parents = []
+    #         for (i, parent) in enumerate(parents):
+    #
+    #             new_parent_path = self._new_best_parent_path.format(i=i)
+    #             new_best_parents.append(new_parent_path)
+    #             copy_file_from_to(parent, new_parent_path)
+    #
+    #         self._best_parents = (score, new_best_parents)
 
             # logger.info('GOOD GENERATION: {}'.format(self._best_parents[0]))
             # return True
