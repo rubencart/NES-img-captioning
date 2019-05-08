@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class Podium(object):
     DEFAULT_BEST_ELITE = [('', float('-inf')), ]
-    DEFAULT_BEST_PARENTS = (float('-inf'), [])
+    DEFAULT_BEST_PARENTS = (-100000, [])
 
     def __init__(self, patience, directory, num_elites):
         self._best_elites = [('', float('-inf')) for _ in range(num_elites)]
