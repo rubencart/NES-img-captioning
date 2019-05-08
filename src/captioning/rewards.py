@@ -108,7 +108,7 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     # [[1], [2], [3]] --> [[1, 1], [2, 2], [3, 3]]
     rewards = np.repeat(scores[:, np.newaxis], gen_result.shape[1], 1)
 
-    return score, rewards
+    return score.item(), rewards.copy()
 
 
 class RewardCriterion(nn.Module):
@@ -123,7 +123,7 @@ class RewardCriterion(nn.Module):
         output = - input * reward * mask
         output = torch.sum(output) / torch.sum(mask)
 
-        return output
+        return torch.empty_like(output).copy_(output)
 
 
 def to_contiguous(tensor):

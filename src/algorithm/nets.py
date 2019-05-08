@@ -106,7 +106,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
         if safe:
+            # logging.info('old noise %s', noise)
             noise /= self.sensitivity_wrapper.get_sensitivity()
+            # logging.info('new noise %s', noise)
         if proportional:
             params = torch.empty_like(param_vector).copy_(param_vector)
             mean = params.mean()
