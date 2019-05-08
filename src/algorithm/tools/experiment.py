@@ -163,7 +163,7 @@ class GAExperiment(Experiment, ABC):
 
             _models_dir = os.path.join(self._log_dir, 'models')
             self._parents_dir = os.path.join(_models_dir, 'parents')
-            self._offspring_dir = os.path.join(_models_dir, 'parents')
+            self._offspring_dir = os.path.join(_models_dir, 'offspring')
             self._elite_dir = os.path.join(_models_dir, 'elite')
 
             mkdir_p(self._parents_dir)
