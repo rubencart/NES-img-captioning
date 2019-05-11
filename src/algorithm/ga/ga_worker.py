@@ -147,7 +147,8 @@ class GAWorker(object):
         batch_data = copy.deepcopy(task_data.batch_data)
 
         if self.config.selection == 'tournament':
-            tournament = self.rs.randint(0, len(task_data.parents), self.config.tournament_size)
+            tournament = self.rs.choice(len(task_data.parents), self.config.tournament_size,
+                                        replace=False)
             # parents are sorted highest fitness first so individual winning the tournament
             # is simply the lowest index sampled
             index = tournament.min()

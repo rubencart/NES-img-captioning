@@ -400,7 +400,7 @@ class GAIteration(Iteration):
     def _add_elites_to_parents(self):
         elites = [e for (e, sc) in self.best_elites()]
         parents = [p for (i, p) in self._parents]
-        self._parents = [(i, m) for i, m in enumerate(elites + elites + parents)]
+        self._parents = [(i, m) for i, m in enumerate(elites + parents)]
 
     def _copy_and_clean_parents(self, parents):
         """
