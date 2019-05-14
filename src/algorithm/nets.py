@@ -3,6 +3,7 @@ contains code from https://github.com/uber-research/safemutations
 and https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 """
 import logging
+from enum import Enum
 
 import torch
 from abc import abstractmethod, ABC
@@ -13,6 +14,14 @@ from algorithm.ga.safe_mutations import Sensitivity
 from algorithm.tools.utils import random_state
 
 logger = logging.getLogger(__name__)
+
+
+class Mutation(Enum):
+    SAFE_GRAD_SUM = 'SM-G-SUM'
+    SAFE_GRAD_ABS = 'SM-G-ABS'
+    SAFE_VECTOR = 'SM-VECTOR'
+    SAFE_PROPORTIONAL = 'SM-PROPORTIONAL'
+    DEFAULT = ''
 
 
 class SerializableModel:
@@ -47,7 +56,10 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         self.eval()
 
-        self.sensitivity_wrapper = Sensitivity(self)
+        self.sensitivity_wrapper = Sensitivity(self, options.safe_mutation_underflow, options.safe_mutations)
+        self.mutations = Mutation(options.safe_mutations)
+        if self.mutations == Mutation.SAFE_VECTOR:
+            self.set_sensitivity_vector(options.safe_mutation_vector)
 
     def _initialize_params(self):
         if self.from_param_file:
@@ -85,35 +97,34 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
             for param in self.parameters():
                 param.requires_grad = False
 
-    def evolve(self, sigma, rng_state=None, safe=False, proportional=False):
+    def evolve(self, sigma, rng_state=None):
         # Evolve params 1 step
         # rng_state = int
         rng = rng_state if rng_state is not None else random_state()
 
         torch.manual_seed(rng)
-        # todo this is needed for when in seeds mode we want to be able to evolve uncompressed networks
-        # as well (not strictly necessary)
-        # self.evolve_states.append((sigma, rng))
 
-        # for name, tensor in sorted(self.named_parameters()):
-        #     to_add = self.add_tensors[tensor.size()]
-        #     # fill to_add elements sampled from normal distr
-        #     to_add.normal_(mean=0.0, std=sigma)
-        #     tensor.data.add_(to_add.to(tensor.device))
-        #     tensor.requires_grad = False
+        safe, proportional = False, False
+        if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS, Mutation.SAFE_VECTOR]:
+            safe = True
+        elif self.mutations == Mutation.SAFE_PROPORTIONAL:
+            proportional = True
 
         param_vector = nn.utils.parameters_to_vector(self.parameters())
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
         if safe:
-            # logging.info('old noise %s', noise)
+            logging.info('old noise %s', noise)
             noise /= self.sensitivity_wrapper.get_sensitivity()
-            # logging.info('new noise %s', noise)
+            logging.info('new noise %s', noise)
         if proportional:
+            logging.info('old noise %s', noise)
             params = torch.empty_like(param_vector).copy_(param_vector)
-            mean = params.mean()
+            mean = params.abs().mean()
+            logging.info('mean: %s', mean)
             params[params == 0.0] = mean
             noise *= params.abs()
+            logging.info('new noise %s', noise)
 
         new_param_vector = param_vector + noise
         self.set_from_vector(new_param_vector)
@@ -123,9 +134,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         return torch.empty_like(noise).copy_(noise).numpy()
 
-    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
-        self.sensitivity_wrapper.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory,
-                                                  underflow, method)
+    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
+        if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS]:
+            self.sensitivity_wrapper.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory)
 
     def set_sensitivity_vector(self, vector):
         self.sensitivity_wrapper.set_sensitivity(vector)

@@ -73,6 +73,7 @@ class GenPolicy(Policy, ABC):
         reward, rewards = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
                                                    att_masks, data, gen_result, self_critical)
 
+        # todo change name loss (because we actually use - loss, to maximize)
         if fitness == Fitness.SC_LOSS:
             rl_crit = RewardCriterion()
 

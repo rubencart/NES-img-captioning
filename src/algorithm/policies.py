@@ -36,23 +36,16 @@ DATASETS = {
 }
 
 
-class Mutation(Enum):
-    SAFE_GRAD_SUM = 'SM-G-SUM'
-    SAFE_GRAD_ABS = 'SM-G-ABS'
-    SAFE_VECTOR = 'SM-VECTOR'
-    SAFE_PROPORTIONAL = 'SM-PROPORTIONAL'
-    DEFAULT = ''
-
-
 _opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness',
                'vbn', 'safe_mutation_batch_size', 'safe_mutation_vector']
 PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields,
-                           defaults=[None, '', None, 0.01, None, False, 32, None])
+                           defaults=[None, '', {}, 0.01, None, False, 32, None])
 
 _model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
                      # todo dropout can go
                      'drop_prob_lm', 'seq_length', 'fc_feat_size', 'vbn', 'vbn_e', 'vbn_affine', 'layer_n',
-                     'layer_n_affine']
+                     'layer_n_affine', 'safe_mutation_underflow', 'safe_mutations', 'safe_mutation_vector',
+                     'safe_mutation_batch_size']
 ModelOptions = namedtuple('ModelOptions', field_names=_model_opt_fields,
                           defaults=(None,) * len(_model_opt_fields))
 
@@ -60,16 +53,16 @@ ModelOptions = namedtuple('ModelOptions', field_names=_model_opt_fields,
 class Policy(ABC):
     def __init__(self, dataset: SuppDataset, options: PolicyOptions):
         if dataset == SuppDataset.MSCOCO:
-            self.model_options = ModelOptions(**options.model_options)
-
+            # self.model_options = ModelOptions(  # safe_mutation_underflow=options.safe_mutation_underflow,
+            #                                   **options.model_options)
             from captioning.policies import Fitness
             self.fitness = Fitness(options.fitness if options.fitness else Fitness.DEFAULT)
         else:
-            self.model_options = None
+            # self.model_options = None
             self.fitness = None
 
         self.policy_net: PolicyNet = None
-        self.serial_net = None
+        # self.serial_net = None
 
         assert isinstance(dataset, SuppDataset)
         self.dataset = dataset
@@ -77,7 +70,8 @@ class Policy(ABC):
         self.options = options
         self.vbn = bool(options.vbn)
         self.ref_batch = None
-        self.mutations = Mutation(options.safe_mutations)
+        self.model_options = ModelOptions(**options.model_options)
+        # self.mutations = Mutation(options.safe_mutations)
         # if self.mutations == Mutation.SAFE_PARAM_TYPE:
         #     self.policy_net.set_sensitivity_vector(options.safe_mutation_vector)
 
@@ -95,14 +89,15 @@ class Policy(ABC):
 
     def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations == Mutation.SAFE_VECTOR and \
-                self.policy_net.get_sensitivity_vector() is None:
-            self.policy_net.set_sensitivity_vector(self.options.safe_mutation_vector)
-
-        elif self.mutations == Mutation.SAFE_GRAD_SUM or self.mutations == Mutation.SAFE_GRAD_ABS:
-            underflow = self.options.safe_mutation_underflow
-            self.policy_net.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory,
-                                             underflow, self.mutations)
+        self.policy_net.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory)
+        # if self.mutations == Mutation.SAFE_VECTOR and \
+        #         self.policy_net.get_sensitivity_vector() is None:
+        #     self.policy_net.set_sensitivity_vector(self.options.safe_mutation_vector)
+        #
+        # elif self.mutations == Mutation.SAFE_GRAD_SUM or self.mutations == Mutation.SAFE_GRAD_ABS:
+        #     # underflow = self.options.safe_mutation_underflow
+        #     self.policy_net.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory,
+        #                                      self.mutations)
 
     def set_ref_batch(self, ref_batch):
         self.ref_batch = ref_batch
@@ -225,12 +220,13 @@ class NetsPolicy(Policy, ABC):
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS, Mutation.SAFE_VECTOR]:
-            return self.policy_net.evolve(sigma, safe=True)
-        elif self.mutations == Mutation.SAFE_PROPORTIONAL:
-            return self.policy_net.evolve(sigma, proportional=True)
-        else:
-            return self.policy_net.evolve(sigma)
+        self.policy_net.evolve(sigma)
+        # if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS, Mutation.SAFE_VECTOR]:
+        #     return self.policy_net.evolve(sigma, safe=True)
+        # elif self.mutations == Mutation.SAFE_PROPORTIONAL:
+        #     return self.policy_net.evolve(sigma, proportional=True)
+        # else:
+        #     return self.policy_net.evolve(sigma)
 
     def get_model(self):
         return self.policy_net

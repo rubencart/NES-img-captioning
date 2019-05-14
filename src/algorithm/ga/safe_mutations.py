@@ -12,26 +12,31 @@ logger = logging.getLogger(__name__)
 
 class Sensitivity(object):
 
-    def __init__(self, net):
-        self.sensitivity = None
+    def __init__(self, net, underflow, method):
+        self._sensitivity = None
         self.net = net
         self._orig_batch_size = 0
+        self._underflow = underflow
+        self._type = method
 
     def get_sensitivity(self):
-        return self.sensitivity
+        return self._sensitivity
 
     def set_sensitivity(self, path):
-        self.sensitivity = torch.load(path)
+        sensitivity = torch.load(path)
+        sensitivity[sensitivity < self._underflow] = self._underflow
+        sensitivity /= sensitivity.min()
+        self._sensitivity = sensitivity
 
-    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory, underflow, method):
+    def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
             # logger.info('Loaded sensitivity for known parent')
             try:
-                self.sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+                self._sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
             except (RuntimeError, EOFError):
                 time.sleep(5)
-                self.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory, underflow, method)
+                self.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory)
         else:
 
             start_time = time.time()
@@ -42,8 +47,8 @@ class Sensitivity(object):
             if self._orig_batch_size == 0:
                 self._orig_batch_size = batch_size
 
-            sensitivity = self._calc_sensitivity(experiences, method)
-            sensitivity[sensitivity < underflow] = underflow
+            sensitivity = self._calc_sensitivity(experiences)
+            sensitivity[sensitivity < self._underflow] = self._underflow
 
             torch.set_grad_enabled(False)
             for param in self.net.parameters():
@@ -56,17 +61,17 @@ class Sensitivity(object):
                         .format(time_elapsed, batch_size))
             torch.save(sensitivity.clone().detach().requires_grad_(False),
                        os.path.join(directory, sensitivity_filename))
-            self.sensitivity = sensitivity.clone().detach().requires_grad_(False)
+            self._sensitivity = sensitivity.clone().detach().requires_grad_(False)
             logger.info('Sensitivity parent {}: min {:.2f}, mean {:.2f}, max {:.2f}'
                         .format(parent_id, sensitivity.min().item(), sensitivity.mean().item(),
                                 sensitivity.max().item()))
             del sensitivity, experiences
 
-    def _calc_sensitivity(self, experiences, method):
-        from algorithm.policies import Mutation
-        if method == Mutation.SAFE_GRAD_SUM:
+    def _calc_sensitivity(self, experiences):
+        from algorithm.nets import Mutation
+        if self._type == Mutation.SAFE_GRAD_SUM:
             return self._calc_sum_sensitivity(experiences)
-        elif method == Mutation.SAFE_GRAD_ABS:
+        elif self._type == Mutation.SAFE_GRAD_ABS:
             return self._calc_abs_sensitivity(experiences)
 
     def _calc_sum_sensitivity(self, experiences):

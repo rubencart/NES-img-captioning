@@ -117,7 +117,8 @@ class BlockSlidesNet32(nn.Module):
 
 class MnistNet(PolicyNet):
     def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
-        super(MnistNet, self).__init__(rng_state=rng_state, from_param_file=from_param_file, grad=grad, vbn=vbn)
+        super(MnistNet, self).__init__(rng_state=rng_state, from_param_file=from_param_file, grad=grad,
+                                       options=options, vbn=vbn)
 
         self.conv1 = nn.Conv2d(1, 10, 5, 1)
         self.conv2 = nn.Conv2d(10, 20, 5, 1)

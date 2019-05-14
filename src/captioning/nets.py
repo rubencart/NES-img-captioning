@@ -16,8 +16,8 @@ from algorithm.nets import PolicyNet
 
 
 class CaptionModel(PolicyNet, ABC):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False, vbn=False):
-        super(CaptionModel, self).__init__(rng_state, from_param_file, grad, vbn)
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
+        super(CaptionModel, self).__init__(rng_state, from_param_file, grad, options, vbn)
 
     # implements beam search
     # calls beam_step and returns the final set of beams
@@ -301,7 +301,7 @@ class LSTMCore(nn.Module):
 
 class FCModel(CaptionModel):
     def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
-        super(FCModel, self).__init__(rng_state, from_param_file, grad, vbn)
+        super(FCModel, self).__init__(rng_state, from_param_file, grad, options, vbn)
         opt = options
 
         self.vocab_size = opt.vocab_size
@@ -444,7 +444,8 @@ class FCModel(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def _sample(self, fc_feats, att_feats=None, att_masks=None, opt={}):
+    def _sample(self, fc_feats, att_feats=None, att_masks=None, opt=None):
+        opt = {} if opt is None else opt
         # sample_max = 1 --> greedy? 0 --> random?
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)

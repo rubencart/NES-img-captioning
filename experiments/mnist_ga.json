@@ -18,23 +18,26 @@
 
   "policy_options": {
     "net": "mnist",
-    "safe_mutation_underflow": 0.5,
-    "safe_mutations": ""
+
+    "model_options": {
+      "safe_mutation_underflow": 0.5,
+      "safe_mutations": "SM-PROPORTIONAL"
+    }
   },
   "_safe_mutation_underflow": 0.2,
   "_safe_mutations": "SM-G-SUM",
 
   "dataset": "mnist",
 
-  "population_size": 400,
-  "_truncation": 20,
+  "population_size": 50,
+  "truncation": 20,
   "selection": "tournament",
-  "tournament_size": 15,
+  "tournament_size": 5,
 
   "num_elites": 3,
   "num_elite_cands": 3,
 
-  "_from_infos": "logs/es_mnist_mnist_nets_98538/snapshot/z_info_e1_i37-235.json",
+  "from_infos": "logs/ga_mnist_mnist_28900/snapshot/z_info_e2_i129-469.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
 }
