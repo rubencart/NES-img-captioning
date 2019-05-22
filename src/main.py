@@ -144,7 +144,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
                 logging.warning('****************************************************')
 
                 [p.kill() for p in processes]
-                processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+                processes = spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg)
                 counter += 1
             if counter > 20:
                 [p.kill() for p in processes]
