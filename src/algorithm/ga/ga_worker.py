@@ -70,7 +70,7 @@ class GAWorker(object):
             eval_or_evolve = rs.rand()
             if len(os.listdir(self.offspring_dir)) > 3 * exp['population_size']:
                 time.sleep(10)
-                if eval_or_evolve > config.eval_prob:
+                if eval_or_evolve >= config.eval_prob:
                     continue
 
             task_id, task_data = worker.get_current_task()

@@ -220,7 +220,7 @@ class NetsPolicy(Policy, ABC):
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        self.policy_net.evolve(sigma)
+        return self.policy_net.evolve(sigma)
         # if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS, Mutation.SAFE_VECTOR]:
         #     return self.policy_net.evolve(sigma, safe=True)
         # elif self.mutations == Mutation.SAFE_PROPORTIONAL:
