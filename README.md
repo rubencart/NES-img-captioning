@@ -26,9 +26,17 @@ conda install psutil
 conda install -c pytorch pytorch torchvision
 pip install -r requirements.txt
 
+(you need gcc, otherwise run `sudo apt install gcc` and then `make distclean` and `make`)
+redis:
+curl -O http://download.redis.io/redis-stable.tar.gz
+tar xzvf redis-stable.tar.gz
+cd redis-stable
+
 Needs ts from moreutils and tee (unix packages)
 https://superuser.com/questions/1174408/can-you-prefix-each-line-written-with-tee-with-the-current-date-and-time
 https://git-scm.com/book/en/v2/Git-Tools-Submodules
+
+And you need data in .data/, mkdir logs, mkdir output
 
 #### Distributed application
 
@@ -43,7 +51,9 @@ https://bugs.python.org/issue33725
 
 ```
 screen -S redis
-echo never > /sys/kernel/mm/transparent_hugepage/enabled as root
+sudo su
+echo never > /sys/kernel/mm/transparent_hugepage/enabled
+exit
 . src/scripts/local_run_redis.sh
 
 screen -S ga

@@ -68,7 +68,7 @@ class GAWorker(object):
             mem_usages = []
 
             eval_or_evolve = rs.rand()
-            if len(os.listdir(self.offspring_dir)) > 3 * exp['population_size']:
+            if len(os.listdir(self.offspring_dir)) > 3 * self.experiment.population_size():
                 time.sleep(10)
                 if eval_or_evolve >= config.eval_prob:
                     continue
@@ -146,8 +146,9 @@ class GAWorker(object):
 
         batch_data = copy.deepcopy(task_data.batch_data)
 
-        if self.config.selection == 'tournament':
-            tournament = self.rs.choice(len(task_data.parents), self.config.tournament_size,
+        if self.experiment.selection() == 'tournament':
+            tournament = self.rs.choice(len(task_data.parents),
+                                        min(len(task_data.parents), self.experiment.tournament_size()),
                                         replace=False)
             # parents are sorted highest fitness first so individual winning the tournament
             # is simply the lowest index sampled

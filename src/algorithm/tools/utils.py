@@ -18,7 +18,6 @@ config_fields = [
     'l2coeff', 'noise_stdev', 'stdev_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
     'return_proc_mode', 'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
     'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor',
-    'selection', 'tournament_size'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 

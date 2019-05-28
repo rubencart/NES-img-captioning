@@ -155,6 +155,8 @@ class GAExperiment(Experiment, ABC):
         self._truncation = exp['truncation'] if 'truncation' in exp else exp['population_size']
         self._num_elites = exp['num_elites']
         self._num_elite_cands = exp['num_elite_cands']
+        self._tournament_size = exp['tournament_size'] if 'tournament_size' in exp else None
+        self._selection = exp['selection'] if 'selection' in exp else 'truncation'
 
         assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
         self._mode = exp['mode']
@@ -172,6 +174,12 @@ class GAExperiment(Experiment, ABC):
 
     def truncation(self):
         return self._truncation
+
+    def selection(self):
+        return self._selection
+
+    def tournament_size(self):
+        return self._tournament_size
 
     def parents_dir(self):
         assert self._master
