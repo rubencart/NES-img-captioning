@@ -108,6 +108,7 @@ class Iteration(ABC):
         best_sc, best_ind = float('-inf'), None
 
         elite_candidates = []
+        logger.info('Eval results: {}'.format(self._eval_results))
         for (ind, sc) in self._eval_results.values():
             if check_if_filepath_exists(ind):
                 elite_candidates.append((ind, sc))
@@ -457,7 +458,7 @@ class GAIteration(Iteration):
     def models_left_to_eval(self):
         evaluated = set(self._eval_results.keys())
         # return not all([idx in evaluated for idx, _ in self._elites_to_evaluate])
-        return len(evaluated) < len(self._elites_to_evaluate) / 2.0
+        return len(evaluated) < len(self._elites_to_evaluate) - 1
 
     def _clean_offspring_dir(self):
         # clean offspring dir

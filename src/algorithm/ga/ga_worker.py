@@ -16,6 +16,8 @@ from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
 from algorithm.tools.utils import GAResult, mkdir_p
 
+logger = logging.getLogger(__name__)
+
 
 class GAWorker(object):
 
@@ -48,7 +50,7 @@ class GAWorker(object):
     # @profile(stream=open('output/memory_profile_worker.txt', 'w+'))
     # @profile
     def run_worker(self):
-        logger = logging.getLogger(__name__)
+        # logger = logging.getLogger(__name__)
 
         logger.info('run_worker: {}'.format(locals()))
         torch.set_grad_enabled(False)
@@ -89,7 +91,7 @@ class GAWorker(object):
             if eval_or_evolve < config.eval_prob:
                 logger.info('EVAL RUN')
                 try:
-                    result = self.accuracy(policy, task_data)
+                    result = self.accuracy(task_id, policy, task_data)
                     worker.push_result(task_id, result)
 
                 except FileNotFoundError as e:
@@ -116,7 +118,7 @@ class GAWorker(object):
             gc.collect()
             # self.write_alive_tensors()
 
-    def accuracy(self, policy, task_data):
+    def accuracy(self, task_id, policy, task_data):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
@@ -129,6 +131,8 @@ class GAWorker(object):
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         score = policy.accuracy_on(self.experiment.valloader, self.config, self.eval_dir)
+        logger.info('Iteration: {}, CIDEr: {}'.format(task_id, score))
+
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         # del task_data, cand, score

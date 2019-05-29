@@ -103,7 +103,7 @@ class GenPolicy(Policy, ABC):
 
         lang_stats = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
 
-        logging.info('CIDEr: {}'.format(float(lang_stats['CIDEr'])))
+        # logging.info('CIDEr: {}'.format(float(lang_stats['CIDEr'])))
         return float(lang_stats['CIDEr'])
 
 
