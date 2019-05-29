@@ -458,7 +458,7 @@ class GAIteration(Iteration):
     def models_left_to_eval(self):
         evaluated = set(self._eval_results.keys())
         # return not all([idx in evaluated for idx, _ in self._elites_to_evaluate])
-        return len(evaluated) < len(self._elites_to_evaluate) - 1
+        return len(evaluated) < len(self._elites_to_evaluate)
 
     def _clean_offspring_dir(self):
         # clean offspring dir
