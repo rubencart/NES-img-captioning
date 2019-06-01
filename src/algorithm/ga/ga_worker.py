@@ -172,12 +172,10 @@ class GAWorker(object):
         else:
             policy.set_model(parent)
             # todo unmodified or not?
-            # elite at idx 0 doesn't have to be evolved (last elem of parents list is an
-            # exact copy of the elite, which will be evolved)
-            if task_id == 0 or index > self.experiment.num_elites():
-                policy.calc_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
-                                        self.offspring_dir)
-                policy.evolve_model(task_data.noise_stdev)
+            # if task_id == 0 or index > self.experiment.num_elites():
+            policy.calc_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
+                                    self.offspring_dir)
+            policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
