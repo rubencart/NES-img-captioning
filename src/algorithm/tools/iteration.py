@@ -124,7 +124,7 @@ class Iteration(ABC):
 
                 logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
                 self._noise_stdev /= self._stdev_divisor
-                self._batch_size *= self._bs_multiplier
+                self._batch_size = int(self._batch_size * self._bs_multiplier)
                 self._bad_generations = 0
                 self._times_orig_bs *= self._bs_multiplier
                 self._patience_reached = True
