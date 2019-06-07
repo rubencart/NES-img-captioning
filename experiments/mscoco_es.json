@@ -4,21 +4,21 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.1,
-    "noise_stdev": 0.001,
+    "eval_prob": 0.002,
+    "noise_stdev": 0.003,
     "snapshot_freq": 5,
-    "batch_size": 2,
+    "batch_size": 256,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
 
-    "patience": 30,
+    "patience": 15,
     "stdev_divisor": 2,
-    "bs_multiplier": 2,
-    "stepsize_divisor": 2,
+    "bs_multiplier": 1,
+    "stepsize_divisor": 1,
 
     "ref_batch_size": 2,
-    "l2coeff": 0.0002,
+    "l2coeff": 0.0,
     "return_proc_mode": "centered_rank"
   },
 
@@ -27,10 +27,11 @@
     "fitness": "greedy",
     "vbn": false,
 
-    "safe_mutation_underflow": 0.1,
-    "safe_mutations": "",
 
     "model_options": {
+      "safe_mutations": "",
+      "safe_mutation_underflow": 0.1,
+
       "vbn_e": false,
       "vbn_affine": false,
       "layer_n": false,
@@ -48,17 +49,17 @@
   "optimizer_options": {
     "type": "adam",
     "args": {
-      "stepsize": 0.01
+      "stepsize": 0.001
     }
   },
 
   "dataset": "mscoco",
 
-  "population_size": 10,
-  "num_elites": 2,
+  "population_size": 1000,
+  "num_elites": 1,
 
-  "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
-  "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
+  "_from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
+  "from_infos": "logs/es_mscoco_fc_caption_4196/snapshot/z_info_e4_i227-442.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
@@ -72,6 +73,6 @@
     "input_box_dir": "",
 
     "seq_per_img": 5,
-    "train_only": 1
+    "train_only": 0
   }
 }

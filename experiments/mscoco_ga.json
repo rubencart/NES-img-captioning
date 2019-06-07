@@ -4,25 +4,25 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.1,
-    "noise_stdev": 0.002,
+    "eval_prob": 0.006, 
+    "noise_stdev": 0.05,
     "snapshot_freq": 5,
-    "batch_size": 4,
+    "batch_size": 256,
 
     "num_val_items": 5000,
 
     "patience": 30,
-    "stdev_divisor": 2,
-    "bs_multiplier": 2
+    "stdev_divisor": 1.414,
+    "bs_multiplier": 1
   },
 
   "policy_options": {
     "net": "fc_caption",
-    "fitness": "sc_loss",
+    "fitness": "greedy",
 
     "model_options": {
       "safe_mutation_underflow": 0.5,
-      "safe_mutations": "SM-PROPORTIONAL",
+      "safe_mutations": "",
       "safe_mutation_vector": "",
 
       "input_encoding_size":  128,
@@ -33,20 +33,19 @@
       "fc_feat_size": 2048
     }
   },
-  "_safe_mutation_batch_size": "logs/sensitivities/sens_entire_trainset.pth",
 
   "dataset": "mscoco",
 
-  "population_size": 20,
-  "_truncation": 20,
+  "population_size": 1000,
+  "truncation": 100,
   "selection": "tournament",
   "tournament_size": 5,
 
   "num_elites": 3,
-  "num_elite_cands": 3,
+  "num_elite_cands": 2,
 
-  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
-  "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
+  "_from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
+  "from_infos": "logs/ga_mscoco_fc_caption_24173/snapshot/z_info_e6_i450-442.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
