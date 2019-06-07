@@ -4,15 +4,15 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.1,
+    "eval_prob": 0.003,
     "noise_stdev": 0.003,
     "snapshot_freq": 5,
-    "batch_size": 2,
+    "batch_size": 128,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
 
-    "patience": 15,
+    "patience": 20,
     "stdev_divisor": 2,
     "bs_multiplier": 1,
     "stepsize_divisor": 1,
@@ -21,14 +21,13 @@
     "l2coeff": 0.0,
     "return_proc_mode": "centered_rank",
 
-    "single_batch": true
+    "single_batch": false
   },
 
   "policy_options": {
     "net": "fc_caption",
     "fitness": "greedy",
     "vbn": false,
-
 
     "model_options": {
       "safe_mutations": "",
@@ -57,7 +56,7 @@
 
   "dataset": "mscoco",
 
-  "population_size": 5,
+  "population_size": 1000,
   "num_elites": 1,
 
   "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",

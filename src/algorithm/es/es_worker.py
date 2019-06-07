@@ -137,7 +137,6 @@ class ESWorker(object):
             if loader.batch_size != task_data.batch_size:
                 self.experiment.increase_loader_batch_size(task_data.batch_size)
             batch_data = next(iter(loader))
-            logger.info('took batch with {}'.format(batch_data))
 
         current_path = task_data.current
         policy.set_model(current_path)
