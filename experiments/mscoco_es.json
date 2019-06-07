@@ -4,10 +4,10 @@
   "config": {
     "cuda": false,
 
-    "eval_prob": 0.002,
+    "eval_prob": 0.1,
     "noise_stdev": 0.003,
     "snapshot_freq": 5,
-    "batch_size": 256,
+    "batch_size": 2,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
@@ -19,7 +19,9 @@
 
     "ref_batch_size": 2,
     "l2coeff": 0.0,
-    "return_proc_mode": "centered_rank"
+    "return_proc_mode": "centered_rank",
+
+    "single_batch": true
   },
 
   "policy_options": {
@@ -55,11 +57,11 @@
 
   "dataset": "mscoco",
 
-  "population_size": 1000,
+  "population_size": 5,
   "num_elites": 1,
 
-  "_from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
-  "from_infos": "logs/es_mscoco_fc_caption_4196/snapshot/z_info_e4_i227-442.json",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
+  "_from_infos": "logs/es_mscoco_fc_caption_4196/snapshot/z_info_e4_i227-442.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",

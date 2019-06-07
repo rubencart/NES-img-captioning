@@ -63,6 +63,7 @@ screen -S ga
 Caution order is important when you use safe mutations based on param type!
 
 Truncation should be smaller than population size!
+elite_cands should also be smaller than pop_size and truncation
 
 Caution you need population_size * <size of one param.pth file> disk space! For a 3M param network with an 11MB param file this is ~12GB.
 

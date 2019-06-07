@@ -21,7 +21,7 @@ from algorithm.tools import tabular_logger as tlogger
 logger = logging.getLogger(__name__)
 
 
-es_task_fields = ['current', 'batch_data', 'noise_stdev', 'log_dir', 'ref_batch']
+es_task_fields = ['current', 'batch_data', 'noise_stdev', 'log_dir', 'ref_batch', 'batch_size']
 ESTask = namedtuple('ESTask', field_names=es_task_fields, defaults=(None,) * len(es_task_fields))
 
 result_fields = ['worker_id', 'eval_score', 'evolve_noise', 'fitness', 'mem_usage']
@@ -82,7 +82,8 @@ class ESMaster(object):
                         current=it.current_model(),
                         batch_data=data,
                         noise_stdev=it.get_noise_stdev(),
-                        ref_batch=experiment.get_ref_batch()
+                        ref_batch=experiment.get_ref_batch(),
+                        batch_size=it.batch_size()
                     ))
 
                     tlogger.log('********** Iteration {} **********'.format(it.iteration()))
@@ -137,7 +138,7 @@ class ESMaster(object):
 
                     if it.patience_reached():
                         experiment.increase_loader_batch_size(it.batch_size())
-                        optimizer.stepsize *= config.stepsize_divisor
+                        optimizer.stepsize /= config.stepsize_divisor
 
                     # print('flat', it.flat_fitnesses())
 

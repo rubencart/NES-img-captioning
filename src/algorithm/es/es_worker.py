@@ -10,11 +10,13 @@ import numpy as np
 import torch
 # from memory_profiler import profile
 from algorithm.es.es_master import ESTask, ESResult
-from algorithm.tools.experiment import GAExperiment
+from algorithm.tools.experiment import ESExperiment
 from dist import WorkerClient
 from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
 from algorithm.tools.utils import mkdir_p
+
+logger = logging.getLogger(__name__)
 
 
 class ESWorker(object):
@@ -35,7 +37,7 @@ class ESWorker(object):
         setup_tuple = setup_worker(self.exp)
         self.config: Config = setup_tuple[0]
         self.policy: Policy = setup_tuple[1]
-        self.experiment: GAExperiment = setup_tuple[2]
+        self.experiment: ESExperiment = setup_tuple[2]
 
         self.placeholder = torch.FloatTensor(1)
 
@@ -68,7 +70,7 @@ class ESWorker(object):
             if rs.rand() < config.eval_prob:
                 logger.info('EVAL RUN')
                 try:
-                    result = self.accuracy(policy, task_data)
+                    result = self.accuracy(task_id, policy, task_data)
                     worker.push_result(task_id, result)
 
                 except FileNotFoundError as e:
@@ -95,7 +97,7 @@ class ESWorker(object):
             gc.collect()
             # self.write_alive_tensors()
 
-    def accuracy(self, policy, task_data):
+    def accuracy(self, task_id, policy, task_data):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
@@ -108,6 +110,8 @@ class ESWorker(object):
         score = policy.accuracy_on(self.experiment.valloader, self.config, self.eval_dir)
         # print(score)
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
+        logger.info('Iteration: {}, CIDEr: {}'.format(task_id, score))
 
         # del task_data, cand, score
         return ESResult(
@@ -126,7 +130,15 @@ class ESWorker(object):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        batch_data = copy.deepcopy(task_data.batch_data)
+        if self.config.single_batch:
+            batch_data = copy.deepcopy(task_data.batch_data)
+        else:
+            loader = self.experiment.get_trainloader()
+            if loader.batch_size != task_data.batch_size:
+                self.experiment.increase_loader_batch_size(task_data.batch_size)
+            batch_data = next(iter(loader))
+            logger.info('took batch with {}'.format(batch_data))
+
         current_path = task_data.current
         policy.set_model(current_path)
         current_params = policy.parameter_vector()
