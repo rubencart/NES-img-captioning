@@ -69,6 +69,8 @@ Caution you need population_size * <size of one param.pth file> disk space! For 
 
 if num_val_batches not in config: val on entire val set
 
+Caution resuming an experiment exactly is not always possible (state of optimizers in ES experiment for example)
+
 Example json:
 ```
 {

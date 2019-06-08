@@ -1,8 +1,10 @@
 import json
+import logging
 import os
 from abc import ABC
 from collections import namedtuple
 
+import numpy as np
 import torch
 import torchvision
 from torchvision.transforms import transforms
@@ -10,6 +12,8 @@ from torchvision.transforms import transforms
 from algorithm.es.optimizers import SGD, Adam
 from algorithm.policies import SuppDataset
 from algorithm.tools.utils import mkdir_p
+
+logger = logging.getLogger(__name__)
 
 
 class Experiment(ABC):
@@ -134,14 +138,35 @@ class ESExperiment(Experiment, ABC):
 
         if master:
             self.Optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer_options']['type']]
+            self.optimizer = self.Optimizer(np.zeros(1), **exp['optimizer_options']['args'])
+            self.optimizer_path = os.path.join(self.snapshot_dir(), 'optimizer.tar')
             self.ref_batch_size = config.ref_batch_size if config.ref_batch_size else config.batch_size
             self.ref_batch = self.take_ref_batch(self.ref_batch_size)
 
     def init_optimizer(self, params, exp):
-        return self.Optimizer(params, **exp['optimizer_options']['args'])
+        # self.optimizer = self.Optimizer(params, **exp['optimizer_options']['args'])
+        # return self.optimizer
+        self.optimizer.set_theta(params)
+        return self.optimizer
+
+    def get_optimizer(self):
+        return self.optimizer
 
     def get_ref_batch(self):
         return self.ref_batch
+
+    def init_from_infos(self, infos: dict):
+        super(ESExperiment, self).init_from_infos(infos)
+        if 'optimizer_state' in infos and infos['optimizer_state'] is not None:
+            logger.info('loading optimizer state from {}'.format(infos['optimizer_state']))
+            self.optimizer.load_from_file(infos['optimizer_state'])
+
+    def to_dict(self):
+        self.optimizer.save_to_file(self.optimizer_path)
+        return {
+            **super(ESExperiment, self).to_dict(),
+            'optimizer_state': self.optimizer_path
+        }
 
 
 class GAExperiment(Experiment, ABC):
