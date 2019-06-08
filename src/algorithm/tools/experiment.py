@@ -139,7 +139,8 @@ class ESExperiment(Experiment, ABC):
         if master:
             self.Optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer_options']['type']]
             self.optimizer = self.Optimizer(np.zeros(1), **exp['optimizer_options']['args'])
-            self.optimizer_path = os.path.join(self.snapshot_dir(), 'optimizer.tar')
+            mkdir_p(os.path.join(self.log_dir(), 'optimizer'))
+            self.optimizer_path = os.path.join(self.log_dir(), 'optimizer', 'optimizer.tar')
             self.ref_batch_size = config.ref_batch_size if config.ref_batch_size else config.batch_size
             self.ref_batch = self.take_ref_batch(self.ref_batch_size)
 
