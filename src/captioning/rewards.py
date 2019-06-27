@@ -7,6 +7,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
+import time
+
 import numpy as np
 # import time
 # import misc.utils as utils
@@ -116,11 +119,18 @@ class RewardCriterion(nn.Module):
         super(RewardCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
+        # input: logprobs, seq: generated sequence, reward: score
+        # logging.info('LOGPROBS: %s', input)
+        # time.sleep(1000)
+
         input = to_contiguous(input).view(-1)
         reward = to_contiguous(reward).view(-1)
         mask = (seq > 0).float()
         mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+
+        # reward as high as possible, but logprobs all negative
         output = - input * reward * mask
+        # output = input * reward * mask
         output = torch.sum(output) / torch.sum(mask)
 
         return torch.empty_like(output).copy_(output)

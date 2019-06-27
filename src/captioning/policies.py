@@ -35,7 +35,7 @@ class GenPolicy(Policy, ABC):
             # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
             # fc_feats, att_feats, labels, masks, att_masks = tmp
 
-            self.policy_net.calc_sensitivity(i, 0, data, batch_size, directory, 0, self.mutations)
+            self.policy_net.calc_sensitivity(i, 0, data, batch_size, directory)
 
     def rollout(self, placeholder, data, config):
         fitness = self.fitness

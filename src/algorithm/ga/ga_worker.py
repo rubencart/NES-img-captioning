@@ -79,13 +79,8 @@ class GAWorker(object):
             task_tstart = time.time()
             assert isinstance(task_id, int) and isinstance(task_data, GATask)
 
-            # policy: Policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']),
-            #                                       mode=exp['mode'], exp=exp)
-            # policy.init_model(policy.generate_model())
-
             # policy.calculate_all_sensitivities(task_data, self.experiment.trainloader,
             #                                    self.offspring_dir, self.experiment.orig_batch_size())
-
             # break
 
             if eval_or_evolve < config.eval_prob:
@@ -171,7 +166,6 @@ class GAWorker(object):
             policy.set_model(model)
         else:
             policy.set_model(parent)
-            # todo unmodified or not?
             # if task_id == 0 or index > self.experiment.num_elites():
             policy.calc_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
                                     self.offspring_dir)

@@ -190,6 +190,11 @@ class ESMaster(object):
         return ranks
 
     def compute_centered_ranks(self, x):
+        """
+        Return a np.array with an element per element in x that indicates the corresponding
+            elements rank with a float between -0.5 and 0.5
+        E.g. [[101, 200], [2, 100]] --> [[0.16666667, 0.5], [-0.5, -0.16666667]]
+        """
         y = self.compute_ranks(x.ravel()).reshape(x.shape).astype(np.float)
         y /= (x.size - 1)
         y -= .5

@@ -56,8 +56,8 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         self.eval()
 
-        self.sensitivity_wrapper = Sensitivity(self, options.safe_mutation_underflow, options.safe_mutations)
         self.mutations = Mutation(options.safe_mutations)
+        self.sensitivity_wrapper = Sensitivity(self, options.safe_mutation_underflow, self.mutations)
         if self.mutations == Mutation.SAFE_VECTOR:
             self.set_sensitivity_vector(options.safe_mutation_vector)
 

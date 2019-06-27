@@ -2,6 +2,7 @@
 Code from https://github.com/ruotianluo/self-critical.pytorch
 """
 import logging
+import time
 from abc import ABC
 from functools import reduce
 
@@ -56,9 +57,9 @@ class CaptionModel(PolicyNet, ABC):
         _, state = self.core(xt, state)
 
         it = fc_feats.data.new(batch_size).long().zero_()
-        xt = self.embed(it)
-
-        for t in range((self.seq_length // 2) + 1):
+        # xt = self.embed(it)
+        # for t in range((self.seq_length // 2) + 1):
+        for t in range(5):
             xt = self.embed(it)
             output, state = self.core(xt, state)
 
@@ -72,7 +73,8 @@ class CaptionModel(PolicyNet, ABC):
         extended_lp = torch.cat((logprobs, torch.zeros((batch_size, cat_size))), 1)
         split_lp = extended_lp.split(split, dim=1)
 
-        summed_lp = torch.stack(split_lp).sum(2).permute(1, 0)
+        # summed_lp = torch.stack(split_lp).sum(2).permute(1, 0)
+        summed_lp = ((torch.stack(split_lp)**2).sum(2)**(1/2)).permute(1, 0)
         # todo del the rest
         return summed_lp
 

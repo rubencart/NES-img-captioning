@@ -149,3 +149,45 @@ def get_platform():
         return sys.platform
 
     return platforms[sys.platform]
+
+
+def get_ciders_from_sc(hist, infos):
+    # with sc: 0.75 s/batch (16)
+    # with xent: 0.065 s/batch (16)
+    # nb samples in Ds: 113287
+
+    # with open('../instance_logs/logs_xent_fc_128/checkpt/histories_test_0.pkl', 'rb') as f:
+    #      hist = pickle.load(f)
+
+    # with open('../instance_logs/logs_xent_fc_128/checkpt/infos_test_0.pkl', 'rb') as f:
+    #      infos = pickle.load(f)
+
+    # with open('../instance_logs/instance3_logs_2/test_0_sc_128_checkpt_cont_2/histories_test_0.pkl', 'rb') as f:
+    #      histsc2 = pickle.load(f)
+
+    # with open('../instance_logs/instance3_logs_2/test_0_sc_128_checkpt_cont_2/infos_test_0-best.pkl', 'rb') as f:
+    #      infossc2 = pickle.load(f)
+
+    # plt.plot(*get_ciders(histsc2, infossc2), label='self-critical RL')
+    # plt.legend()
+    # plt.savefig('...')
+
+    keys = list(hist['val_result_history'].keys())
+    ciders = [hist['val_result_history'][nb]['lang_stats']['CIDEr'] for nb in keys]
+    bs = infos['opt'].batch_size
+    keys = np.asarray(keys) * bs
+    return keys, np.asarray(ciders)
+
+
+def plot_ciders_vs_something_nicely(time_xent, ciders_xent, time_sc, ciders_sc):
+    from matplotlib import pyplot as plt
+
+    plt.plot(time_xent, ciders_xent, label='XENT')
+    plt.plot(time_sc, ciders_sc, label='Self-critical RL')
+    plt.axhline(ciders_sc.max(), linestyle='dashed', color='green', lw=0.5)
+    plt.text(-2, 0.93, round(ciders_sc.max(), 3), color='green')
+    plt.legend(loc='lower right')
+    plt.xlabel('Aantal uur')
+    plt.ylabel('CIDEr')
+    plt.savefig('./logs/sc_xent_time.pdf')
+    plt.close()
