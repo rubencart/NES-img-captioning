@@ -8,7 +8,8 @@ from abc import ABC
 import captioning.eval_utils as eval_utils
 
 from algorithm.policies import Policy, NetsPolicy, SeedsPolicy
-from captioning.rewards import init_scorer, get_self_critical_reward, RewardCriterion
+from captioning.rewards import init_scorer, get_self_critical_reward, RewardCriterion, \
+    GreedyExpRewardCriterion, GreedyLogRewardCriterion
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class Fitness(Enum):
     GREEDY = 'greedy'
     SELF_CRITICAL = 'self_critical'
     SC_LOSS = 'sc_loss'
+    GR_LOGPROB = 'gr_logprob'
+    GR_EXPPROB = 'gr_expprob'
     DEFAULT = GREEDY
 
 
@@ -76,12 +79,21 @@ class GenPolicy(Policy, ABC):
         # todo change name loss (because we actually use - loss, to maximize)
         if fitness == Fitness.SC_LOSS:
             rl_crit = RewardCriterion()
-
             # device = next(data).device
             loss = rl_crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
             # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
             result = float(loss.item())
             del loss, rl_crit
+        elif fitness == Fitness.GR_LOGPROB:
+            crit = GreedyLogRewardCriterion()
+            loss = crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
+            result = float(loss.item())
+            del loss, crit
+        elif fitness == Fitness.GR_EXPPROB:
+            crit = GreedyExpRewardCriterion()
+            loss = crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
+            result = float(loss.item())
+            del loss, crit
         else:
             result = float(reward * 100)
 

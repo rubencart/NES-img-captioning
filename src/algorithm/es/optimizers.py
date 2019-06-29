@@ -46,10 +46,24 @@ class SGD(Optimizer):
         return step
 
     def save_to_file(self, path):
-        pass
+        state = {
+            # 'theta': self.theta,
+            'dim': self.dim,
+            't': self.t,
+            'momentum': self.momentum,
+            'stepsize': self.stepsize,
+            'v': self.v,
+        }
+        torch.save(state, path)
 
     def load_from_file(self, path):
-        pass
+        state = torch.load(path, map_location='cpu')
+        # self.theta = state['theta']
+        self.dim = state['dim']
+        self.t = state['t']
+        self.stepsize = state['stepsize']
+        self.v = state['v']
+        self.momentum = state['momentum']
 
 
 class Adam(Optimizer):

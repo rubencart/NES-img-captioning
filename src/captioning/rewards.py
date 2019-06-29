@@ -8,6 +8,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import math
 import time
 
 import numpy as np
@@ -131,6 +132,42 @@ class RewardCriterion(nn.Module):
         # reward as high as possible, but logprobs all negative
         output = - input * reward * mask
         # output = input * reward * mask
+        output = torch.sum(output) / torch.sum(mask)
+
+        return torch.empty_like(output).copy_(output)
+
+
+class GreedyLogRewardCriterion(nn.Module):
+    def __init__(self):
+        super(RewardCriterion, self).__init__()
+
+    def forward(self, input, seq, reward):
+        # input: logprobs, seq: generated sequence, reward: score
+
+        input = to_contiguous(input).view(-1)
+        reward = to_contiguous(reward).view(-1)
+        mask = (seq > 0).float()
+        mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+
+        output = (input + 1) * reward * mask
+        output = torch.sum(output) / torch.sum(mask)
+
+        return torch.empty_like(output).copy_(output)
+
+
+class GreedyExpRewardCriterion(nn.Module):
+    def __init__(self):
+        super(RewardCriterion, self).__init__()
+
+    def forward(self, input, seq, reward):
+        # input: logprobs, seq: generated sequence, reward: score
+
+        input = to_contiguous(input).view(-1)
+        reward = to_contiguous(reward).view(-1)
+        mask = (seq > 0).float()
+        mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+
+        output = (torch.exp(torch.exp(input)) - 1) / (math.e - 1) * reward * mask
         output = torch.sum(output) / torch.sum(mask)
 
         return torch.empty_like(output).copy_(output)

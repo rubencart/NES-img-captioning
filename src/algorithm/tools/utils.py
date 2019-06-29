@@ -1,4 +1,4 @@
-
+import copy
 import errno
 import os
 import re
@@ -191,3 +191,163 @@ def plot_ciders_vs_something_nicely(time_xent, ciders_xent, time_sc, ciders_sc):
     plt.ylabel('CIDEr')
     plt.savefig('./logs/sc_xent_time.pdf')
     plt.close()
+
+    # plt.plot(nes_times / 3600, smooth(nes_ciders, 6), color='blue', label='NIC-NES')
+    # plt.plot(es_times_59[:650] / 3600, smooth(np.maximum.accumulate(es_ciders_59[:650]), 10), color='green',
+    #          label='NIC-ES')
+    # plt.plot(times_sc[:70] / 3600, smooth(np.maximum.accumulate(ciders_sc[:70]), 2), color='orange',
+    #          label='Self-critical RL')
+    #
+    # plt.axhline(ciders_sc.max(), linestyle='dashed', color='orange', lw=0.5)
+    # plt.text(-1, ciders_sc.max() - 0.01, round(ciders_sc.max(), 3), color='orange')
+    #
+    # plt.axhline(nes_ciders.max(), linestyle='dashed', color='blue', lw=0.5)
+    # plt.text(-1, nes_ciders.max() - 0.01, round(nes_ciders.max(), 3), color='blue')
+    #
+    # plt.axhline(es_ciders_59.max(), linestyle='dashed', color='green', lw=0.5)
+    # plt.text(-1, es_ciders_59.max() - 0.01, round(es_ciders_59.max(), 3), color='green')
+    #
+    # plt.legend(loc='lower right')
+    # plt.xlabel('Aantal uur')
+    # plt.ylabel('CIDEr')
+    # plt.savefig('./logs/sc_nes_es_time_smooth.pdf')
+    # plt.close()
+
+
+def smooth(x, n):
+    tmp = np.array(x, copy=True)
+    for i in range(n, len(x) - n):
+        tmp[i] = x[i - n:i + n].mean()
+    return tmp
+
+
+def cst_from_infos(infos):
+    if 'best_acc_so_far_stats' in infos:
+        ciders = np.asarray(infos['best_acc_so_far_stats'])
+    else:
+        ciders = np.maximum.accumulate(infos['acc_stats'])
+    samples = np.cumsum(infos['bs_stats'])
+    times = np.cumsum(infos['time_stats'])
+    return ciders, samples, times
+
+
+def combine_diff_lengths(*arrays):
+    # will give jumps in output at points where one of the arrays ends --> better padding
+    sorted_arrays = sorted(arrays, key=lambda a: len(a), reverse=False)
+    lengths = [len(a) for a in sorted_arrays]
+    result = np.zeros(lengths[-1])
+
+    for nb, (lower, upper) in enumerate(zip([0] + lengths, lengths)):
+        for j in range(lower, upper):
+            result[j] = np.asarray([a[j] for a in sorted_arrays[nb:]]).mean()
+
+    return result
+
+
+def combine_diff_lengths_pad(*arrays):
+    length = max([len(a) for a in arrays])
+    result = np.zeros(length)
+    copied_arrays = copy.deepcopy(arrays)
+    padded_arrays = []
+    for a in copied_arrays:
+        padded_arrays.append(np.concatenate((a, [a[-1] for _ in range(length - len(a))])))
+    for i in range(length):
+        result[i] = np.asarray([a[i] for a in padded_arrays]).mean()
+    return result
+
+
+def sample_at(raster, axis, values):
+    result = []
+    for i, rast_pt in enumerate(raster):
+
+        # upper = next(i for (i, a) in enumerate(axes) if a >= rast_pt)
+        upper = lower = 0
+        if rast_pt > axis[-1]:
+            # upper = lower = len(axes) - 1
+            break
+        for k, ax in enumerate(axis):
+            if ax == rast_pt:
+                upper = lower = k
+                break
+            elif ax > rast_pt:
+                upper = k
+                lower = max(k - 1, lower)
+                break
+        result.append((values[lower] + values[upper]) / 2)
+    return np.asarray(result)
+
+
+def rasterize(*coords):
+    # coords = [ [ (1, 10), (2, 20) ] , [...] ]
+    # print(coords)
+
+    axes = [[a for (a, _) in arr] for arr in coords]
+    values = [[v for (_, v) in arr] for arr in coords]
+    minim = int(min(a[0] for a in axes))
+    maxim = int(max(a[-1] for a in axes))
+    step = int(min([a[1] - a[0] for a in axes]))
+
+    raster = np.arange(minim, maxim, step)
+
+    rasterized = []
+    for i in range(len(axes)):
+        # print(raster, axes[i], values[i])
+        rasterized.append(sample_at(raster, axes[i], values[i]))
+
+    return [raster[:len(rized)] for rized in rasterized], rasterized
+
+
+ciders_93, samples_93, times_93 = cst_from_infos(infos_93)
+ciders_3486, samples_3486, times_3486 = cst_from_infos(infos_3486)
+ciders_5506, samples_5506, times_5506 = cst_from_infos(infos_5506)
+ciders_3566, samples_3566, times_3566 = cst_from_infos(infos_3566)
+ciders_4067, samples_4067, times_4067 = cst_from_infos(infos_4067)
+ciders_5945, samples_5945, times_5945 = cst_from_infos(infos_5945)
+ciders_19695, samples_19695, times_19695 = cst_from_infos(infos_19695)
+
+tssamples, tsciders = rasterize(list(zip(samples_93, ciders_93)),
+                                list(zip(samples_3486, ciders_3486)),
+                                list(zip(samples_5506, ciders_5506)))
+
+rssamples, rsciders = rasterize(list(zip(samples_3566, ciders_3566)),
+                                list(zip(samples_4067, ciders_4067)),
+                                list(zip(samples_5945, ciders_5945)),
+                                list(zip(samples_19695, ciders_19695)))
+
+tstimes, tstciders = rasterize(list(zip(times_93, ciders_93)),
+                                list(zip(times_3486, ciders_3486)),
+                                list(zip(times_5506, ciders_5506)))
+
+rstimes, rstciders = rasterize(list(zip(times_3566, ciders_3566)),
+                                list(zip(times_4067, ciders_4067)),
+                                list(zip(times_5945, ciders_5945)),
+                                list(zip(times_19695, ciders_19695)))
+
+plt.plot(times_93, ciders_93, color='red', label='93')
+plt.plot(times_3486, ciders_3486, color='red', label='3486')
+plt.plot(times_5506, ciders_5506, color='red', label='5506')
+plt.plot(times_3566, ciders_3566, color='blue', label='3566')
+plt.plot(times_4067, ciders_4067, color='blue', label='4067')
+plt.plot(times_5945, ciders_5945, color='blue', label='5945')
+plt.plot(times_19695, ciders_19695, color='blue', label='19695')
+
+
+plt.plot(samples_93, ciders_93, color='red', label='93')
+plt.plot(samples_3486, ciders_3486, color='red', label='3486')
+plt.plot(samples_5506, ciders_5506, color='red', label='5506')
+plt.plot(samples_3566, ciders_3566, color='blue', label='3566')
+plt.plot(samples_4067, ciders_4067, color='blue', label='4067')
+plt.plot(samples_5945, ciders_5945, color='blue', label='5945')
+plt.plot(samples_19695, ciders_19695, color='blue', label='19695')
+
+plt.plot(tssamples[1], ctsciders, color='red', label='TS')
+plt.plot(rssamples[2], crsciders, color='blue', label='UWS')
+
+plt.legend(loc='lower right')
+plt.xlabel('Aantal s')
+plt.ylabel('CIDEr')
+plt.savefig('./logs/uws_vs_ts_samples_comb.pdf')
+plt.close()
+
+xtimes_2540 = np.concatenate((times_2540, [times_2540[-1] + i*(times_2540[-1]-times_2540[-2]) for i in range(250) ]))
+xciders_2540 = np.concatenate((ciders_2540, [ciders_2540[-1] for _ in range(250)]))
