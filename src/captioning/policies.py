@@ -9,7 +9,7 @@ import captioning.eval_utils as eval_utils
 
 from algorithm.policies import Policy, NetsPolicy, SeedsPolicy
 from captioning.rewards import init_scorer, get_self_critical_reward, RewardCriterion, \
-    GreedyExpRewardCriterion, GreedyLogRewardCriterion
+    GreedyExpRewardCriterion, GreedyLogRewardCriterion, GreedyLinRewardCriterion
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,14 @@ class Fitness(Enum):
     GREEDY = 'greedy'
     SELF_CRITICAL = 'self_critical'
     SC_LOSS = 'sc_loss'
-    GR_LOGPROB = 'gr_logprob'
-    GR_EXPPROB = 'gr_expprob'
+    GR_LOGPROB = 'greedy_logprob'
+    GR_EXPPROB = 'greedy_expprob'
+    GR_LINPROB = 'greedy_linprob'
     DEFAULT = GREEDY
+
+    @classmethod
+    def needs_criterion(cls, fitness):
+        return fitness in [cls.SC_LOSS, cls.GR_LOGPROB, cls.GR_EXPPROB, cls.GR_LINPROB]
 
 
 class GenPolicy(Policy, ABC):
@@ -76,21 +81,18 @@ class GenPolicy(Policy, ABC):
         reward, rewards = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
                                                    att_masks, data, gen_result, self_critical)
 
-        # todo change name loss (because we actually use - loss, to maximize)
-        if fitness == Fitness.SC_LOSS:
-            rl_crit = RewardCriterion()
-            # device = next(data).device
-            loss = rl_crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
-            # loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float())
-            result = float(loss.item())
-            del loss, rl_crit
-        elif fitness == Fitness.GR_LOGPROB:
-            crit = GreedyLogRewardCriterion()
-            loss = crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
-            result = float(loss.item())
-            del loss, crit
-        elif fitness == Fitness.GR_EXPPROB:
-            crit = GreedyExpRewardCriterion()
+        if Fitness.needs_criterion(fitness):
+            # todo change name loss (because we actually use - loss, to maximize)
+            if fitness == Fitness.SC_LOSS:
+                crit = RewardCriterion()
+            elif fitness == Fitness.GR_LOGPROB:
+                crit = GreedyLogRewardCriterion()
+            elif fitness == Fitness.GR_EXPPROB:
+                crit = GreedyExpRewardCriterion()
+            else:
+                # greedy lin
+                crit = GreedyLinRewardCriterion()
+
             loss = crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
             result = float(loss.item())
             del loss, crit

@@ -216,7 +216,7 @@ class GAMaster(object):
                         # )
 
                         it.record_parents(parents, scores.max())
-                        if it.patience_reached():
+                        if it.patience_reached() or it.schedule_reached():
                             # parents = reset_parents
                             experiment.increase_loader_batch_size(it.batch_size())
 

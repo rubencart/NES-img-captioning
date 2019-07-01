@@ -139,7 +139,7 @@ class RewardCriterion(nn.Module):
 
 class GreedyLogRewardCriterion(nn.Module):
     def __init__(self):
-        super(RewardCriterion, self).__init__()
+        super(GreedyLogRewardCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
         # input: logprobs, seq: generated sequence, reward: score
@@ -149,7 +149,12 @@ class GreedyLogRewardCriterion(nn.Module):
         mask = (seq > 0).float()
         mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
 
-        output = (input + 1) * reward * mask
+        # logprobs + 1 means going f(1) = 1 and f(0) = -inf
+        # instead of f(1) = 0 and f(0) = -inf
+        # https://www.google.com/search?hl=en&q=x+*+(log(y)%2B1)&meta=
+        # log(exp(probs) + 0.1) + 1 then means f(1) close to 1, f(0) = 0
+        output = (torch.log(torch.exp(input)+0.1) + 1) * reward * mask
+
         output = torch.sum(output) / torch.sum(mask)
 
         return torch.empty_like(output).copy_(output)
@@ -157,7 +162,7 @@ class GreedyLogRewardCriterion(nn.Module):
 
 class GreedyExpRewardCriterion(nn.Module):
     def __init__(self):
-        super(RewardCriterion, self).__init__()
+        super(GreedyExpRewardCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
         # input: logprobs, seq: generated sequence, reward: score
@@ -167,7 +172,28 @@ class GreedyExpRewardCriterion(nn.Module):
         mask = (seq > 0).float()
         mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
 
+        # double exp of logprobs equals exp of probs, rescaled so f(1) = 1
+        # https://www.google.com/search?hl=en&q=x+*+(e%5Ey+-+1)%2F(e-1)&meta=
         output = (torch.exp(torch.exp(input)) - 1) / (math.e - 1) * reward * mask
+        output = torch.sum(output) / torch.sum(mask)
+
+        return torch.empty_like(output).copy_(output)
+
+
+class GreedyLinRewardCriterion(nn.Module):
+    def __init__(self):
+        super(GreedyLinRewardCriterion, self).__init__()
+
+    def forward(self, input, seq, reward):
+        # input: logprobs, seq: generated sequence, reward: score
+
+        input = to_contiguous(input).view(-1)
+        reward = to_contiguous(reward).view(-1)
+        mask = (seq > 0).float()
+        mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+
+        # input are logprobs so exp(input) is just the probabilities, between 0 and 1
+        output = torch.exp(input) * reward * mask
         output = torch.sum(output) / torch.sum(mask)
 
         return torch.empty_like(output).copy_(output)

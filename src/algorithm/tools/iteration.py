@@ -26,6 +26,10 @@ class Iteration(ABC):
         self._epoch = 0
         self._iteration = 0
 
+        # self._schedule = 0
+        self._schedule_limit = config.schedule_limit
+        self._schedule_reached = False
+
         # WITHIN ONE ITERATION
         self._nb_models_to_evaluate = 0
         self._task_results = []
@@ -57,6 +61,7 @@ class Iteration(ABC):
             'nb_samples_used': self._nb_samples_used,
 
             'best_elites': self.best_elites(),
+            # 'schedule': self._schedule,
         }
 
     def init_from_infos(self, infos: dict):
@@ -72,6 +77,8 @@ class Iteration(ABC):
         self._times_orig_bs = infos['times_orig_bs'] if 'times_orig_bs' in infos else self._times_orig_bs
         self._nb_samples_used = infos['nb_samples_used'] if 'nb_samples_used' in infos \
             else self._nb_samples_used
+
+        # self._schedule = infos['schedule'] if 'schedule' in infos else self._schedule
 
         self._podium.init_from_infos(infos)
 
@@ -96,6 +103,9 @@ class Iteration(ABC):
         # status = self._patience_reached
         # self._patience_reached = False
         return self._patience_reached
+
+    def schedule_reached(self):
+        return self._schedule_reached
 
     def record_task_result(self, result):
         self._task_results.append(result)
@@ -123,16 +133,19 @@ class Iteration(ABC):
             if self._bad_generations > self._patience:
 
                 logger.warning('Max patience reached; old std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
-                self._noise_stdev /= self._stdev_divisor
-                self._batch_size = int(self._batch_size * self._bs_multiplier)
-                self._bad_generations = 0
-                self._times_orig_bs *= self._bs_multiplier
+                self.next_curriculum_step()
                 self._patience_reached = True
+                self._bad_generations = 0
                 logger.warning('Max patience reached; new std {}, bs: {}'.format(self._noise_stdev, self.batch_size()))
 
         else:
             self._bad_generations = 0
         return best_sc, best_ind
+
+    def next_curriculum_step(self):
+        self._noise_stdev /= self._stdev_divisor
+        self._batch_size = int(self._batch_size * self._bs_multiplier)
+        self._times_orig_bs *= self._bs_multiplier
 
     def warn_waiting_for_evaluations(self):
         if not self.models_left_to_evolve() and self.models_left_to_eval():
@@ -154,9 +167,18 @@ class Iteration(ABC):
         self.set_nb_models_to_evaluate(self._population_size)
         self.set_waiting_for_elite_ev(False)
         self._patience_reached = False
+        self._schedule_reached = False
 
         self._iteration += 1
         self._nb_samples_used += self._batch_size
+
+        if self._iteration % self._schedule_limit == 0:
+            logger.warning('Next curriculum step reached; old std {}, bs: {}'
+                           .format(self._noise_stdev, self.batch_size()))
+            self._schedule_reached = True
+            self.next_curriculum_step()
+            logger.warning('Next curriculum step reached; old std {}, bs: {}'
+                           .format(self._noise_stdev, self.batch_size()))
 
     def set_batch_size(self, value):
         self._batch_size = value

@@ -136,11 +136,9 @@ class ESMaster(object):
                     policy.set_from_parameter_vector(vector=theta)
                     it.set_model(policy.get_model())
 
-                    if it.patience_reached():
+                    if it.patience_reached() or it.schedule_reached():
                         experiment.increase_loader_batch_size(it.batch_size())
                         optimizer.stepsize /= config.stepsize_divisor
-
-                    # print('flat', it.flat_fitnesses())
 
                     # norm instead of mean norm?
                     stats.record_update_ratio(update_ratio)

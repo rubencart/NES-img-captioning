@@ -18,7 +18,7 @@ config_fields = [
     'l2coeff', 'noise_stdev', 'stdev_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
     'return_proc_mode', 'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
     'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor',
-    'single_batch'
+    'single_batch', 'schedule_limit'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 
@@ -297,57 +297,57 @@ def rasterize(*coords):
     return [raster[:len(rized)] for rized in rasterized], rasterized
 
 
-ciders_93, samples_93, times_93 = cst_from_infos(infos_93)
-ciders_3486, samples_3486, times_3486 = cst_from_infos(infos_3486)
-ciders_5506, samples_5506, times_5506 = cst_from_infos(infos_5506)
-ciders_3566, samples_3566, times_3566 = cst_from_infos(infos_3566)
-ciders_4067, samples_4067, times_4067 = cst_from_infos(infos_4067)
-ciders_5945, samples_5945, times_5945 = cst_from_infos(infos_5945)
-ciders_19695, samples_19695, times_19695 = cst_from_infos(infos_19695)
-
-tssamples, tsciders = rasterize(list(zip(samples_93, ciders_93)),
-                                list(zip(samples_3486, ciders_3486)),
-                                list(zip(samples_5506, ciders_5506)))
-
-rssamples, rsciders = rasterize(list(zip(samples_3566, ciders_3566)),
-                                list(zip(samples_4067, ciders_4067)),
-                                list(zip(samples_5945, ciders_5945)),
-                                list(zip(samples_19695, ciders_19695)))
-
-tstimes, tstciders = rasterize(list(zip(times_93, ciders_93)),
-                                list(zip(times_3486, ciders_3486)),
-                                list(zip(times_5506, ciders_5506)))
-
-rstimes, rstciders = rasterize(list(zip(times_3566, ciders_3566)),
-                                list(zip(times_4067, ciders_4067)),
-                                list(zip(times_5945, ciders_5945)),
-                                list(zip(times_19695, ciders_19695)))
-
-plt.plot(times_93, ciders_93, color='red', label='93')
-plt.plot(times_3486, ciders_3486, color='red', label='3486')
-plt.plot(times_5506, ciders_5506, color='red', label='5506')
-plt.plot(times_3566, ciders_3566, color='blue', label='3566')
-plt.plot(times_4067, ciders_4067, color='blue', label='4067')
-plt.plot(times_5945, ciders_5945, color='blue', label='5945')
-plt.plot(times_19695, ciders_19695, color='blue', label='19695')
-
-
-plt.plot(samples_93, ciders_93, color='red', label='93')
-plt.plot(samples_3486, ciders_3486, color='red', label='3486')
-plt.plot(samples_5506, ciders_5506, color='red', label='5506')
-plt.plot(samples_3566, ciders_3566, color='blue', label='3566')
-plt.plot(samples_4067, ciders_4067, color='blue', label='4067')
-plt.plot(samples_5945, ciders_5945, color='blue', label='5945')
-plt.plot(samples_19695, ciders_19695, color='blue', label='19695')
-
-plt.plot(tssamples[1], ctsciders, color='red', label='TS')
-plt.plot(rssamples[2], crsciders, color='blue', label='UWS')
-
-plt.legend(loc='lower right')
-plt.xlabel('Aantal s')
-plt.ylabel('CIDEr')
-plt.savefig('./logs/uws_vs_ts_samples_comb.pdf')
-plt.close()
-
-xtimes_2540 = np.concatenate((times_2540, [times_2540[-1] + i*(times_2540[-1]-times_2540[-2]) for i in range(250) ]))
-xciders_2540 = np.concatenate((ciders_2540, [ciders_2540[-1] for _ in range(250)]))
+# ciders_93, samples_93, times_93 = cst_from_infos(infos_93)
+# ciders_3486, samples_3486, times_3486 = cst_from_infos(infos_3486)
+# ciders_5506, samples_5506, times_5506 = cst_from_infos(infos_5506)
+# ciders_3566, samples_3566, times_3566 = cst_from_infos(infos_3566)
+# ciders_4067, samples_4067, times_4067 = cst_from_infos(infos_4067)
+# ciders_5945, samples_5945, times_5945 = cst_from_infos(infos_5945)
+# ciders_19695, samples_19695, times_19695 = cst_from_infos(infos_19695)
+#
+# tssamples, tsciders = rasterize(list(zip(samples_93, ciders_93)),
+#                                 list(zip(samples_3486, ciders_3486)),
+#                                 list(zip(samples_5506, ciders_5506)))
+#
+# rssamples, rsciders = rasterize(list(zip(samples_3566, ciders_3566)),
+#                                 list(zip(samples_4067, ciders_4067)),
+#                                 list(zip(samples_5945, ciders_5945)),
+#                                 list(zip(samples_19695, ciders_19695)))
+#
+# tstimes, tstciders = rasterize(list(zip(times_93, ciders_93)),
+#                                 list(zip(times_3486, ciders_3486)),
+#                                 list(zip(times_5506, ciders_5506)))
+#
+# rstimes, rstciders = rasterize(list(zip(times_3566, ciders_3566)),
+#                                 list(zip(times_4067, ciders_4067)),
+#                                 list(zip(times_5945, ciders_5945)),
+#                                 list(zip(times_19695, ciders_19695)))
+#
+# plt.plot(times_93, ciders_93, color='red', label='93')
+# plt.plot(times_3486, ciders_3486, color='red', label='3486')
+# plt.plot(times_5506, ciders_5506, color='red', label='5506')
+# plt.plot(times_3566, ciders_3566, color='blue', label='3566')
+# plt.plot(times_4067, ciders_4067, color='blue', label='4067')
+# plt.plot(times_5945, ciders_5945, color='blue', label='5945')
+# plt.plot(times_19695, ciders_19695, color='blue', label='19695')
+#
+#
+# plt.plot(samples_93, ciders_93, color='red', label='93')
+# plt.plot(samples_3486, ciders_3486, color='red', label='3486')
+# plt.plot(samples_5506, ciders_5506, color='red', label='5506')
+# plt.plot(samples_3566, ciders_3566, color='blue', label='3566')
+# plt.plot(samples_4067, ciders_4067, color='blue', label='4067')
+# plt.plot(samples_5945, ciders_5945, color='blue', label='5945')
+# plt.plot(samples_19695, ciders_19695, color='blue', label='19695')
+#
+# plt.plot(tssamples[1], ctsciders, color='red', label='TS')
+# plt.plot(rssamples[2], crsciders, color='blue', label='UWS')
+#
+# plt.legend(loc='lower right')
+# plt.xlabel('Aantal s')
+# plt.ylabel('CIDEr')
+# plt.savefig('./logs/uws_vs_ts_samples_comb.pdf')
+# plt.close()
+#
+# xtimes_2540 = np.concatenate((times_2540, [times_2540[-1] + i*(times_2540[-1]-times_2540[-2]) for i in range(250) ]))
+# xciders_2540 = np.concatenate((ciders_2540, [ciders_2540[-1] for _ in range(250)]))
