@@ -236,7 +236,7 @@ class GAMaster(object):
                         it.log_stats(tlogger)
                         tlogger.dump_tabular()
 
-                        if it.patience_reached():
+                        if it.patience_reached() or it.schedule_reached():
                             # to use new trainloader!
                             break
 

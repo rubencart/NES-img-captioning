@@ -28,6 +28,7 @@ class Iteration(ABC):
 
         # self._schedule = 0
         self._schedule_limit = config.schedule_limit
+        self._schedule_start = config.schedule_start if config.schedule_start else 0
         self._schedule_reached = False
 
         # WITHIN ONE ITERATION
@@ -172,13 +173,18 @@ class Iteration(ABC):
         self._iteration += 1
         self._nb_samples_used += self._batch_size
 
-        if self._iteration % self._schedule_limit == 0:
+        if self.check_schedule_limit():
             logger.warning('Next curriculum step reached; old std {}, bs: {}'
                            .format(self._noise_stdev, self.batch_size()))
             self._schedule_reached = True
             self.next_curriculum_step()
             logger.warning('Next curriculum step reached; old std {}, bs: {}'
                            .format(self._noise_stdev, self.batch_size()))
+
+    def check_schedule_limit(self):
+        return self._schedule_limit and \
+               self._iteration >= self._schedule_start and \
+               self._iteration % self._schedule_limit == 0
 
     def set_batch_size(self, value):
         self._batch_size = value
