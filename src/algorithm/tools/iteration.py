@@ -184,7 +184,7 @@ class Iteration(ABC):
     def check_schedule_limit(self):
         return self._schedule_limit and \
                self._iteration >= self._schedule_start and \
-               self._iteration % self._schedule_limit == 0
+               (self._iteration - self._schedule_start) % self._schedule_limit == 0
 
     def set_batch_size(self, value):
         self._batch_size = value
