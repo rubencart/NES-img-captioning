@@ -47,7 +47,7 @@ _model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size'
                      'layer_n_affine', 'safe_mutation_underflow', 'safe_mutations', 'safe_mutation_vector',
                      'safe_mutation_batch_size']
 ModelOptions = namedtuple('ModelOptions', field_names=_model_opt_fields,
-                          defaults=(None,) * len(_model_opt_fields))
+                          defaults=(0,) * len(_model_opt_fields))
 
 
 class Policy(ABC):

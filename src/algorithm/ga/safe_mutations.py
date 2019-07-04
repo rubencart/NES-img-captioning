@@ -59,8 +59,9 @@ class Sensitivity(object):
             time_elapsed = time.time() - start_time
             logger.info('Safe mutation sensitivity computed in {:.2f}s on {} samples'
                         .format(time_elapsed, batch_size))
-            torch.save(sensitivity.clone().detach().requires_grad_(False),
-                       os.path.join(directory, sensitivity_filename))
+            if not find_file_with_pattern(sensitivity_filename, directory):
+                torch.save(sensitivity.clone().detach().requires_grad_(False),
+                           os.path.join(directory, sensitivity_filename))
             self._sensitivity = sensitivity.clone().detach().requires_grad_(False)
             logger.info('Sensitivity parent {}: min {:.2f}, mean {:.2f}, max {:.2f}'
                         .format(parent_id, sensitivity.min().item(), sensitivity.mean().item(),

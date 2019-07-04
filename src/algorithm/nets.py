@@ -35,7 +35,7 @@ class SerializableModel:
         raise NotImplementedError
 
 
-class PolicyNet(nn.Module, SerializableModel, ABC):
+class PolicyNet(nn.Module, ABC):
     def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
         # todo from param file not really needed anymore since now serialized == from param file?
         super(PolicyNet, self).__init__()
@@ -56,10 +56,11 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
 
         self.eval()
 
-        self.mutations = Mutation(options.safe_mutations)
-        self.sensitivity_wrapper = Sensitivity(self, options.safe_mutation_underflow, self.mutations)
-        if self.mutations == Mutation.SAFE_VECTOR:
-            self.set_sensitivity_vector(options.safe_mutation_vector)
+        self.mutations = Mutation((options and options.safe_mutations) or '')
+        if self.mutations != Mutation.DEFAULT:
+            self.sensitivity_wrapper = Sensitivity(self, options.safe_mutation_underflow, self.mutations)
+            if self.mutations == Mutation.SAFE_VECTOR:
+                self.set_sensitivity_vector(options.safe_mutation_vector)
 
     def _initialize_params(self):
         if self.from_param_file:
@@ -114,9 +115,9 @@ class PolicyNet(nn.Module, SerializableModel, ABC):
         noise = torch.empty_like(param_vector, requires_grad=False).normal_(mean=0.0, std=sigma)
 
         if safe:
-            # logging.info('old noise %s', noise)
+            logging.info('old noise %s', noise)
             noise /= self.sensitivity_wrapper.get_sensitivity()
-            # logging.info('new noise %s', noise)
+            logging.info('new noise %s', noise)
         if proportional:
             # logging.info('old noise %s', noise)
             params = torch.empty_like(param_vector).copy_(param_vector)

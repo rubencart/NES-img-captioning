@@ -1,5 +1,6 @@
 import logging
 import random
+import time
 from enum import Enum
 
 import torch
@@ -27,7 +28,27 @@ class Fitness(Enum):
 
     @classmethod
     def needs_criterion(cls, fitness):
-        return fitness in [cls.SC_LOSS, cls.GR_LOGPROB, cls.GR_EXPPROB, cls.GR_LINPROB]
+        return fitness in (cls.SC_LOSS, cls.GR_LOGPROB, cls.GR_EXPPROB, cls.GR_LINPROB)
+
+    @classmethod
+    def is_self_critical(cls, fitness):
+        return fitness in (cls.SC_LOSS, cls.SELF_CRITICAL)
+
+    @classmethod
+    def is_greedy(cls, fitness):
+        return fitness in (cls.GR_LINPROB, cls.GR_EXPPROB, cls.GR_LOGPROB, cls.GREEDY)
+
+    @classmethod
+    def get_criterium(cls, fitness):
+        assert cls.needs_criterion(fitness)
+        if fitness == Fitness.SC_LOSS:
+            return RewardCriterion()
+        elif fitness == Fitness.GR_LOGPROB:
+            return GreedyLogRewardCriterion()
+        elif fitness == Fitness.GR_EXPPROB:
+            return GreedyExpRewardCriterion()
+        else:
+            return GreedyLinRewardCriterion()
 
 
 class GenPolicy(Policy, ABC):
@@ -46,9 +67,6 @@ class GenPolicy(Policy, ABC):
             self.policy_net.calc_sensitivity(i, 0, data, batch_size, directory)
 
     def rollout(self, placeholder, data, config):
-        fitness = self.fitness
-        # logger.warning('fitness: %s, %s, %s', fitness, type(fitness), str(fitness != Fitness.SAMPLE))
-        self_critical = (fitness == Fitness.SELF_CRITICAL or fitness == Fitness.SC_LOSS)
 
         torch.set_grad_enabled(False)
 
@@ -64,7 +82,7 @@ class GenPolicy(Policy, ABC):
         # tmp = [_ if _ is None else torch.from_numpy(_) for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
 
-        sample_max = 1 if fitness == Fitness.GREEDY else 0
+        sample_max = 1 if Fitness.is_greedy(self.fitness) else 0
 
         # virtual batch norm
         if self.vbn:
@@ -78,21 +96,15 @@ class GenPolicy(Policy, ABC):
         gen_result, sample_logprobs = self.policy_net(fc_feats, att_feats, att_masks,
                                                       opt={'sample_max': sample_max}, mode='sample')
 
+        # logging.warning('logprobs: %s', sample_logprobs.mean())
+        # time.sleep(1000)
+        self_critical = Fitness.is_self_critical(self.fitness)
         reward, rewards = get_self_critical_reward(self.policy_net, fc_feats, att_feats,
                                                    att_masks, data, gen_result, self_critical)
 
-        if Fitness.needs_criterion(fitness):
+        if Fitness.needs_criterion(self.fitness):
             # todo change name loss (because we actually use - loss, to maximize)
-            if fitness == Fitness.SC_LOSS:
-                crit = RewardCriterion()
-            elif fitness == Fitness.GR_LOGPROB:
-                crit = GreedyLogRewardCriterion()
-            elif fitness == Fitness.GR_EXPPROB:
-                crit = GreedyExpRewardCriterion()
-            else:
-                # greedy lin
-                crit = GreedyLinRewardCriterion()
-
+            crit = Fitness.get_criterium(self.fitness)
             loss = crit(sample_logprobs.data, gen_result.data, torch.from_numpy(rewards).float().to(device))
             result = float(loss.item())
             del loss, crit

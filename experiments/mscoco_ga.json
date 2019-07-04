@@ -21,8 +21,8 @@
     "fitness": "greedy",
 
     "model_options": {
-      "safe_mutation_underflow": 0.5,
-      "safe_mutations": "",
+      "safe_mutation_underflow": 0.01,
+      "safe_mutations": "SM-G-SUM",
       "safe_mutation_vector": "",
 
       "input_encoding_size":  128,
@@ -44,8 +44,8 @@
   "num_elites": 3,
   "num_elite_cands": 2,
 
-  "_from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
-  "from_infos": "logs/ga_mscoco_fc_caption_24173/snapshot/z_info_e6_i450-442.json",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
+  "_from_infos": "logs/ga_mscoco_fc_caption_24173/snapshot/z_info_e6_i450-442.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",

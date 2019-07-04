@@ -143,8 +143,10 @@ class GreedyLogRewardCriterion(nn.Module):
 
     def forward(self, input, seq, reward):
         # input: logprobs, seq: generated sequence, reward: score
-
+        # print('input: ', input)
         input = to_contiguous(input).view(-1)
+        # print('input: ', input)
+        print('reward: ', reward.mean()*100)
         reward = to_contiguous(reward).view(-1)
         mask = (seq > 0).float()
         mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
@@ -153,10 +155,15 @@ class GreedyLogRewardCriterion(nn.Module):
         # instead of f(1) = 0 and f(0) = -inf
         # https://www.google.com/search?hl=en&q=x+*+(log(y)%2B1)&meta=
         # log(exp(probs) + 0.1) + 1 then means f(1) close to 1, f(0) = 0
-        output = (torch.log(torch.exp(input)+0.1) + 1) * reward * mask
+        pfact = torch.log10(torch.exp(input) + 1/(10 - 1)) + np.log10(10 - 1)
+        # print('pfact: ', pfact)
+        output = pfact * reward * mask
+        # print('output: ', output)
 
         output = torch.sum(output) / torch.sum(mask)
+        # print('output: ', output)
 
+        # time.sleep(3600)
         return torch.empty_like(output).copy_(output)
 
 

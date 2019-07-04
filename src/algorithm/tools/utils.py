@@ -351,3 +351,21 @@ def rasterize(*coords):
 #
 # xtimes_2540 = np.concatenate((times_2540, [times_2540[-1] + i*(times_2540[-1]-times_2540[-2]) for i in range(250) ]))
 # xciders_2540 = np.concatenate((ciders_2540, [ciders_2540[-1] for _ in range(250)]))
+
+
+def tournament(pop, t, offspr):
+    rs = np.random.RandomState()
+    return [min(rs.choice(np.arange(pop), t, replace=False)) for _ in range(offspr)]
+
+
+def count_in_tournament(p, t, o):
+    tourn = tournament(p, t, o)
+    counts = [tourn.count(c) for c in range(p)]
+    return counts
+
+
+def avg_c_in_t(p, t, o, x):
+    cts = np.empty([x, p], dtype=float)
+    for i in range(x):
+        cts[i] = count_in_tournament(p, t, o)
+    return cts.mean(0)

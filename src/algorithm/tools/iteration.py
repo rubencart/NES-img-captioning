@@ -5,7 +5,7 @@ import os
 import numpy as np
 from abc import ABC
 
-from algorithm.nets import SerializableModel
+from algorithm.nets import PolicyNet
 from algorithm.tools.podium import Podium
 from algorithm.tools.utils import copy_file_from_to, remove_all_files_from_dir, GAResult, remove_all_files_but, \
     check_if_filepath_exists, mkdir_p, remove_file_if_exists
@@ -314,8 +314,8 @@ class ESIteration(Iteration):
         # print(bool(self._eval_results))
         return not bool(self._eval_results)
 
-    def set_model(self, model: SerializableModel):
-        assert isinstance(model, SerializableModel)
+    def set_model(self, model: PolicyNet):
+        assert isinstance(model, PolicyNet)
         remove_all_files_from_dir(self._current_dir)
         self._model = model.serialize(path=self._current_path.format(i=self.iteration()))
 

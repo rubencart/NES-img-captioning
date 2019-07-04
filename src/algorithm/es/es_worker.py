@@ -166,6 +166,7 @@ class ESWorker(object):
         return ESResult(
             worker_id=self.worker_id,
             evolve_noise=noise_vector,
+            # np.stack?
             fitness=np.array([pos_fitness, neg_fitness]),   # , dtype=np.float32
             mem_usage=max(mem_usages)
         )
