@@ -146,7 +146,7 @@ class GreedyLogRewardCriterion(nn.Module):
         # print('input: ', input)
         input = to_contiguous(input).view(-1)
         # print('input: ', input)
-        print('reward: ', reward.mean()*100)
+        # print('reward: ', reward.mean()*100)
         reward = to_contiguous(reward).view(-1)
         mask = (seq > 0).float()
         mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)

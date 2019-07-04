@@ -84,8 +84,10 @@ def master(algo, exp_file, master_socket_path, log_dir, plot):
 
     if algo == 'ga':
         from algorithm.ga.ga_master import GAMaster
+        logging.info('RUNNING NIC-ES')
         master_alg = GAMaster(exp, {'unix_socket_path': master_socket_path})
     else:  # algo == 'es':
+        logging.info('RUNNING NIC-NES')
         from algorithm.es.es_master import ESMaster
         master_alg = ESMaster(exp, {'unix_socket_path': master_socket_path})
 
