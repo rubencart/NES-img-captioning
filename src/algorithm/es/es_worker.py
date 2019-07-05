@@ -140,7 +140,7 @@ class ESWorker(object):
 
         current_path = task_data.current
         policy.set_model(current_path)
-        current_params = policy.parameter_vector()
+        current_params = copy.deepcopy(policy.parameter_vector())
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
