@@ -49,6 +49,7 @@ class Sensitivity(object):
 
             sensitivity = self._calc_sensitivity(experiences)
             sensitivity[sensitivity < self._underflow] = self._underflow
+            sensitivity /= self._underflow
 
             torch.set_grad_enabled(False)
             for param in self.net.parameters():
