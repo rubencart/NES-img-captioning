@@ -1,12 +1,12 @@
 """
-Code from https://github.com/ruotianluo/self-critical.pytorch
+    Code taken from https://github.com/ruotianluo/self-critical.pytorch
+    with minor changes
 """
 
-# from __future__ import absolute_import
-# from __future__ import division
-# from __future__ import print_function
 
 import json
+import logging
+
 from h5py import File
 import os
 import numpy as np
@@ -15,10 +15,7 @@ import random
 import torch
 import torch.utils.data as data
 
-# import multiprocessing
 
-
-# TODO MSCOCO as torchvision.dataset?????
 class DataLoader(data.Dataset):
 
     def reset_iterator(self, split):
@@ -38,7 +35,10 @@ class DataLoader(data.Dataset):
     def __init__(self, opt, config, batch_size=None):
         self.opt = opt
         self.config = config
-        self.seq_per_img = opt.seq_per_img
+        self.seq_per_img = opt.seq_per_img or 5
+        # set to 1 to use only the official MSCOCO trainset
+        # if set to 0, use Karpathy's train/val split (add all but 5000 val images to trainset)
+        self.train_only = 0
 
         if batch_size:
             self.batch_size = batch_size
@@ -47,7 +47,7 @@ class DataLoader(data.Dataset):
         print('DataLoader batch size: %d' % self.batch_size)
 
         # feature related options
-        self.use_att = getattr(opt, 'use_att', True)
+        self.use_att = getattr(opt, 'use_att', False)
         self.use_box = getattr(opt, 'use_box', 0)
         self.norm_att_feat = getattr(opt, 'norm_att_feat', 0)
         self.norm_box_feat = getattr(opt, 'norm_box_feat', 0)
@@ -90,12 +90,12 @@ class DataLoader(data.Dataset):
                 self.split_ix['val'].append(ix)
             elif img['split'] == 'test':
                 self.split_ix['test'].append(ix)
-            elif opt.train_only == 0:  # restval
+            elif self.train_only == 0:  # restval
                 self.split_ix['train'].append(ix)
 
-        print('assigned %d images to split train' % len(self.split_ix['train']))
-        print('assigned %d images to split val' % len(self.split_ix['val']))
-        print('assigned %d images to split test' % len(self.split_ix['test']))
+        logging.info('assigned %d images to split train' % len(self.split_ix['train']))
+        logging.info('assigned %d images to split val' % len(self.split_ix['val']))
+        logging.info('assigned %d images to split test' % len(self.split_ix['test']))
 
         self.iterators = {'train': 0, 'val': 0, 'test': 0}
 
@@ -168,10 +168,6 @@ class DataLoader(data.Dataset):
             info_dict['file_path'] = self.info['images'][ix]['file_path']
             infos.append(info_dict)
 
-        # #sort by att_feat length
-        # fc_batch, att_batch, label_batch, gts, infos = \
-        #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos),
-        #     key=lambda x: len(x[1]), reverse=True))
         fc_batch, att_batch, label_batch, gts, infos = \
             zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0,
                         reverse=True))
@@ -257,12 +253,12 @@ class SubsetSampler(torch.utils.data.sampler.Sampler):
         Arguments:
             indices (list): a list of indices
     """
-    # TODO RANDOMLY??? NO???
 
     def __init__(self, indices):
         self.indices = indices
 
     def __iter__(self):
+        # TODO is this really random?
         return (self.indices[i] for i in range(len(self.indices)))
 
     def __len__(self):
@@ -326,5 +322,4 @@ class BlobFetcher():
 
         assert tmp[2] == ix, "ix not equal"
 
-        # return tmp + [wrapped]
         return tmp + (wrapped,)

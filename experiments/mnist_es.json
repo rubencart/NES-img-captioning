@@ -1,43 +1,43 @@
 {
-  "algorithm": "es",
-  "mode":  "nets",
+  "algorithm": "nic_es",
+
   "config": {
+    "max_nb_iterations": 0,
 
     "cuda": false,
-    "eval_prob": 0.004,
-    "noise_stdev": 0.1,
-    "snapshot_freq": 2,
+    "eval_prob": 0.1,
+    "noise_stdev": 0.05,
+    "snapshot_freq": 5,
     "batch_size": 64,
 
-    "patience": 2,
+    "schedule_start": 0,
+    "schedule_limit": 5,
+    "patience": 0,
     "stdev_divisor": 2,
-    "bs_multiplier": 2,
-    "stepsize_divisor": 2,
-
-    "ref_batch_size": 16,
-    "l2coeff": 0.0002,
-    "return_proc_mode": "centered_rank"
+    "bs_multiplier": 2
   },
 
   "policy_options": {
     "net": "mnist",
-    "vbn": true,
+    "vbn": false,
 
-    "safe_mutation_underflow": 0.5,
-    "safe_mutations": "SM-G-SUM"
-  },
-
-  "optimizer_options": {
-    "type": "adam",
-    "args": {
-      "stepsize": 0.01
+    "model_options": {
+      "safe_mutation_underflow": 0.2,
+      "safe_mutations": "SM-G-SUM"
     }
   },
 
   "dataset": "mnist",
-  "population_size": 500,
-  "num_elites": 1,
 
-  "from_infos": "logs/es_mnist_mnist_8025/snapshot/z_info_e1_i38-938.json",
+  "nb_offspring": 50,
+  "population_size": 10,
+
+  "selection": "uniform",
+  "tournament_size": 0,
+
+  "num_elites": 3,
+  "num_elite_cands": 2,
+
+  "from_infos": "logs/nic_es_mnist_mnist_61257/snapshot/z_info_e2_i8-469.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"
 }

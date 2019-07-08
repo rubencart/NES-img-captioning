@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# https://stackoverflow.com/questions/6910378/how-can-i-stop-redis-server
+# Launch the master and worker redis processes
 
 PORT=$1
 

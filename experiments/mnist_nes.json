@@ -1,0 +1,45 @@
+{
+  "algorithm": "nic_nes",
+  "config": {
+
+    "cuda": false,
+    "eval_prob": 0.1,
+    "noise_stdev": 0.02,
+    "snapshot_freq": 5,
+    "batch_size": 64,
+
+    "patience": 2,
+    "stdev_divisor": 2,
+    "bs_multiplier": 2,
+    "stepsize_divisor": 1,
+
+    "ref_batch_size": 16,
+    "l2coeff": 0.001,
+
+    "single_batch": false
+  },
+
+  "policy_options": {
+    "net": "mnist",
+    "vbn": true,
+
+    "model_options": {
+      "safe_mutation_underflow": 0.2,
+      "safe_mutations": "SM-G-SUM"
+    }
+  },
+
+  "optimizer_options": {
+    "type": "adam",
+    "args": {
+      "stepsize": 0.01
+    }
+  },
+
+  "dataset": "mnist",
+  "nb_offspring": 50,
+  "num_elites": 1,
+
+  "from_infos": "logs/nic_nes_mnist_mnist_64107/snapshot/z_info_e1_i9-938.json",
+  "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"
+}

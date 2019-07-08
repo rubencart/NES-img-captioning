@@ -1,30 +1,34 @@
 import copy
 import errno
+import gc
+import logging
 import os
 import re
 import shutil
 import sys
+import torch
 from collections import namedtuple
 
 import numpy as np
 
-
-result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
-                 'eval_return', 'mem_usage', 'evaluated_cand', 'evaluated_cand_id',
-                 'score']
-GAResult = namedtuple('GAResult', field_names=result_fields, defaults=(None,) * len(result_fields))
-
 config_fields = [
     'l2coeff', 'noise_stdev', 'stdev_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
-    'return_proc_mode', 'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
-    'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor',
+    'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
+    'num_val_items', 'cuda', 'max_nb_iterations', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor',
     'single_batch', 'schedule_limit', 'schedule_start'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 
 
-class IterationFailedException(Exception):
-    pass
+def log(name, result):
+    try:
+        # result = round(result, 2)
+        result = '{:g}'.format(float('{:.{p}g}'.format(result, p=3)))
+    except Exception:
+        pass
+    logging.info('| %s: %s | %s %s |', name,
+                 ' ' * (max(19 - len(name), 0)), ' ' * (max(10 - len(str(result)), 0)),
+                 result)
 
 
 def mkdir_p(path):
@@ -37,12 +41,22 @@ def mkdir_p(path):
             raise
 
 
-# To plot against scores:
-# fig = plt.figure()
-# plt.plot(x[:150], score_stats[1][:150], color='blue')
-# plt.plot(np.arange(150), np.array(numstds[:150])*80 - 2.4, color='red')
-# plt.savefig('tmp/1/both')
-# plt.close(fig)
+def write_alive_tensors(self):
+    # from pytorch forum
+    fn = os.path.join(self.eval_dir, 'alive_tensors.txt')
+
+    to_write = '***************************\n'
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                to_write += 'type: {}, size: {} \n'.format(type(obj), obj.size())
+        except:
+            pass
+
+    with open(fn, 'a+') as f:
+        f.write(to_write)
+
+
 def extract_stds_from_log(filename):
     # eg 'logs/logs/es_master_16799/log.txt'
     with open(filename) as f:
@@ -79,7 +93,6 @@ def readable_bytes(num, suffix='B'):
 
 def random_state():
     rs = np.random.RandomState()
-    # print('[pid {pid}] random state: {rs}'.format(pid=os.getpid(), rs=rs.randint(0, 2 ** 31 - 1)))
     return rs.randint(0, 2 ** 31 - 1)
 
 
@@ -155,6 +168,7 @@ def get_ciders_from_sc(hist, infos):
     # with sc: 0.75 s/batch (16)
     # with xent: 0.065 s/batch (16)
     # nb samples in Ds: 113287
+    # params 2 865 808
 
     # with open('../instance_logs/logs_xent_fc_128/checkpt/histories_test_0.pkl', 'rb') as f:
     #      hist = pickle.load(f)
@@ -191,34 +205,6 @@ def plot_ciders_vs_something_nicely(time_xent, ciders_xent, time_sc, ciders_sc):
     plt.ylabel('CIDEr')
     plt.savefig('./logs/sc_xent_time.pdf')
     plt.close()
-
-    # plt.plot(nes_times / 3600, smooth(nes_ciders, 6), color='blue', label='NIC-NES')
-    # plt.plot(es_times_59[:650] / 3600, smooth(np.maximum.accumulate(es_ciders_59[:650]), 10), color='green',
-    #          label='NIC-ES')
-    # plt.plot(times_sc[:70] / 3600, smooth(np.maximum.accumulate(ciders_sc[:70]), 2), color='orange',
-    #          label='Self-critical RL')
-    #
-    # plt.axhline(ciders_sc.max(), linestyle='dashed', color='orange', lw=0.5)
-    # plt.text(-1, ciders_sc.max() - 0.01, round(ciders_sc.max(), 3), color='orange')
-    #
-    # plt.axhline(nes_ciders.max(), linestyle='dashed', color='blue', lw=0.5)
-    # plt.text(-1, nes_ciders.max() - 0.01, round(nes_ciders.max(), 3), color='blue')
-    #
-    # plt.axhline(es_ciders_59.max(), linestyle='dashed', color='green', lw=0.5)
-    # plt.text(-1, es_ciders_59.max() - 0.01, round(es_ciders_59.max(), 3), color='green')
-    #
-    # plt.legend(loc='lower right')
-    # plt.xlabel('Aantal uur')
-    # plt.ylabel('CIDEr')
-    # plt.savefig('./logs/sc_nes_es_time_smooth.pdf')
-    # plt.close()
-
-
-def smooth(x, n):
-    tmp = np.array(x, copy=True)
-    for i in range(n, len(x) - n):
-        tmp[i] = x[i - n:i + n].mean()
-    return tmp
 
 
 def cst_from_infos(infos):
@@ -260,10 +246,8 @@ def sample_at(raster, axis, values):
     result = []
     for i, rast_pt in enumerate(raster):
 
-        # upper = next(i for (i, a) in enumerate(axes) if a >= rast_pt)
         upper = lower = 0
         if rast_pt > axis[-1]:
-            # upper = lower = len(axes) - 1
             break
         for k, ax in enumerate(axis):
             if ax == rast_pt:
@@ -278,8 +262,7 @@ def sample_at(raster, axis, values):
 
 
 def rasterize(*coords):
-    # coords = [ [ (1, 10), (2, 20) ] , [...] ]
-    # print(coords)
+    # coords like [ [ (1, 10), (2, 20) ] , [...] ]
 
     axes = [[a for (a, _) in arr] for arr in coords]
     values = [[v for (_, v) in arr] for arr in coords]
@@ -291,66 +274,9 @@ def rasterize(*coords):
 
     rasterized = []
     for i in range(len(axes)):
-        # print(raster, axes[i], values[i])
         rasterized.append(sample_at(raster, axes[i], values[i]))
 
     return [raster[:len(rized)] for rized in rasterized], rasterized
-
-
-# ciders_93, samples_93, times_93 = cst_from_infos(infos_93)
-# ciders_3486, samples_3486, times_3486 = cst_from_infos(infos_3486)
-# ciders_5506, samples_5506, times_5506 = cst_from_infos(infos_5506)
-# ciders_3566, samples_3566, times_3566 = cst_from_infos(infos_3566)
-# ciders_4067, samples_4067, times_4067 = cst_from_infos(infos_4067)
-# ciders_5945, samples_5945, times_5945 = cst_from_infos(infos_5945)
-# ciders_19695, samples_19695, times_19695 = cst_from_infos(infos_19695)
-#
-# tssamples, tsciders = rasterize(list(zip(samples_93, ciders_93)),
-#                                 list(zip(samples_3486, ciders_3486)),
-#                                 list(zip(samples_5506, ciders_5506)))
-#
-# rssamples, rsciders = rasterize(list(zip(samples_3566, ciders_3566)),
-#                                 list(zip(samples_4067, ciders_4067)),
-#                                 list(zip(samples_5945, ciders_5945)),
-#                                 list(zip(samples_19695, ciders_19695)))
-#
-# tstimes, tstciders = rasterize(list(zip(times_93, ciders_93)),
-#                                 list(zip(times_3486, ciders_3486)),
-#                                 list(zip(times_5506, ciders_5506)))
-#
-# rstimes, rstciders = rasterize(list(zip(times_3566, ciders_3566)),
-#                                 list(zip(times_4067, ciders_4067)),
-#                                 list(zip(times_5945, ciders_5945)),
-#                                 list(zip(times_19695, ciders_19695)))
-#
-# plt.plot(times_93, ciders_93, color='red', label='93')
-# plt.plot(times_3486, ciders_3486, color='red', label='3486')
-# plt.plot(times_5506, ciders_5506, color='red', label='5506')
-# plt.plot(times_3566, ciders_3566, color='blue', label='3566')
-# plt.plot(times_4067, ciders_4067, color='blue', label='4067')
-# plt.plot(times_5945, ciders_5945, color='blue', label='5945')
-# plt.plot(times_19695, ciders_19695, color='blue', label='19695')
-#
-#
-# plt.plot(samples_93, ciders_93, color='red', label='93')
-# plt.plot(samples_3486, ciders_3486, color='red', label='3486')
-# plt.plot(samples_5506, ciders_5506, color='red', label='5506')
-# plt.plot(samples_3566, ciders_3566, color='blue', label='3566')
-# plt.plot(samples_4067, ciders_4067, color='blue', label='4067')
-# plt.plot(samples_5945, ciders_5945, color='blue', label='5945')
-# plt.plot(samples_19695, ciders_19695, color='blue', label='19695')
-#
-# plt.plot(tssamples[1], ctsciders, color='red', label='TS')
-# plt.plot(rssamples[2], crsciders, color='blue', label='UWS')
-#
-# plt.legend(loc='lower right')
-# plt.xlabel('Aantal s')
-# plt.ylabel('CIDEr')
-# plt.savefig('./logs/uws_vs_ts_samples_comb.pdf')
-# plt.close()
-#
-# xtimes_2540 = np.concatenate((times_2540, [times_2540[-1] + i*(times_2540[-1]-times_2540[-2]) for i in range(250) ]))
-# xciders_2540 = np.concatenate((ciders_2540, [ciders_2540[-1] for _ in range(250)]))
 
 
 def tournament(pop, t, offspr):

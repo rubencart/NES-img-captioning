@@ -16,13 +16,17 @@
 
 #PBS -A lp_DEEPTEMPL
 
+# Script for running experiments with qsub
+# See local_run_exp.sh for explanation of the args
+# Example usage:
+# qsub -v "algo=nic_nes,port=6382,workers=36,exp=experiments/mscoco_nes.json,id=105" src/scripts/local_run_exp.pbs
+
 # Define the project directory and set it as the working directory.
 PROJECT_ROOT=$VSC_DATA/ga-img-captioning/
 cd $PROJECT_ROOT
 
 # Activate Conda environment.
 source $HOME/.bashrc
-# conda activate cp3env
 . src/scripts/local_env_setup.sh
 
 ALGO=${algo}

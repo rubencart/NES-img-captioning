@@ -1,3 +1,7 @@
+"""
+    Contains code from https://github.com/uber-research/safemutations
+"""
+
 import logging
 import os
 import time
@@ -31,7 +35,6 @@ class Sensitivity(object):
     def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
         if find_file_with_pattern(sensitivity_filename, directory):
-            # logger.info('Loaded sensitivity for known parent')
             try:
                 self._sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
             except (RuntimeError, EOFError):
@@ -77,7 +80,9 @@ class Sensitivity(object):
             return self._calc_abs_sensitivity(experiences)
 
     def _calc_sum_sensitivity(self, experiences):
-        old_output = self.net._contained_forward(experiences, self._orig_batch_size)
+        # TODO consider dividing by batch size
+
+        old_output = self.net.forward_for_sensitivity(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
         batch_size = old_output.size(0)
 
@@ -93,12 +98,6 @@ class Sensitivity(object):
             jacobian[k] = self.net.extract_grad()
         self.net.zero_grad()
 
-        # logger.info('extracted params: {}'.format(param_ex))
-        # param_vec = nn.utils.parameters_to_vector(self.net.parameters())
-        # logger.info('vector params: {}'.format(nn.utils.parameters_to_vector(self.net.parameters())))
-        # assert torch.equal(param_ex, param_vec)
-        # time.sleep(100)
-
         sensitivity = torch.sqrt((jacobian ** 2).sum(0))  # * proportion
         sensitivity /= batch_size
 
@@ -108,7 +107,7 @@ class Sensitivity(object):
 
     def _calc_abs_sensitivity(self, experiences):
 
-        old_output = self.net._contained_forward(experiences, self._orig_batch_size)
+        old_output = self.net.forward_for_sensitivity(experiences, self._orig_batch_size)
         num_outputs = old_output.size(1)
         batch_size = old_output.size(0)
 
@@ -117,20 +116,19 @@ class Sensitivity(object):
 
         for k in range(num_outputs):
             for i in range(batch_size):
-                old_output_i = self.net._contained_forward(experiences, i=i)
+                old_output_i = self.net.forward_for_sensitivity(experiences, i=i)
 
                 self.net.zero_grad()
                 grad_output.zero_()
                 grad_output[0, k] = 1.0
 
                 old_output_i.backward(gradient=grad_output, retain_graph=True)
-                jacobian[k, :, i] = self.net._extract_grad()
+                jacobian[k, :, i] = self.net.extract_grad()
 
         self.net.zero_grad()
 
         jacobian = torch.abs(jacobian).mean(2)
         sensitivity = torch.sqrt((jacobian ** 2).sum(0))
-        # sensitivity /= batch_size
 
         copy = sensitivity.clone().detach().requires_grad_(False)
         del old_output, jacobian, grad_output, experiences, num_outputs, sensitivity

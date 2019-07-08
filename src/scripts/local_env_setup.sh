@@ -1,7 +1,6 @@
 #!/bin/sh
 
-# your environment setup for a new shell window
+# Script that sets up the local env, caution: name should be 'cp3env'!
+
 echo Setting up local environment
-# . p3env/bin/activate
-# . /Users/rubencartuyvels/miniconda3/etc/profile.d/conda.sh
 conda activate cp3env

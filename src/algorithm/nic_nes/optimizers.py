@@ -1,5 +1,6 @@
 """
-    Code based on https://github.com/openai/evolution-strategies-starter/
+    Code taken from https://github.com/openai/evolution-strategies-starter/
+    With some changes to save state to and load state from file
 """
 import numpy as np
 import torch
@@ -47,7 +48,6 @@ class SGD(Optimizer):
 
     def save_to_file(self, path):
         state = {
-            # 'theta': self.theta,
             'dim': self.dim,
             't': self.t,
             'momentum': self.momentum,
@@ -58,7 +58,6 @@ class SGD(Optimizer):
 
     def load_from_file(self, path):
         state = torch.load(path, map_location='cpu')
-        # self.theta = state['theta']
         self.dim = state['dim']
         self.t = state['t']
         self.stepsize = state['stepsize']
@@ -85,7 +84,6 @@ class Adam(Optimizer):
 
     def save_to_file(self, path):
         state = {
-            # 'theta': self.theta,
             'dim': self.dim,
             't': self.t,
             'stepsize': self.stepsize,
@@ -99,7 +97,6 @@ class Adam(Optimizer):
 
     def load_from_file(self, path):
         state = torch.load(path, map_location='cpu')
-        # self.theta = state['theta']
         self.dim = state['dim']
         self.t = state['t']
         self.stepsize = state['stepsize']

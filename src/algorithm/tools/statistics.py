@@ -1,9 +1,12 @@
+import logging
 import time
 
 import numpy as np
 import psutil
 
 import matplotlib.pyplot as plt
+
+from algorithm.tools.utils import log
 
 
 class Statistics(object):
@@ -19,7 +22,7 @@ class Statistics(object):
         self._norm_stats = []
         self._std_stats = []
         self._bs_stats = []
-        self._mem_stats = [[], [], []]  # master, virt, worker
+        self._mem_stats = [[], [], []]
         self._best_acc_so_far_stats = []
 
         self._step_tstart = 0
@@ -81,11 +84,6 @@ class Statistics(object):
 
     @staticmethod
     def _plot(log_dir, score_stats=None, **kwargs):
-        # import matplotlib
-        # import matplotlib.pyplot as plt
-        # if sys.platform == 'darwin':
-        #     matplotlib.use('TkAgg')
-
         if score_stats:
             fig = plt.figure()
             x = np.arange(len(score_stats[1]))
@@ -102,25 +100,23 @@ class Statistics(object):
             plt.savefig(log_dir + '/{}_plot.pdf'.format(name), format='pdf')
             plt.close(fig)
 
-    def log_stats(self, tlogger):
-        tlogger.record_tabular('RewMax', self._score_stats[2][-1])
-        tlogger.record_tabular('RewMean', self._score_stats[1][-1])
-        tlogger.record_tabular('RewMin', self._score_stats[0][-1])
-        tlogger.record_tabular('RewStd', self._score_stds[-1])
-        tlogger.record_tabular('EliteAcc', self._acc_stats[-1])
-        tlogger.record_tabular('BestEliteAcc', self._best_acc_so_far_stats[-1])
-
-        # todo apart from norm, would also be interesting to see how far params are from
-        # each other in param space (distance between param_vectors)
-        tlogger.record_tabular('NormMean', self._norm_stats[-1])
+    def log_stats(self):
+        logging.info('---------------- STATS ----------------')
+        log('RewMax', self._score_stats[2][-1])
+        log('RewMean', self._score_stats[1][-1])
+        log('RewMin', self._score_stats[0][-1])
+        log('RewStd', self._score_stds[-1])
+        log('EliteAcc', self._acc_stats[-1])
+        log('BestEliteAcc', self._best_acc_so_far_stats[-1])
+        log('NormMean', self._norm_stats[-1])
 
         if self._update_ratio_stats:
-            tlogger.record_tabular('UpdateRatio', self._update_ratio_stats[-1])
+            log('UpdateRatio', self._update_ratio_stats[-1])
 
         step_tend = time.time()
-        tlogger.record_tabular('TimeElapsedThisIter', step_tend - self._step_tstart)
-        tlogger.record_tabular('TimeElapsed', self._time_elapsed)
-        tlogger.record_tabular('MemUsage', self._mem_stats[1][-1])
+        log('TimeElapsedThisIter', step_tend - self._step_tstart)
+        log('TimeElapsed', self._time_elapsed)
+        log('MemUsage', self._mem_stats[1][-1])
 
     def record_score_stats(self, scores: np.ndarray):
         """
@@ -141,7 +137,6 @@ class Statistics(object):
         self._best_acc_so_far_stats.append(value)
 
     def record_norm_stats(self, param_vector):
-        # norm = float(np.sqrt(np.square(param_vector).sum()))
         norm = float(param_vector.abs().sum() / param_vector.numel())
         self._norm_stats.append(norm)
 
