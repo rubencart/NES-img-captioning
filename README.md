@@ -6,7 +6,7 @@ This repo implements two algorithms that train the weights of an LSTM network fo
 ### Installation
 
 requirements: 
-- miniconda
+- (mini)conda
 - python 3.7
 - java
 - tmux, tee, screen
@@ -110,9 +110,10 @@ Example json experiment file:
 {
   "algorithm": "nic_es",                # nic_es | nic_nes: should match <algorithm_name> in the start shell command!
   "config": {
-    "eval_prob": 0.006,
+    "eval_prob": 0.006,                 # prob that worker will do evaluation run on validation set instead of
+                                        # evolve/mutate run
     "noise_stdev": 0.002,
-    "snapshot_freq": 10,
+    "snapshot_freq": 10,                # every snapshot_freq a checkpoint and plots will be saved to logs/
     "batch_size": 128,
     
     "ref_batch_size": 0,                # batch size for reference batch for virtual batch norm
@@ -129,7 +130,8 @@ Example json experiment file:
 
   "policy_options": {
     "net": "fc_caption",                # name of network to be used. Use "mnist" for mnist experiment
-    "fitness": "greedy",                # fitness function used: 
+    "fitness": "greedy",                # Fitness function used. Only for MSCOCO experiment, mnist
+                                        # experiments automatically use XENT
                                         # greedy | sample | sc_loss | self_critical | greedy_logprob
     "vbn": false,                       # use virtual batch norm
 
@@ -140,7 +142,8 @@ Example json experiment file:
       "safe_mutation_vector": "",       # set to path if SM-VECTOR is used, eg "./data/sensitivity.pt"
 
       "vbn_e": false,                   # whether to also use batch norm after the embedding layers
-      "vbn_affine": false,              # use affine transformation (extra learnable params) with bn
+                                        # (instead of only in the LSTM)
+      "vbn_affine": false,              # use affine transformation (extra learnable params) with batch norm
       "layer_n": false,                 # layer norm
       "layer_n_affine": false,
 
@@ -153,12 +156,12 @@ Example json experiment file:
   "dataset": "mscoco",                  # mnist | mscoco
 
   "nb_offspring": 1000,                 # lambda
-  "population_size": 50,                # mu
-  "selection": "uniform",               # selection of parents: uniform | tournament
+  "population_size": 50,                # mu (only for NIC-ES): make sure mu < lambda
+  "selection": "uniform",               # selection of parents (only for NIC-ES): uniform | tournament
   "tournament_size": 0,
 
   "num_elites": 3,                      # E
-  "num_elite_cands": 2,                 # C
+  "num_elite_cands": 2,                 # C (only for NIC-ES)
   
   # - to start from randomly initialized pop: set to "_from_single" and "_from_infos"
   # - to start from one single pretrained NW: set to "from_single" and "_from_infos"
@@ -275,6 +278,88 @@ are used from the checkpoint.
 
 Settings like the mutation type, fitness, the patience or schedule, number of offspring, population size,... are taken
 from the used experiment .json.
+
+### Overview of code
+
+The repo structure:
+```
+cider/                              # submodule to forked repo that computes cider scores
+cococaption/                        # submodule to forked repo that computes diff. scores
+data/                               # data folder (you should put the data in here)
+experiments/                        # experiment json files
+                                    # create your own/adjust the existing ones
+logs/
+output/
+pretrained/                         # contains some pretrained models
+redis_config/                       # config files for redis
+src/                                # the actual code
+    algorithm/
+        nic_es/
+            experiment.py           # NIC-ES specific subclass of tools.Experiment
+            iteration.py            # NIC-ES specific subclass of tools.Iteration
+            nic_es_master.py        # actual NIC-ES code
+            nic_es_worker.py        # actual NIC-ES code, evolve + evaluate methods
+            
+        nic_nes/
+            experiment.py           # idem
+            iteration.py            # idem
+            nic_nes_master.py       # idem
+            nic_nes_worker.py       # idem
+            optimizers.py           # sgd and adam optimizers used by NIC-NES
+        
+        tools/                      # supporting code
+            experiment.py           # experiment base class with experiment-wide settings and dataloaders
+            iteration.py            # iteration base class that keeps population, manages schedule/patience
+            podium.py               # class that keeps best individuals so far
+            setup.py                # setup tools for master and workers
+            snapshot.py             # save snapshot/checkpoint to logs
+            statistics.py           # keeps running statistics like time, scores,...
+            utils.py                # bunch of util methods
+            
+        nets.py                     # neural net base class with evolve/init methods
+        policies.py                 # policy base class with setup/load/save methods
+        safe_mutations.py           # where sensitivity is calculated
+    
+    captioning/
+        dataloader.py               # loads data from data/
+        dataloaderraw.py            TODO????
+        eval_utils.py               # used to calculate cider scores on validation set
+        experiment.py               # captioning specific subclass of tools.Experiment
+        fitness.py                  # different fitness functions, used by captioning/policies.py
+        nets.py                     # definition of the LSTM and word embedding layers
+        policies.py                 # implementation of rollout and validation_score methods
+    
+    classification/                 # cfr. captioning
+    
+    scripts/                        # launch scripts
+        local_env_setup.sh          # launch miniconda env
+        local_profile_cpu_exp.sh    # cpu profile run
+        local_run_exp.pbs           # PBS launch script for qsub, contains settings like max runtime and nb procs
+        local_run_exp.sh            # local experiment launch file
+        local_run_redis.sh          # launch redis master & relay
+    
+    dist.py                         # redis communication stuff
+    test.py                         # code for evaluation on test splits
+    main.py                         # main python entry point (launches algorithms)
+    
+```
+
+So to
+- change NIC-(N)ES: adjust algorithm.nic_(n)es.
+- create a new algorithm: create a master & worker, create a (or reuse an existing) Experiment & Iteration subclass.
+- apply to new dataset: create a Policy subclass that implements the rollout and validation_score methods,
+create a PolicyNet (algorithm.nets) subclass with the neural net definition, create an Experiment subclass
+with the appropriate dataloaders.
+- train a different NN architecture for MSCOCO with the existing algorithms: define a new CaptionModel subclass
+in captioning.nets and register it in algorithm.policies.
+
+### Pretrained models
+
+TODO!
+
+### Profiling
+
+TODO?
 
 ### Remarks
 
