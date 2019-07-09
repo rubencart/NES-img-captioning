@@ -91,8 +91,12 @@ class Iteration(ABC):
         if self._patience:
             log('BadGen', str(self._bad_generations) + '/' + str(self._patience))
         elif self._schedule_limit:
-            log('Schedule', str(max(self._iteration - self._schedule_start, 0) % self._schedule_limit)
-                + '/' + str(self._schedule_limit))
+            if self._iteration <= self._schedule_start:
+                part, full = self._iteration, self._schedule_start
+            else:
+                part = (self._iteration - self._schedule_start) % self._schedule_limit
+                full = self._schedule_limit
+            log('Schedule', str(part) + '/' + str(full))
 
         log('UniqueWorkers', len(self._worker_ids))
         log('UniqueWorkersFrac', len(self._worker_ids) / len(self._task_results))

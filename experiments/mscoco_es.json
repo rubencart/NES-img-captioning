@@ -6,7 +6,7 @@
     "snapshot_freq": 2,
     "batch_size": 8,
 
-    "num_val_items": 1000,
+    "num_val_items": 5000,
 
     "patience": 0,
     "schedule_start": 2,

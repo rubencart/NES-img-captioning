@@ -73,7 +73,7 @@ class PolicyNet(nn.Module, ABC):
         self.nb_learnable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         self.nb_params = self.count_parameters()
 
-        logging.warning('Number of learnable params: {}'.format(self.nb_learnable_params))
+        logging.info('Number of learnable params: {}'.format(self.nb_learnable_params))
 
         # freeze all params (gradientwise)
         if not self.grad:

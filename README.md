@@ -56,15 +56,15 @@ screen -S es
 # (optional) <id>: any chosen number to id outputfiles 
 # (optional) <redis tcp port> to use: 6379 | 6380 | 6381 | 6382
 . src/scripts/local_run_exp.sh nic_es experiments/mscoco_es.json 92 123
-
+. src/scripts/local_run_exp.sh ga experiments/mscoco_ga.json 92 90
 # or
 . src/scripts/local_run_exp.sh nic_nes experiments/mscoco_nes.json 92 123
 ```
 
-This will start a screen to run redis and another screen where the experiment runs. In the experiment screen the master process and 
-main worker process and their output are logged in a split-screen with tmux. Running an experiment creates a master outputfile
+This will start a screen that runs redis and another screen where the experiment runs. In the experiment screen the output of
+the master process and worker processes is logged in a split-screen with tmux. Running an experiment creates a master outputfile
 and a worker outputfile in `output/` like `<id>_master_outputfile.txt` where all logs are written to.
-A directory in `logs/` will also be created, which can be recognized by the pid of the started master process. Snapshots,
+A directory in `logs/` is also created, which can be recognized by the pid of the started master process. Snapshots,
 checkpoints and plots will be written to that dir. The parameters of the current population and all offspring are also stored
 there. So an experiment creates:
 ```
@@ -92,7 +92,7 @@ qsub -v "algo=es,port=6380,workers=36,exp=experiments/mscoco_es.json,id=110" src
 ```
 
 Make sure that when you start an experiment from a pretrained network (with `"from_single": "./path"`), 
-the dimensions of the input pretrained network and the specified dimensions in the experiment json match!
+the dimensions of the input pretrained network and the specified dimensions in the experiment json match.
 More specifically, what has to match is:
 - "input_encoding_size", "rnn_size", "fc_feat_size"
 - the data on which it was trained
@@ -103,7 +103,7 @@ More specifically, what has to match is:
 I recommend to not use layer/batch normalisation (was not tested a lot).
 
 
-##### NIC-ES
+#### NIC-ES
 
 Example json experiment file:
 ```
@@ -171,14 +171,15 @@ Example json experiment file:
 
   "caption_options": {
     "input_json": "data/cocotalk.json",         # path to json with captions
-    "input_fc_dir": "data/cocobu_fc",           # path to input image features
+    "input_fc_dir": "data/cocobu_fc",           # path to input image features, set to data/cocotalk_fc for
+                                                # resnet instead of faster rcnn features
     "input_label_h5": "data/cocotalk_label.h5"  # path to h5 file
   }
 }
 
 ```
 
-##### NIC-NES
+#### NIC-NES
 
 Example experiment json file:
 ```
@@ -259,8 +260,8 @@ repo dir of the checkpoint json you want to start from. Make sure to also change
 "_from_single": "..."
 ``` 
 
-When NIC-ES is resumed all parents are copied, so apart from having to generate the offspring again that was already generated
-when execution was interrupted, execution can resume as if it had never stopped. The same counts for NIC-NES.
+When NIC-ES is resumed all parents are copied, so apart from having to generate the offspring that was already generated
+when execution was interrupted again, execution can resume as if it had never stopped. The same counts for NIC-NES.
 All running stats are also copied so the future checkpoints are as if they were from 1 single (uninterrupted) run.
 
 When resuming an experiment part of the settings are taken from the checkpoint .json and part of the settings are 
@@ -270,7 +271,7 @@ taken from the used experiment .json, which can be confusing. Most importantly:
 - learning rate
 - running stats like scores in all previous iterations, time elapsed,...
 - iteration nb, how many bad iterations have happened (if patience),...
-Are used from the checkpoint. 
+are used from the checkpoint. 
 
 Settings like the mutation type, fitness, the patience or schedule, number of offspring, population size,... are taken
 from the used experiment .json.
@@ -282,11 +283,11 @@ Some other remarks:
 - For NIC-ES you need AT LEAST nb_offspring * size of one param.pth file disk space! 
 For a 3M param network with an 11MB param file and nb_offspring=1000 this is ~12GB. 
 Recommended is at least 2-3 times this space to have some margin.
-- Sometimes when starting an experiment you will get errors because redis stores results from previous experiments, 
+- Sometimes when starting an experiment you might get errors because redis stores results from previous experiments, 
 which might reach your master or workers. Just restart the experiment when this happens.
 
 
-#### References
+### References
 
 Based on & took code from:
 - https://github.com/ruotianluo/self-critical.pytorch

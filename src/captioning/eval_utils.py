@@ -1,6 +1,7 @@
 """
     Code from https://github.com/ruotianluo/self-critical.pytorch
 """
+import logging
 
 import torch
 import numpy as np
@@ -56,7 +57,7 @@ def language_eval(preds, directory, split):
     return out
 
 
-def eval_split(model, loader, directory, num=-1, split='val'):
+def eval_split(model, loader, directory, num=-1, split='val', do_eval=True, verbose=False):
     model.eval()
 
     # Todo we assume model is on single device
@@ -83,6 +84,8 @@ def eval_split(model, loader, directory, num=-1, split='val'):
         for k, sent in enumerate(sents):
             entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
             predictions.append(entry)
+            if verbose:
+                logging.info('image %s: %s' % (entry['image_id'], entry['caption']))
 
         ix1 = data['bounds']['it_max']
         if num != -1:
@@ -96,5 +99,5 @@ def eval_split(model, loader, directory, num=-1, split='val'):
         if num >= 0 and n >= num:
             break
 
-    lang_stats = language_eval(predictions, directory, split)
-    return lang_stats
+    lang_stats = language_eval(predictions, directory, split) if do_eval else None
+    return lang_stats, predictions

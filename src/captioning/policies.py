@@ -127,7 +127,6 @@ class CaptPolicy(Policy):
         device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
 
         self.policy_net.to(device)
-        lang_stats = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
+        lang_stats, _ = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
 
         return float(lang_stats['CIDEr'])
-
