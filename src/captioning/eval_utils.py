@@ -73,14 +73,10 @@ def language_eval(preds, directory, split):
     with open(cache_path, 'w') as f:
         json.dump(preds_filt, f)  # serialize to temporary json file. Sigh, COCO API...
 
-    print('json dumped')
-
     cocoRes = coco.loadRes(cache_path)
     cocoEval = COCOEvalCap(coco, cocoRes)
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
-
-    print('evaluated')
 
     # create output dictionary
     out = {}

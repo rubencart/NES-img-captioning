@@ -19,7 +19,6 @@ class ClfPolicy(Policy, ABC):
         assert isinstance(self.policy_net, PolicyNet), '{}'.format(type(self.policy_net))
 
         torch.set_grad_enabled(False)
-        self.policy_net.eval()
 
         device = torch.device('cuda:0' if torch.cuda.is_available() and config.cuda else 'cpu')
         # logger.info('***** DEVICE : {} *****'.format(device))
@@ -29,6 +28,13 @@ class ClfPolicy(Policy, ABC):
         placeholder.to(device)
         labels.to(device)
         self.policy_net.to(device)
+
+        # virtual batch norm
+        if self.vbn:
+            self.policy_net.train()
+            self.policy_net(torch.empty_like(self.ref_batch).copy_(self.ref_batch))
+
+        self.policy_net.eval()
 
         outputs = self.policy_net(placeholder)
 

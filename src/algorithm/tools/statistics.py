@@ -10,12 +10,11 @@ class Statistics(object):
     """
     Wrapper class for a bunch of running statistics
     """
-    # todo consider if best_elite / best_parents should be kept here or in Iteration
 
     DEFAULT_SCORE_STATS = [[], [], []]
     DEFAULT_SCORE_STDS = []
     DEFAULT_TIME_STATS = []
-    DEFAULT_ACC_STATS = []   # todo used to be [[], []]
+    DEFAULT_ACC_STATS = []
     DEFAULT_NORM_STATS = []
     DEFAULT_STD_STATS = []
     DEFAULT_BS_STATS = []
@@ -37,8 +36,9 @@ class Statistics(object):
         self._it_worker_mem_usages = {}
         self._it_master_mem_usages = []
 
+        self._update_ratio_stats = []
+
     def init_from_infos(self, infos):
-        # self.__init__()
 
         self._score_stats = infos['score_stats'] if 'score_stats' in infos else self._score_stats
         self._score_stds = infos['score_stds'] if 'score_stds' in infos else self._score_stds
@@ -48,6 +48,8 @@ class Statistics(object):
         self._std_stats = infos['noise_std_stats'] if 'noise_std_stats' in infos else self._std_stats
         self._bs_stats = infos['bs_stats'] if 'bs_stats' in infos else self._bs_stats
         self._mem_stats = infos['mem_stats'] if 'mem_stats' in infos else self._mem_stats
+        self._update_ratio_stats = infos['update_ratio_stats'] if 'update_ratio_stats' in infos \
+            else self._update_ratio_stats
 
     def to_dict(self):
         return {
@@ -59,19 +61,24 @@ class Statistics(object):
             'noise_std_stats': self._std_stats,
             'bs_stats': self._bs_stats,
             'mem_stats': self._mem_stats,
+            'update_ratio_stats': self._update_ratio_stats,
         }
 
     def plot_stats(self, log_dir):
-        self._plot(log_dir, self._score_stats,
-                   time=(self._time_stats, 'Time per gen'),
-                   norm=(self._norm_stats, 'Norm of params'),
-                   acc=(self._acc_stats, 'Elite score'),
-                   master_mem=(self._mem_stats[0], 'Master mem usage'),
-                   worker_mem=(self._mem_stats[2], 'Worker mem usage'),
-                   virtmem=(self._mem_stats[1], 'Virt mem usage'),
-                   batch_size=(self._bs_stats, 'Batch size'),
-                   noise_std=(self._std_stats, 'Noise stdev'),
-                   reward_std=(self._score_stds, 'Score stdev'))
+        kwargs = {
+            'time': (self._time_stats, 'Time per gen'),
+            'norm': (self._norm_stats, 'Norm of params'),
+            'acc': (self._acc_stats, 'Elite score'),
+            'master_mem': (self._mem_stats[0], 'Master mem usage'),
+            'worker_mem': (self._mem_stats[2], 'Worker mem usage'),
+            'virtmem': (self._mem_stats[1], 'Virt mem usage'),
+            'batch_size': (self._bs_stats, 'Batch size'),
+            'noise_std': (self._std_stats, 'Noise stdev'),
+            'reward_std': (self._score_stds, 'Score stdev'),
+        }
+        if self._update_ratio_stats:
+            kwargs.update({'update_ratio': (self._update_ratio_stats, 'Update ratio')})
+        self._plot(log_dir, self._score_stats, **kwargs)
 
     @staticmethod
     def _plot(log_dir, score_stats=None, **kwargs):
@@ -106,6 +113,9 @@ class Statistics(object):
         # todo apart from norm, would also be interesting to see how far params are from
         # each other in param space (distance between param_vectors)
         tlogger.record_tabular('NormMean', self._norm_stats[-1])
+
+        if self._update_ratio_stats:
+            tlogger.record_tabular('UpdateRatio', self._update_ratio_stats[-1])
 
         step_tend = time.time()
         tlogger.record_tabular('TimeElapsedThisIter', step_tend - self._step_tstart)
@@ -158,6 +168,9 @@ class Statistics(object):
     def record_step_time_stats(self):
         step_tend = time.time()
         self._time_stats.append(step_tend - self._step_tstart)
+
+    def record_update_ratio(self, update_ratio):
+        self._update_ratio_stats.append(update_ratio)
 
     def set_step_tstart(self):
         self._step_tstart = time.time()

@@ -8,22 +8,16 @@ from collections import namedtuple
 
 import numpy as np
 
-# todo cleanup
-ga_task_fields = ['elite', 'population', 'val_data', 'batch_data', 'parents', 'noise_stdev',
-                  'log_dir', 'val_loader', 'elites']  # , 'policy'
-GATask = namedtuple('GATask', field_names=ga_task_fields, defaults=(None,) * len(ga_task_fields))
-
 
 result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
                  'eval_return', 'mem_usage', 'evaluated_cand', 'evaluated_cand_id',
                  'score']
-Result = namedtuple('Result', field_names=result_fields, defaults=(None,) * len(result_fields))
+GAResult = namedtuple('GAResult', field_names=result_fields, defaults=(None,) * len(result_fields))
 
 config_fields = [
-    'l2coeff', 'noise_stdev', 'episodes_per_batch', 'timesteps_per_batch', 'stdev_decr_divisor',
-    'calc_obstat_prob', 'eval_prob', 'snapshot_freq', 'num_dataloader_workers', 'log_dir',
-    'return_proc_mode', 'episode_cutoff_mode', 'batch_size', 'max_nb_epochs', 'patience',
-    'val_batch_size', 'num_val_batches', 'num_val_items', 'cuda'
+    'l2coeff', 'noise_stdev', 'stdev_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
+    'return_proc_mode', 'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
+    'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 

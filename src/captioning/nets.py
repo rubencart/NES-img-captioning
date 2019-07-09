@@ -1,10 +1,7 @@
 """
 Code from https://github.com/ruotianluo/self-critical.pytorch
 """
-
-# from __future__ import absolute_import
-# from __future__ import division
-# from __future__ import print_function
+import logging
 from collections import namedtuple
 from functools import reduce
 
@@ -19,8 +16,8 @@ from algorithm.nets import PolicyNet
 
 
 class CaptionModel(PolicyNet):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False):
-        super(CaptionModel, self).__init__(rng_state, from_param_file, grad)
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, vbn=False):
+        super(CaptionModel, self).__init__(rng_state, from_param_file, grad, vbn)
 
     # implements beam search
     # calls beam_step and returns the final set of beams
@@ -236,15 +233,38 @@ class LSTMCore(nn.Module):
         super(LSTMCore, self).__init__()
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_size = opt.rnn_size
-        # self.drop_prob_lm = opt.drop_prob_lm
+        self.drop_prob_lm = opt.drop_prob_lm
 
         # Build a LSTM
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
-        # self.dropout = nn.Dropout(self.drop_prob_lm)
+        self.dropout = nn.Dropout(self.drop_prob_lm)
+
+        # virtual batch normalization
+        self.vbn = opt.vbn
+        self.layer_n = opt.layer_n
+        if self.vbn:
+            self.i2h_bn = nn.BatchNorm1d(5 * self.rnn_size, track_running_stats=True, affine=opt.vbn_affine)
+            self.h2h_bn = nn.BatchNorm1d(5 * self.rnn_size, track_running_stats=True, affine=opt.vbn_affine)
+            self.c_bn = nn.BatchNorm1d(self.rnn_size, track_running_stats=True, affine=opt.vbn_affine)
+        elif self.layer_n:
+            logging.warning('LAYER NORM ACTIVE')
+            self.i2h_ln = nn.LayerNorm(5 * self.rnn_size, elementwise_affine=opt.layer_n_affine)
+            self.h2h_ln = nn.LayerNorm(5 * self.rnn_size, elementwise_affine=opt.layer_n_affine)
+            self.c_ln = nn.LayerNorm(self.rnn_size, elementwise_affine=opt.layer_n_affine)
 
     def forward(self, xt, state):
-        all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
+        if self.vbn:
+            xt_i2h = self.i2h_bn(self.i2h(xt))
+            state_h2h = self.h2h_bn(self.h2h(state[0][-1]))
+        elif self.layer_n:
+            xt_i2h = self.i2h_ln(self.i2h(xt))
+            state_h2h = self.h2h_ln(self.h2h(state[0][-1]))
+        else:
+            xt_i2h = self.i2h(xt)
+            state_h2h = self.h2h(state[0][-1])
+
+        all_input_sums = xt_i2h + state_h2h
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
 
         # sigmoid_chunk = F.sigmoid(sigmoid_chunk)
@@ -258,27 +278,26 @@ class LSTMCore(nn.Module):
             all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size),
             all_input_sums.narrow(1, 4 * self.rnn_size, self.rnn_size)
         )
-        next_c = forget_gate * state[1][-1] + in_gate * in_transform
-        # next_h = out_gate * F.tanh(next_c)
-        next_h = out_gate * torch.tanh(next_c)
 
-        # output = self.dropout(next_h)
-        output = next_h
+        next_c = forget_gate * state[1][-1] + in_gate * in_transform
+        if self.vbn:
+            activated_next_c = torch.tanh(self.c_bn(next_c))
+        elif self.layer_n:
+            activated_next_c = torch.tanh(self.c_ln(next_c))
+        else:
+            activated_next_c = torch.tanh(next_c)
+        # next_h = out_gate * F.tanh(next_c)
+        next_h = out_gate * activated_next_c
+
+        output = self.dropout(next_h)
+        # output = next_h
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
 
-_capt_model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
-                          # todo dropout can go
-                          # todo fitness to CaptPolicyOptions
-                          'drop_prob_lm', 'seq_length', 'fc_feat_size', 'fitness']
-CaptModelOptions = namedtuple('CaptModelOptions', field_names=_capt_model_opt_fields,
-                              defaults=(None,) * len(_capt_model_opt_fields))
-
-
 class FCModel(CaptionModel):
-    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None):
-        super(FCModel, self).__init__(rng_state, from_param_file, grad)
+    def __init__(self, rng_state=None, from_param_file=None, grad=False, options=None, vbn=False):
+        super(FCModel, self).__init__(rng_state, from_param_file, grad, vbn)
         opt = options
 
         self.vocab_size = opt.vocab_size
@@ -297,15 +316,26 @@ class FCModel(CaptionModel):
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
-        # todo both necessary?
-        self.init_weights()
+        # virtual batch normalization
+        self.vbn_e = opt.vbn_e
+        if self.vbn_e:
+            self.img_embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=True,
+                                               affine=opt.vbn_affine)
+            self.embed_bn = nn.BatchNorm1d(self.input_encoding_size, track_running_stats=True,
+                                           affine=opt.vbn_affine)
+            # self.core_bn = nn.BatchNorm1d(self.rnn_size)
+
+            self.img_embed = torch.nn.Sequential(self.img_embed, self.img_embed_bn)
+            self.embed = torch.nn.Sequential(self.embed, self.embed_bn)
+            # self.core = torch.nn.Sequential(self.core, self.core_bn)
+
         self._initialize_params()
 
-    def init_weights(self):
-        initrange = 0.1
-        self.embed.weight.data.uniform_(-initrange, initrange)
-        self.logit.bias.data.fill_(0)
-        self.logit.weight.data.uniform_(-initrange, initrange)
+    # def init_weights(self):
+    #     initrange = 0.1
+    #     self.embed.weight.data.uniform_(-initrange, initrange)
+    #     self.logit.bias.data.fill_(0)
+    #     self.logit.weight.data.uniform_(-initrange, initrange)
 
     def init_hidden(self, bsz):
         weight = next(self.parameters())
@@ -409,7 +439,7 @@ class FCModel(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample(self, fc_feats, att_feats=None, att_masks=None, opt={}):
         # sample_max = 1 --> greedy? 0 --> random?
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
@@ -419,7 +449,7 @@ class FCModel(CaptionModel):
         # Todo we assume model is on single device
         device = next(self.parameters()).device
 
-        if beam_size > 1:
+        if beam_size > 1 and att_feats is not None:
             return self._sample_beam(fc_feats, att_feats, opt)
 
         batch_size = fc_feats.size(0)

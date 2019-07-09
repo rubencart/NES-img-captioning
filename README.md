@@ -5,20 +5,26 @@
 Based on & took code from:
 - https://github.com/ruotianluo/self-critical.pytorch
 - https://github.com/uber-research/deep-neuroevolution
+- https://github.com/openai/evolution-strategies-starter/
 - https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 - https://github.com/uber-research/safemutations
 
 
 #### Installation
 
-run pkill python before & after
+requirements: python 3.7, pytorch, torchvision, java, redis-server
+tmux, tee
+
+git clone ...
+git submodule init
+git submodule update
 
 https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#viewing-a-list-of-your-environments
-conda:
-mkl-service?
-
-pip:
-...
+conda create -n cp3env python=3.7
+conda activate cp3env
+conda install psutil
+conda install -c pytorch pytorch torchvision
+pip install -r requirements.txt
 
 Needs ts from moreutils and tee (unix packages)
 https://superuser.com/questions/1174408/can-you-prefix-each-line-written-with-tee-with-the-current-date-and-time
@@ -60,7 +66,7 @@ Example json:
     "snapshot_freq": 5,
     "batch_size": 64,
     "patience": 20,
-    "stdev_decr_divisor": 1.0
+    "stdev_divisor": 1.0
   },
   "dataset": "mnist",
   "net": "mnist",
@@ -68,7 +74,7 @@ Example json:
   "truncation": 30,
   "num_elites": 1,
   // ONE OF:
-  "from_population": {
+  "from_infos": {
     "infos": "logs/es_nets_88450/z_info_e1_i66-938.json",
     "models": "logs/es_nets_88450/z_parents_params_e1_i66-938_r0.42.tar"
   },
@@ -93,7 +99,7 @@ https://docs.python.org/3.7/library/profile.html
 import pstats
 from pstats import SortKey
 
-w = pstats.Stats('profile_worker.txt')
+w = pstats.Stats('output/profile_worker.txt')
 w.sort_stats(SortKey.TIME).print_stats(10)
 ```
 

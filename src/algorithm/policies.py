@@ -5,6 +5,7 @@ import logging
 import os
 from abc import ABC
 
+import numpy as np
 import torchvision
 import torch
 from torch import nn
@@ -41,15 +42,21 @@ class Mutation(Enum):
     DEFAULT = ''
 
 
-_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness']
-PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.01, None])
+_opt_fields = ['net', 'safe_mutations', 'model_options', 'safe_mutation_underflow', 'fitness', 'vbn']
+PolicyOptions = namedtuple('PolicyOptions', field_names=_opt_fields, defaults=[None, '', None, 0.01, None, False])
+
+_model_opt_fields = ['vocab_size', 'input_encoding_size', 'rnn_type', 'rnn_size', 'num_layers',
+                     # todo dropout can go
+                     'drop_prob_lm', 'seq_length', 'fc_feat_size', 'vbn', 'vbn_e', 'vbn_affine', 'layer_n',
+                     'layer_n_affine']
+ModelOptions = namedtuple('ModelOptions', field_names=_model_opt_fields,
+                          defaults=(None,) * len(_model_opt_fields))
 
 
 class Policy(ABC):
     def __init__(self, dataset: SuppDataset, options: PolicyOptions):
         if dataset == SuppDataset.MSCOCO:
-            from captioning.nets import CaptModelOptions
-            self.model_options = CaptModelOptions(**options.model_options)
+            self.model_options = ModelOptions(**options.model_options)
 
             from captioning.policies import Fitness
             self.fitness = Fitness(options.fitness if options.fitness else Fitness.DEFAULT)
@@ -64,6 +71,8 @@ class Policy(ABC):
         self.dataset = dataset
         self.net = Net(options.net)
         self.options = options
+        self.vbn = bool(options.vbn)
+        self.ref_batch = None
         self.mutations = Mutation(options.safe_mutations)
 
         from classification.nets import Cifar10Net, Cifar10Net_Small, MnistNet
@@ -85,6 +94,9 @@ class Policy(ABC):
             self.policy_net.set_sensitivity(task_id, parent_id, experiences, batch_size, directory,
                                             underflow, self.mutations)
 
+    def set_ref_batch(self, ref_batch):
+        self.ref_batch = ref_batch
+
     def save(self, path, filename):
         assert self.policy_net is not None, 'set model first!'
         mkdir_p(path)
@@ -97,6 +109,13 @@ class Policy(ABC):
     def parameter_vector(self):
         assert self.policy_net is not None, 'set model first!'
         return nn.utils.parameters_to_vector(self.policy_net.parameters())
+
+    def set_from_parameter_vector(self, vector):
+        assert self.policy_net is not None, 'set model first!'
+        assert isinstance(vector, np.ndarray) or isinstance(vector, torch.Tensor)
+        if isinstance(vector, np.ndarray):
+            vector = torch.from_numpy(vector)
+        self.policy_net.set_from_vector(vector)
 
     # def get_serial_model(self):
     #     return copy.deepcopy(self.serial_net)
@@ -148,11 +167,13 @@ class NetsPolicy(Policy, ABC):
     # TODO cleanup serial_net & policy_net
 
     def init_model(self, model=None):
+        assert self.policy_net is None
         assert isinstance(model, PolicyNet), '{}'.format(type(model))
         self.policy_net = model
         # self.serial_net = model.state_dict()
 
     def set_model(self, model):
+        assert self.policy_net is not None
         assert isinstance(model, PolicyNet) or isinstance(model, dict) \
                or isinstance(model, str) or model is None, '{}'.format(type(model))
         if isinstance(model, PolicyNet):
@@ -162,6 +183,7 @@ class NetsPolicy(Policy, ABC):
         elif isinstance(model, str):
             self._set_from_path_model(model)
         else:
+            logger.error('[netspolicy] trying to set policy from None')
             self._set_from_statedict_model(self.generate_model().state_dict())
 
     def _set_from_path_model(self, serialized):
@@ -182,24 +204,25 @@ class NetsPolicy(Policy, ABC):
 
     def generate_model(self, from_param_file=None, start_rng=None):
         if from_param_file:
-            return self.get_net_class()(from_param_file=from_param_file, options=self.model_options)
+            return self.get_net_class()(from_param_file=from_param_file, options=self.model_options, vbn=self.vbn)
         elif start_rng:
-            return self.get_net_class()(rng_state=start_rng, options=self.model_options)
+            return self.get_net_class()(rng_state=start_rng, options=self.model_options, vbn=self.vbn)
         else:
-            return self.get_net_class()(rng_state=random_state(), options=self.model_options)
+            return self.get_net_class()(rng_state=random_state(), options=self.model_options, vbn=self.vbn)
 
     def evolve_model(self, sigma):
         assert self.policy_net is not None, 'set model first!'
-        if self.mutations == Mutation.SAFE_GRAD_SUM:
-            self.policy_net.evolve_safely(sigma)
+        if self.mutations == Mutation.SAFE_GRAD_SUM or self.mutations == Mutation.SAFE_GRAD_ABS:
+            return self.policy_net.evolve(sigma, safe=True)
         else:
-            self.policy_net.evolve(sigma)
+            return self.policy_net.evolve(sigma)
 
     def get_model(self):
         return self.policy_net
 
 
 class SeedsPolicy(Policy, ABC):
+    # TODO REMOVE
 
     def init_model(self, model=None):
         self.set_model(model if model else CompressedModel())

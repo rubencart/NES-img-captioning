@@ -14,7 +14,7 @@ import argparse
 import json
 import logging
 import os
-import signal
+# import signal
 import sys
 import time
 
@@ -22,8 +22,6 @@ import time
 import psutil
 
 from dist import RelayClient
-from algorithm.ga_master import GAMaster
-from algorithm.ga_worker import start_and_run_worker
 
 
 def run():
@@ -56,19 +54,18 @@ def run():
         workers(args.algo, args.master_host, args.master_port, args.relay_socket_path, args.num_workers)
 
 
-def import_algo(name):
-    # todo add support for more ES algorithms like Novelty Search/...
-    # if name == 'es':
-    #     from . import es as algo
-    # elif name == 'ns-es' or name == "nsr-es":
-    #     from . import nses as algo
-    if name == 'ga':
-        from algorithm import ga_master as algo
-    # elif name == 'rs':
-    #     from . import rs as algo
-    else:
-        raise NotImplementedError()
-    return algo
+# def import_algo(name):
+#     if name == 'es':
+#         from algorithm.es import es_master as algo
+#     # elif name == 'ns-es' or name == "nsr-es":
+#     #     from . import nses as algo
+#     if name == 'ga':
+#         from algorithm.ga import ga_master as algo
+#     # elif name == 'rs':
+#     #     from . import rs as algo
+#     else:
+#         raise NotImplementedError()
+#     return algo
 
 
 # @profile_exp(stream=open('memory_profiler.log', 'w+'))
@@ -85,10 +82,14 @@ def master(algo, exp_file, master_socket_path, log_dir, plot):
     else:
         assert False
 
-    # todo
-    # algo = import_algo(algo)
-    ga_master = GAMaster()
-    ga_master.run_master({'unix_socket_path': master_socket_path}, exp=exp, plot=plot)  # log_dir=log_dir
+    if algo == 'ga':
+        from algorithm.ga.ga_master import GAMaster
+        master_alg = GAMaster(exp, {'unix_socket_path': master_socket_path})
+    else:  # algo == 'es':
+        from algorithm.es.es_master import ESMaster
+        master_alg = ESMaster(exp, {'unix_socket_path': master_socket_path})
+
+    master_alg.run_master(plot=plot)
 
 
 # @profile_exp(stream=open('memory_profiler.log', 'w+'))
@@ -104,20 +105,22 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # import mkl
     # mkl.set_num_threads(1)
 
-    # Start the workers
-    # todo
-    # algo = import_algo(algo)
+    if algo == 'ga':
+        from algorithm.ga.ga_worker import start_and_run_worker
+        run_func = start_and_run_worker
+    else:  # algo == 'es':
+        from algorithm.es.es_worker import start_and_run_worker
+        run_func = start_and_run_worker
 
     # wait for master process to have uploaded tasks, otherwise errors
     # because workers start on cached tasks and files don't exist
     time.sleep(5)
     if num_workers == -1:
         start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
-        sys.exit(1)
     else:
 
         num_workers = num_workers if num_workers else os.cpu_count() - 2
-        processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
+        processes = spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg)
         # start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
         counter = 0
         while True:
@@ -128,7 +131,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
                 logging.warning('****************************************************')
                 logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - nb_alive))
                 logging.warning('****************************************************')
-                new_procs = spawn_workers(num_workers - nb_alive, algo, master_redis_cfg, relay_redis_cfg)
+                new_procs = spawn_workers(num_workers - nb_alive, run_func, master_redis_cfg, relay_redis_cfg)
                 processes = alive_procs + new_procs
             # print(psutil.virtual_memory().percent)
             if psutil.virtual_memory().percent > 90.0:
@@ -139,11 +142,10 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
                 logging.warning('****************************************************')
                 logging.warning('****************************************************')
                 logging.warning('****************************************************')
-                # [os.kill(pid, signal.SIGKILL) for pid in worker_ids]
+
                 [p.kill() for p in processes]
                 processes = spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg)
                 counter += 1
-            # else:
             if counter > 20:
                 [p.kill() for p in processes]
                 break
@@ -153,32 +155,15 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
         # os.wait()
 
 
-def spawn_workers(num_workers, algo, master_redis_cfg, relay_redis_cfg):
+def spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg):
     logging.info('Spawning {} workers'.format(num_workers))
     worker_ids = []
     for _id in range(num_workers):
-        # ctx = mp.spawn(fn=start_and_run_worker, args=(master_redis_cfg, relay_redis_cfg),
-        #                join=False)
-        p = mp.Process(target=start_and_run_worker, args=(0, master_redis_cfg, relay_redis_cfg))
+
+        p = mp.Process(target=run_func, args=(0, master_redis_cfg, relay_redis_cfg))
         p.start()
         worker_ids += [p]
-        # new_pid = os.fork()
-        # if new_pid == 0:
-        #
-        #     # print('importing mkl, setting num threads')
-        #     # import mkl
-        #     # mkl.set_num_threads(1)
-        #
-        #     # todo
-        #     ga_worker = GAWorker()
-        #
-        #     # todo pass along worker id to ensure unique
-        #     ga_worker.run_worker(master_redis_cfg, relay_redis_cfg)
-        #     # cProfile.run(ga_worker.run_worker(master_redis_cfg, relay_redis_cfg),
-        #     #              'profile_worker_{}.txt'.format(_id))
-        #     return
-        # else:
-        #     worker_ids.append(new_pid)
+
     return worker_ids
 
 

@@ -9,39 +9,33 @@ import time
 import numpy as np
 import torch
 # from memory_profiler import profile
-
-from algorithm.tools.experiment import Experiment
+from algorithm.es.es_master import ESTask, ESResult
+from algorithm.tools.experiment import GAExperiment
 from dist import WorkerClient
 from algorithm.policies import Policy
 from algorithm.tools.setup import Config, setup_worker
-from algorithm.tools.utils import GATask, Result, mkdir_p
+from algorithm.tools.utils import mkdir_p
 
 
-class GAWorker(object):
+class ESWorker(object):
 
     def __init__(self, master_redis_cfg, relay_redis_cfg):
         self.rs = np.random.RandomState()
         self.worker_id = self.rs.randint(2 ** 31)
-        self.offspring_dir = ''
-        self.offspring_path = ''
-        self.eval_dir = ''
 
         # redis client
         self.worker = WorkerClient(master_redis_cfg, relay_redis_cfg)
         self.exp = self.worker.get_experiment()
         assert self.exp['mode'] in ['seeds', 'nets'], '{}'.format(self.exp['mode'])
 
-        self.offspring_dir = os.path.join(self.exp['log_dir'], 'models', 'offspring')
-        mkdir_p(self.offspring_dir)
-        self.offspring_path = os.path.join(self.offspring_dir, '{w}_{i}_offspring_params.pth')
-
         self.eval_dir = os.path.join(self.exp['log_dir'], 'eval_{}'.format(os.getpid()))
+        self.sensitivity_dir = os.path.join(self.exp['log_dir'], 'models', 'current')
         mkdir_p(self.eval_dir)
 
         setup_tuple = setup_worker(self.exp)
         self.config: Config = setup_tuple[0]
         self.policy: Policy = setup_tuple[1]
-        self.experiment: Experiment = setup_tuple[2]
+        self.experiment: GAExperiment = setup_tuple[2]
 
         self.placeholder = torch.FloatTensor(1)
 
@@ -54,7 +48,6 @@ class GAWorker(object):
         torch.set_grad_enabled(False)
         torch.set_num_threads(0)
 
-        # self.exp = self.worker.get_experiment()
         exp, config, experiment, rs, worker, policy = \
             self.exp, self.config, self.experiment, self.rs, self.worker, self.policy
 
@@ -65,20 +58,12 @@ class GAWorker(object):
             _it_id += 1
             torch.set_grad_enabled(False)
             time.sleep(0.01)
-            mem_usages = []
-
-            # deadlocks!!!! if elite hasn't been evaluated when nb files > 2 pop
-            # if len(os.listdir(offspring_dir)) > 2 * exp['population_size']:
-            #     time.sleep(10)
-            #     continue
 
             task_id, task_data = worker.get_current_task()
             task_tstart = time.time()
-            assert isinstance(task_id, int) and isinstance(task_data, GATask)
+            assert isinstance(task_id, int) and isinstance(task_data, ESTask)
 
-            # policy: Policy = PolicyFactory.create(dataset=SuppDataset(exp['dataset']),
-            #                                       mode=exp['mode'], exp=exp)
-            # policy.init_model(policy.generate_model())
+            self.policy.set_ref_batch(task_data.ref_batch)
 
             if rs.rand() < config.eval_prob:
                 logger.info('EVAL RUN')
@@ -108,75 +93,70 @@ class GAWorker(object):
             # del policy, task_data
             del task_data
             gc.collect()
-            # self.write_alive_tensors()
+            self.write_alive_tensors()
 
     def accuracy(self, policy, task_data):
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        index = self.rs.randint(len(task_data.elites))
-        # index = os.getpid() % len(task_data.elites)
-        cand_id, cand = task_data.elites[index]
+        current_path = task_data.current
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        policy.set_model(cand)
+        policy.set_model(current_path)
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         score = policy.accuracy_on(self.experiment.valloader, self.config, self.eval_dir)
+        # print(score)
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
         # del task_data, cand, score
-        return Result(
+        return ESResult(
             worker_id=self.worker_id,
-            score=score,
-            evaluated_cand_id=cand_id,
-            evaluated_cand=cand,
+            eval_score=score,
             mem_usage=max(mem_usages)
         )
 
     def fitness(self, it_id, policy, task_data, task_id):
 
         # todo, see SC paper: during training: picking ARGMAX vs SAMPLE! now argmax?
-
-        batch_data = copy.deepcopy(task_data.batch_data)
-
-        index = self.rs.randint(len(task_data.parents))
-        # if len(os.listdir(os.path.join(exp['log_dir'], 'tmp'))) > 2 * exp['population_size']:
-        #   time.sleep(1)
-        #   continue
-        #   index = 0
-        parent_id, parent = task_data.parents[index]
+        # todo   --> also 'rollouts with noise': do they mean added noise in param space?
+        #            or in action space? bc we don't do this, this would be like sampling vs greedy
+        # "If random_stream is provided, the rollout will take noisy actions with noise drawn from that stream.
+        #         Otherwise, no action noise will be added."
 
         mem_usages = [psutil.Process(os.getpid()).memory_info().rss]
 
-        if parent is None:
-            # 0'th iteration: first models still have to be generated
-            model = policy.generate_model()
-            policy.set_model(model)
-        else:
-            policy.set_model(parent)
-            # todo unmodified or not?
-            # elite at idx 0 doesn't have to be evolved (last elem of parents list is an
-            # exact copy of the elite, which will be evolved)
-            # if index < experiment.num_elites():
-            #    policy.evolve_model(task_data.noise_stdev)
-            policy.set_sensitivity(task_id, parent_id, batch_data, self.experiment.orig_batch_size(),
-                                   self.offspring_dir)
-            policy.evolve_model(task_data.noise_stdev)
+        batch_data = copy.deepcopy(task_data.batch_data)
+        current_path = task_data.current
+        policy.set_model(current_path)
+        current_params = policy.parameter_vector()
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        fitness = policy.rollout(placeholder=self.placeholder,
-                                 data=batch_data, config=self.config)
+        # todo sensitivity with ES? --> no! finite distance approx.
+        policy.set_sensitivity(task_id, 0, batch_data, self.experiment.orig_batch_size(), self.sensitivity_dir)
+        # theta <-- theta + noise
+        noise_vector = policy.evolve_model(task_data.noise_stdev)
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 
-        return Result(
+        pos_fitness = policy.rollout(placeholder=self.placeholder,
+                                     data=batch_data, config=self.config)
+
+        mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
+        # theta <-- theta - noise (mirrored sampling)
+        policy.set_from_parameter_vector(current_params - torch.from_numpy(noise_vector))
+
+        mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
+
+        neg_fitness = policy.rollout(placeholder=self.placeholder,
+                                     data=batch_data, config=self.config)
+        del current_params
+        return ESResult(
             worker_id=self.worker_id,
-            evaluated_model_id=parent_id,
-            evaluated_model=policy.serialized(path=self.offspring_path.format(w=self.worker_id,
-                                                                              i=it_id)),
-            fitness=np.array([fitness], dtype=np.float32),
+            evolve_noise=noise_vector,
+            fitness=np.array([pos_fitness, neg_fitness]),   # , dtype=np.float32
             mem_usage=max(mem_usages)
         )
 
@@ -203,5 +183,5 @@ def start_and_run_worker(i, master_redis_cfg, relay_redis_cfg):
         level=logging.INFO,
     )  # stream=sys.stdout)
 
-    ga_worker = GAWorker(master_redis_cfg, relay_redis_cfg)
-    ga_worker.run_worker()
+    es_worker = ESWorker(master_redis_cfg, relay_redis_cfg)
+    es_worker.run_worker()

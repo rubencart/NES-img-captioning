@@ -1,0 +1,43 @@
+{
+  "algorithm": "es",
+  "mode":  "nets",
+  "config": {
+
+    "cuda": false,
+    "eval_prob": 0.004,
+    "noise_stdev": 0.1,
+    "snapshot_freq": 2,
+    "batch_size": 64,
+
+    "patience": 2,
+    "stdev_divisor": 2,
+    "bs_multiplier": 2,
+    "stepsize_divisor": 2,
+
+    "ref_batch_size": 16,
+    "l2coeff": 0.0002,
+    "return_proc_mode": "centered_rank"
+  },
+
+  "policy_options": {
+    "net": "mnist",
+    "vbn": true,
+
+    "safe_mutation_underflow": 0.5,
+    "safe_mutations": "SM-G-SUM"
+  },
+
+  "optimizer_options": {
+    "type": "adam",
+    "args": {
+      "stepsize": 0.01
+    }
+  },
+
+  "dataset": "mnist",
+  "population_size": 500,
+  "num_elites": 1,
+
+  "from_infos": "logs/es_mnist_mnist_8025/snapshot/z_info_e1_i38-938.json",
+  "_from_single": "logs/sgd_mnist_44168/params_acc63.pth"
+}

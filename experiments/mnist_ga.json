@@ -1,5 +1,5 @@
 {
-
+  "algorithm": "ga",
   "mode":  "nets",
 
   "config": {
@@ -10,7 +10,9 @@
     "snapshot_freq": 5,
     "batch_size": 64,
     "patience": 10,
-    "stdev_decr_divisor": 1.0,
+    "stdev_divisor": 2,
+    "bs_multiplier": 2,
+
     "num_val_batches": 2
   },
 
@@ -29,7 +31,7 @@
   "num_elites": 3,
   "num_elite_cands": 3,
 
-  "from_population": "logs/es_mnist_mnist_nets_48089/snapshot/z_info_e1_i7-469.json",
+  "_from_infos": "logs/es_mnist_mnist_nets_98538/snapshot/z_info_e1_i37-235.json",
   "_from_single": "logs/sgd_mnist_44168/params_acc63.pth",
   "_comment": "noise stdev 0.00333 seems to work well"
 }

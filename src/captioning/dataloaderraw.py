@@ -9,7 +9,7 @@ Code from https://github.com/ruotianluo/self-critical.pytorch
 # from __future__ import print_function
 
 import json
-import h5py
+# import h5py
 import os
 import numpy as np
 import random

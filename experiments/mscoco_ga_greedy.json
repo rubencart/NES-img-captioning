@@ -13,7 +13,8 @@
     "num_val_items": 5000,
 
     "patience": 20,
-    "stdev_decr_divisor": 1.0
+    "stdev_divisor": 2,
+    "bs_multiplier": 2
   },
 
   "policy_options": {

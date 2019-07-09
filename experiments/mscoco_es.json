@@ -1,31 +1,41 @@
 {
-  "algorithm": "ga",
+  "algorithm": "es",
   "mode":  "nets",
   "config": {
     "cuda": false,
 
     "eval_prob": 0.1,
-    "noise_stdev": 0.002,
+    "noise_stdev": 0.001,
     "snapshot_freq": 5,
     "batch_size": 2,
 
     "val_batch_size": 256,
-    "num_val_batches": 4,
     "num_val_items": 5000,
 
     "patience": 30,
     "stdev_divisor": 2,
-    "bs_multiplier": 2
+    "bs_multiplier": 2,
+    "stepsize_divisor": 2,
+
+    "ref_batch_size": 2,
+    "l2coeff": 0.0002,
+    "return_proc_mode": "centered_rank"
   },
 
   "policy_options": {
     "net": "fc_caption",
     "fitness": "greedy",
+    "vbn": false,
 
     "safe_mutation_underflow": 0.1,
-    "safe_mutations": "SM-G-SUM",
+    "safe_mutations": "",
 
     "model_options": {
+      "vbn_e": false,
+      "vbn_affine": false,
+      "layer_n": false,
+      "layer_n_affine": false,
+
       "input_encoding_size":  128,
       "rnn_type": "lstm",
       "rnn_size": 128,
@@ -35,14 +45,19 @@
     }
   },
 
+  "optimizer_options": {
+    "type": "adam",
+    "args": {
+      "stepsize": 0.01
+    }
+  },
+
   "dataset": "mscoco",
 
-  "population_size": 20,
-  "truncation": 10,
-  "num_elites": 3,
-  "num_elite_cands": 3,
+  "population_size": 10,
+  "num_elites": 2,
 
-  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
   "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
 
   "caption_options": {
