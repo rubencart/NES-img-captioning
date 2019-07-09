@@ -1,3 +1,8 @@
+"""
+    This code sets up Redis communication between relay, master and workers and is
+    taken from https://github.com/openai/evolution-strategies-starter/
+"""
+
 import logging
 import os
 import pickle
@@ -9,12 +14,12 @@ import redis
 
 logger = logging.getLogger(__name__)
 
-EXP_KEY = 'es:exp'
-TASK_ID_KEY = 'es:task_id'
-TASK_DATA_KEY = 'es:task_data'
-TASK_CHANNEL = 'es:task_channel'
-RESULTS_KEY = 'es:results'
-ARCHIVE_KEY = 'es:archive'
+EXP_KEY = 'nic_nes:exp'
+TASK_ID_KEY = 'nic_nes:task_id'
+TASK_DATA_KEY = 'nic_nes:task_data'
+TASK_CHANNEL = 'nic_nes:task_channel'
+RESULTS_KEY = 'nic_nes:results'
+ARCHIVE_KEY = 'nic_nes:archive'
 
 
 def serialize(x):
@@ -60,7 +65,6 @@ def retry_get(pipe, key, tries=300, base_delay=4.):
     raise RuntimeError('{} not set'.format(key))
 
 
-# todo use RQ instead? https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 class MasterClient:
     def __init__(self, master_redis_cfg):
         self.task_counter = 0
@@ -79,7 +83,7 @@ class MasterClient:
         (self.master_redis.pipeline()
          .mset({TASK_ID_KEY: task_id, TASK_DATA_KEY: serialized_task_data})
          .publish(TASK_CHANNEL, serialize((task_id, serialized_task_data)))
-         .execute())  # TODO: can we avoid transferring task data twice and serializing so much?
+         .execute())
         logger.debug('[master] Declared task {}'.format(task_id))
         return task_id
 

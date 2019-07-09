@@ -1,3 +1,4 @@
+import logging
 import time
 
 import numpy as np
@@ -5,33 +6,28 @@ import psutil
 
 import matplotlib.pyplot as plt
 
+from algorithm.tools.utils import log
+
 
 class Statistics(object):
     """
     Wrapper class for a bunch of running statistics
     """
 
-    DEFAULT_SCORE_STATS = [[], [], []]
-    DEFAULT_SCORE_STDS = []
-    DEFAULT_TIME_STATS = []
-    DEFAULT_ACC_STATS = []
-    DEFAULT_NORM_STATS = []
-    DEFAULT_STD_STATS = []
-    DEFAULT_BS_STATS = []
-    DEFAULT_MEM_STATS = [[], [], []]  # master, virt, worker
-
     def __init__(self):
-        self._score_stats = self.DEFAULT_SCORE_STATS
-        self._score_stds = self.DEFAULT_SCORE_STDS
-        self._time_stats = self.DEFAULT_TIME_STATS
-        self._acc_stats = self.DEFAULT_ACC_STATS
-        self._norm_stats = self.DEFAULT_NORM_STATS
-        self._std_stats = self.DEFAULT_STD_STATS
-        self._bs_stats = self.DEFAULT_BS_STATS
-        self._mem_stats = self.DEFAULT_MEM_STATS
+        self._score_stats = [[], [], []]
+        self._score_stds = []
+        self._time_stats = []
+        self._acc_stats = []
+        self._norm_stats = []
+        self._std_stats = []
+        self._bs_stats = []
+        self._mem_stats = [[], [], []]
+        self._best_acc_so_far_stats = []
 
         self._step_tstart = 0
         self._tstart = time.time()
+        self._time_elapsed = 0
 
         self._it_worker_mem_usages = {}
         self._it_master_mem_usages = []
@@ -50,6 +46,9 @@ class Statistics(object):
         self._mem_stats = infos['mem_stats'] if 'mem_stats' in infos else self._mem_stats
         self._update_ratio_stats = infos['update_ratio_stats'] if 'update_ratio_stats' in infos \
             else self._update_ratio_stats
+        self._time_elapsed = infos['time_elapsed'] if 'time_elapsed' in infos else self._time_elapsed
+        self._best_acc_so_far_stats = infos['best_acc_so_far_stats'] \
+            if 'best_acc_so_far_stats' in infos else self._best_acc_so_far_stats
 
     def to_dict(self):
         return {
@@ -62,6 +61,8 @@ class Statistics(object):
             'bs_stats': self._bs_stats,
             'mem_stats': self._mem_stats,
             'update_ratio_stats': self._update_ratio_stats,
+            'time_elapsed': self._time_elapsed,
+            'best_acc_so_far_stats': self._best_acc_so_far_stats,
         }
 
     def plot_stats(self, log_dir):
@@ -69,6 +70,7 @@ class Statistics(object):
             'time': (self._time_stats, 'Time per gen'),
             'norm': (self._norm_stats, 'Norm of params'),
             'acc': (self._acc_stats, 'Elite score'),
+            'best_acc': (self._best_acc_so_far_stats, 'Best elite score'),
             'master_mem': (self._mem_stats[0], 'Master mem usage'),
             'worker_mem': (self._mem_stats[2], 'Worker mem usage'),
             'virtmem': (self._mem_stats[1], 'Virt mem usage'),
@@ -82,11 +84,6 @@ class Statistics(object):
 
     @staticmethod
     def _plot(log_dir, score_stats=None, **kwargs):
-        # import matplotlib
-        # import matplotlib.pyplot as plt
-        # if sys.platform == 'darwin':
-        #     matplotlib.use('TkAgg')
-
         if score_stats:
             fig = plt.figure()
             x = np.arange(len(score_stats[1]))
@@ -103,24 +100,23 @@ class Statistics(object):
             plt.savefig(log_dir + '/{}_plot.pdf'.format(name), format='pdf')
             plt.close(fig)
 
-    def log_stats(self, tlogger):
-        tlogger.record_tabular('RewMax', self._score_stats[2][-1])
-        tlogger.record_tabular('RewMean', self._score_stats[1][-1])
-        tlogger.record_tabular('RewMin', self._score_stats[0][-1])
-        tlogger.record_tabular('RewStd', self._score_stds[-1])
-        tlogger.record_tabular('EliteAcc', self._acc_stats[-1])
-
-        # todo apart from norm, would also be interesting to see how far params are from
-        # each other in param space (distance between param_vectors)
-        tlogger.record_tabular('NormMean', self._norm_stats[-1])
+    def log_stats(self):
+        logging.info('---------------- STATS ----------------')
+        log('RewMax', self._score_stats[2][-1])
+        log('RewMean', self._score_stats[1][-1])
+        log('RewMin', self._score_stats[0][-1])
+        log('RewStd', self._score_stds[-1])
+        log('EliteAcc', self._acc_stats[-1])
+        log('BestEliteAcc', self._best_acc_so_far_stats[-1])
+        log('NormMean', self._norm_stats[-1])
 
         if self._update_ratio_stats:
-            tlogger.record_tabular('UpdateRatio', self._update_ratio_stats[-1])
+            log('UpdateRatio', self._update_ratio_stats[-1])
 
         step_tend = time.time()
-        tlogger.record_tabular('TimeElapsedThisIter', step_tend - self._step_tstart)
-        tlogger.record_tabular('TimeElapsed', step_tend - self._tstart)
-        tlogger.record_tabular('MemUsage', self._mem_stats[1][-1])
+        log('TimeElapsedThisIter', step_tend - self._step_tstart)
+        log('TimeElapsed', self._time_elapsed)
+        log('MemUsage', self._mem_stats[1][-1])
 
     def record_score_stats(self, scores: np.ndarray):
         """
@@ -137,8 +133,10 @@ class Statistics(object):
     def record_acc_stats(self, value):
         self._acc_stats.append(value)
 
+    def record_best_acc_stats(self, value):
+        self._best_acc_so_far_stats.append(value)
+
     def record_norm_stats(self, param_vector):
-        # norm = float(np.sqrt(np.square(param_vector).sum()))
         norm = float(param_vector.abs().sum() / param_vector.numel())
         self._norm_stats.append(norm)
 
@@ -167,6 +165,7 @@ class Statistics(object):
 
     def record_step_time_stats(self):
         step_tend = time.time()
+        self._time_elapsed += step_tend - self._step_tstart
         self._time_stats.append(step_tend - self._step_tstart)
 
     def record_update_ratio(self, update_ratio):

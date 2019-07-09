@@ -1,29 +1,34 @@
-
+import copy
 import errno
+import gc
+import logging
 import os
 import re
 import shutil
 import sys
+import torch
 from collections import namedtuple
 
 import numpy as np
 
-
-result_fields = ['worker_id', 'evaluated_model_id', 'fitness', 'evaluated_model',
-                 'eval_return', 'mem_usage', 'evaluated_cand', 'evaluated_cand_id',
-                 'score']
-GAResult = namedtuple('GAResult', field_names=result_fields, defaults=(None,) * len(result_fields))
-
 config_fields = [
     'l2coeff', 'noise_stdev', 'stdev_divisor', 'eval_prob', 'snapshot_freq', 'log_dir',
-    'return_proc_mode', 'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
-    'num_val_items', 'cuda', 'max_nb_epochs', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor'
+    'batch_size', 'patience', 'val_batch_size', 'num_val_batches',
+    'num_val_items', 'cuda', 'max_nb_iterations', 'ref_batch_size', 'bs_multiplier', 'stepsize_divisor',
+    'single_batch', 'schedule_limit', 'schedule_start'
 ]
 Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(config_fields))
 
 
-class IterationFailedException(Exception):
-    pass
+def log(name, result):
+    try:
+        # result = round(result, 2)
+        result = '{:g}'.format(float('{:.{p}g}'.format(result, p=3)))
+    except Exception:
+        pass
+    logging.info('| %s: %s | %s %s |', name,
+                 ' ' * (max(19 - len(name), 0)), ' ' * (max(10 - len(str(result)), 0)),
+                 result)
 
 
 def mkdir_p(path):
@@ -36,12 +41,22 @@ def mkdir_p(path):
             raise
 
 
-# To plot against scores:
-# fig = plt.figure()
-# plt.plot(x[:150], score_stats[1][:150], color='blue')
-# plt.plot(np.arange(150), np.array(numstds[:150])*80 - 2.4, color='red')
-# plt.savefig('tmp/1/both')
-# plt.close(fig)
+def write_alive_tensors(self):
+    # from pytorch forum
+    fn = os.path.join(self.eval_dir, 'alive_tensors.txt')
+
+    to_write = '***************************\n'
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                to_write += 'type: {}, size: {} \n'.format(type(obj), obj.size())
+        except:
+            pass
+
+    with open(fn, 'a+') as f:
+        f.write(to_write)
+
+
 def extract_stds_from_log(filename):
     # eg 'logs/logs/es_master_16799/log.txt'
     with open(filename) as f:
@@ -78,7 +93,6 @@ def readable_bytes(num, suffix='B'):
 
 def random_state():
     rs = np.random.RandomState()
-    # print('[pid {pid}] random state: {rs}'.format(pid=os.getpid(), rs=rs.randint(0, 2 ** 31 - 1)))
     return rs.randint(0, 2 ** 31 - 1)
 
 
@@ -148,3 +162,136 @@ def get_platform():
         return sys.platform
 
     return platforms[sys.platform]
+
+
+def get_ciders_from_sc(hist, infos):
+    # with sc: 0.75 s/batch (16)
+    # with xent: 0.065 s/batch (16)
+    # nb samples in Ds: 113287
+    # params 2 865 808
+
+    # with open('../instance_logs/logs_xent_fc_128/checkpt/histories_test_0.pkl', 'rb') as f:
+    #      hist = pickle.load(f)
+
+    # with open('../instance_logs/logs_xent_fc_128/checkpt/infos_test_0.pkl', 'rb') as f:
+    #      infos = pickle.load(f)
+
+    # with open('../instance_logs/instance3_logs_2/test_0_sc_128_checkpt_cont_2/histories_test_0.pkl', 'rb') as f:
+    #      histsc2 = pickle.load(f)
+
+    # with open('../instance_logs/instance3_logs_2/test_0_sc_128_checkpt_cont_2/infos_test_0-best.pkl', 'rb') as f:
+    #      infossc2 = pickle.load(f)
+
+    # plt.plot(*get_ciders(histsc2, infossc2), label='self-critical RL')
+    # plt.legend()
+    # plt.savefig('...')
+
+    keys = list(hist['val_result_history'].keys())
+    ciders = [hist['val_result_history'][nb]['lang_stats']['CIDEr'] for nb in keys]
+    bs = infos['opt'].batch_size
+    keys = np.asarray(keys) * bs
+    return keys, np.asarray(ciders)
+
+
+def plot_ciders_vs_something_nicely(time_xent, ciders_xent, time_sc, ciders_sc):
+    from matplotlib import pyplot as plt
+
+    plt.plot(time_xent, ciders_xent, label='XENT')
+    plt.plot(time_sc, ciders_sc, label='Self-critical RL')
+    plt.axhline(ciders_sc.max(), linestyle='dashed', color='green', lw=0.5)
+    plt.text(-2, 0.93, round(ciders_sc.max(), 3), color='green')
+    plt.legend(loc='lower right')
+    plt.xlabel('Aantal uur')
+    plt.ylabel('CIDEr')
+    plt.savefig('./logs/sc_xent_time.pdf')
+    plt.close()
+
+
+def cst_from_infos(infos):
+    if 'best_acc_so_far_stats' in infos:
+        ciders = np.asarray(infos['best_acc_so_far_stats'])
+    else:
+        ciders = np.maximum.accumulate(infos['acc_stats'])
+    samples = np.cumsum(infos['bs_stats'])
+    times = np.cumsum(infos['time_stats'])
+    return ciders, samples, times
+
+
+def combine_diff_lengths(*arrays):
+    # will give jumps in output at points where one of the arrays ends --> better padding
+    sorted_arrays = sorted(arrays, key=lambda a: len(a), reverse=False)
+    lengths = [len(a) for a in sorted_arrays]
+    result = np.zeros(lengths[-1])
+
+    for nb, (lower, upper) in enumerate(zip([0] + lengths, lengths)):
+        for j in range(lower, upper):
+            result[j] = np.asarray([a[j] for a in sorted_arrays[nb:]]).mean()
+
+    return result
+
+
+def combine_diff_lengths_pad(*arrays):
+    length = max([len(a) for a in arrays])
+    result = np.zeros(length)
+    copied_arrays = copy.deepcopy(arrays)
+    padded_arrays = []
+    for a in copied_arrays:
+        padded_arrays.append(np.concatenate((a, [a[-1] for _ in range(length - len(a))])))
+    for i in range(length):
+        result[i] = np.asarray([a[i] for a in padded_arrays]).mean()
+    return result
+
+
+def sample_at(raster, axis, values):
+    result = []
+    for i, rast_pt in enumerate(raster):
+
+        upper = lower = 0
+        if rast_pt > axis[-1]:
+            break
+        for k, ax in enumerate(axis):
+            if ax == rast_pt:
+                upper = lower = k
+                break
+            elif ax > rast_pt:
+                upper = k
+                lower = max(k - 1, lower)
+                break
+        result.append((values[lower] + values[upper]) / 2)
+    return np.asarray(result)
+
+
+def rasterize(*coords):
+    # coords like [ [ (1, 10), (2, 20) ] , [...] ]
+
+    axes = [[a for (a, _) in arr] for arr in coords]
+    values = [[v for (_, v) in arr] for arr in coords]
+    minim = int(min(a[0] for a in axes))
+    maxim = int(max(a[-1] for a in axes))
+    step = int(min([a[1] - a[0] for a in axes]))
+
+    raster = np.arange(minim, maxim, step)
+
+    rasterized = []
+    for i in range(len(axes)):
+        rasterized.append(sample_at(raster, axes[i], values[i]))
+
+    return [raster[:len(rized)] for rized in rasterized], rasterized
+
+
+def tournament(pop, t, offspr):
+    rs = np.random.RandomState()
+    return [min(rs.choice(np.arange(pop), t, replace=False)) for _ in range(offspr)]
+
+
+def count_in_tournament(p, t, o):
+    tourn = tournament(p, t, o)
+    counts = [tourn.count(c) for c in range(p)]
+    return counts
+
+
+def avg_c_in_t(p, t, o, x):
+    cts = np.empty([x, p], dtype=float)
+    for i in range(x):
+        cts[i] = count_in_tournament(p, t, o)
+    return cts.mean(0)

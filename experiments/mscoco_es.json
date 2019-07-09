@@ -1,25 +1,18 @@
 {
-  "algorithm": "es",
-  "mode":  "nets",
+  "algorithm": "nic_es",
   "config": {
-    "cuda": false,
-
     "eval_prob": 0.1,
-    "noise_stdev": 0.001,
-    "snapshot_freq": 5,
-    "batch_size": 2,
+    "noise_stdev": 0.01,
+    "snapshot_freq": 2,
+    "batch_size": 8,
 
-    "val_batch_size": 256,
     "num_val_items": 5000,
 
-    "patience": 30,
-    "stdev_divisor": 2,
-    "bs_multiplier": 2,
-    "stepsize_divisor": 2,
-
-    "ref_batch_size": 2,
-    "l2coeff": 0.0002,
-    "return_proc_mode": "centered_rank"
+    "patience": 0,
+    "schedule_start": 2,
+    "schedule_limit": 2,
+    "stdev_divisor": 1.414,
+    "bs_multiplier": 1.414
   },
 
   "policy_options": {
@@ -27,51 +20,39 @@
     "fitness": "greedy",
     "vbn": false,
 
-    "safe_mutation_underflow": 0.1,
-    "safe_mutations": "",
-
     "model_options": {
+      "safe_mutation_underflow": 0.2,
+      "safe_mutations": "SM-VECTOR",
+      "safe_mutation_vector": "logs/sensitivity_v2.pt",
+
       "vbn_e": false,
       "vbn_affine": false,
       "layer_n": false,
       "layer_n_affine": false,
 
       "input_encoding_size":  128,
-      "rnn_type": "lstm",
       "rnn_size": 128,
-      "num_layers": 1,
-      "drop_prob_lm": 0.0,
       "fc_feat_size": 2048
-    }
-  },
-
-  "optimizer_options": {
-    "type": "adam",
-    "args": {
-      "stepsize": 0.01
     }
   },
 
   "dataset": "mscoco",
 
-  "population_size": 10,
-  "num_elites": 2,
+  "nb_offspring": 10,
+  "population_size": 5,
+  "selection": "uniform",
+  "tournament_size": 2,
 
-  "from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
-  "_from_infos": "logs/es_mscoco_fc_caption_nets_85674/snapshot/z_info_e1_i55-323.json",
+  "num_elites": 3,
+  "num_elite_cands": 1,
+
+  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
+  "_from_single": "../instance_m_gpu_logs/vbn_5_xent_128_checkpt_c.695/model.pth",
+  "_from_infos": "logs/ga_mscoco_fc_caption_24173/snapshot/z_info_e6_i450-442.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
     "input_fc_dir": "data/cocobu_fc",
-    "input_att_dir": "data/cocobu_att",
-    "input_label_h5": "data/cocotalk_label.h5",
-    "use_att": false,
-    "use_box": false,
-    "norm_att_feat": 0,
-    "norm_box_feat": 0,
-    "input_box_dir": "",
-
-    "seq_per_img": 5,
-    "train_only": 1
+    "input_label_h5": "data/cocotalk_label.h5"
   }
 }

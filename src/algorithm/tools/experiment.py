@@ -1,15 +1,14 @@
 import json
+import logging
 import os
 from abc import ABC
-from collections import namedtuple
 
 import torch
-import torchvision
-from torchvision.transforms import transforms
 
-from algorithm.es.optimizers import SGD, Adam
 from algorithm.policies import SuppDataset
-from algorithm.tools.utils import mkdir_p
+from algorithm.tools.utils import mkdir_p, Config
+
+logger = logging.getLogger(__name__)
 
 
 class Experiment(ABC):
@@ -17,26 +16,24 @@ class Experiment(ABC):
     Wrapper class for a bunch of experiment wide settings
     """
 
-    def __init__(self, exp, config, master=True):
+    def __init__(self, exp: dict, config: Config, master=True):
         self._exp = exp
         self._dataset = exp['dataset']
         self._algorithm = exp['algorithm']
         self._net = exp['policy_options']['net']
-        self._population_size = exp['population_size']
+        self._nb_offspring = exp['nb_offspring']
 
         self.trainloader, self.valloader, self.testloader = None, None, None
         self._orig_trainloader_lth = 0
 
-        # self._orig_bs = iteration.batch_size() if iteration else config.batch_size
         self._orig_bs = config.batch_size
         self.init_loaders(batch_size=self._orig_bs)
 
+        self.ref_batch_size = config.ref_batch_size if config.ref_batch_size else config.batch_size
+        self.ref_batch = self.take_ref_batch(self.ref_batch_size)
+
         self._master = master
         if master:
-            # self._log_dir = 'logs/es_{}_{}_{}'.format(self._dataset, self._net, os.getpid())
-            # mkdir_p(self._log_dir)
-            # exp.update({'log_dir': self._log_dir})
-
             self._log_dir = exp['log_dir']
             self._snapshot_dir = os.path.join(self._log_dir, 'snapshot')
             mkdir_p(self._snapshot_dir)
@@ -61,11 +58,10 @@ class Experiment(ABC):
         if batch_size != self._orig_bs:
             self.init_loaders(batch_size=batch_size)
 
-    # def init_from_zero(self):
-    #     self.init_loaders(batch_size=self._orig_bs)
+    def get_ref_batch(self):
+        return self.ref_batch
 
     def increase_loader_batch_size(self, batch_size):
-        # self.trainloader, self.valloader, self.testloader = self.init_loaders(batch_size=batch_size)
         self.init_loaders(batch_size=batch_size)
 
     def _init_torchvision_loaders(self, dataset, transform, config, batch_size, workers):
@@ -85,11 +81,9 @@ class Experiment(ABC):
 
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=bs,
                                                   shuffle=True, num_workers=0)
-        # todo batch size?
         valloader = torch.utils.data.DataLoader(valset, batch_size=bs,
                                                 shuffle=True, num_workers=0)
 
-        # todo batch size?
         testloader = torch.utils.data.DataLoader(testset, batch_size=bs,
                                                  shuffle=True, num_workers=0)
         return trainloader, valloader, testloader
@@ -107,8 +101,8 @@ class Experiment(ABC):
     def get_trainloader(self):
         return self.trainloader
 
-    def population_size(self):
-        return self._population_size
+    def nb_offspring(self):
+        return self._nb_offspring
 
     def orig_trainloader_lth(self):
         return self._orig_trainloader_lth
@@ -128,213 +122,30 @@ class Experiment(ABC):
         raise NotImplementedError
 
 
-class ESExperiment(Experiment, ABC):
-    def __init__(self, exp, config, master=True):
-        super(ESExperiment, self).__init__(exp, config, master)
-
-        if master:
-            self.Optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer_options']['type']]
-            self.ref_batch_size = config.ref_batch_size if config.ref_batch_size else config.batch_size
-            self.ref_batch = self.take_ref_batch(self.ref_batch_size)
-
-    def init_optimizer(self, params, exp):
-        return self.Optimizer(params, **exp['optimizer_options']['args'])
-
-    def get_ref_batch(self):
-        return self.ref_batch
-
-
-class GAExperiment(Experiment, ABC):
-    """
-    Wrapper class for a bunch of experiment wide settings
-    """
-
-    def __init__(self, exp, config, master=True):
-        super(GAExperiment, self).__init__(exp, config, master)
-
-        self._truncation = exp['truncation']
-        self._num_elites = exp['num_elites']
-        self._num_elite_cands = exp['num_elite_cands']
-
-        assert exp['mode'] in ['seeds', 'nets'], '{}'.format(exp['mode'])
-        self._mode = exp['mode']
-
-        if master:
-
-            _models_dir = os.path.join(self._log_dir, 'models')
-            self._parents_dir = os.path.join(_models_dir, 'parents')
-            self._offspring_dir = os.path.join(_models_dir, 'parents')
-            self._elite_dir = os.path.join(_models_dir, 'elite')
-
-            mkdir_p(self._parents_dir)
-            mkdir_p(self._offspring_dir)
-            mkdir_p(self._elite_dir)
-
-    def truncation(self):
-        return self._truncation
-
-    def parents_dir(self):
-        assert self._master
-        return self._parents_dir
-
-    def offspring_dir(self):
-        assert self._master
-        return self._offspring_dir
-
-    def elite_dir(self):
-        assert self._master
-        return self._elite_dir
-
-    def num_elites(self):
-        return self._num_elites
-
-    def num_elite_cands(self):
-        return self._num_elite_cands
-
-    def mode(self):
-        return self._mode
-
-
-class MnistExperiment(Experiment):
-    def __init__(self, exp, config, master=True):
-        super().__init__(exp, config, master=master)
-
-    def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])
-
-        # return self._init_torchvision_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
-        # self.trainloader, self.valloader, self.testloader = self.init_loaders(config=config, exp=exp)
-
-        self.trainloader, self.valloader, self.testloader = \
-            self._init_torchvision_loaders(torchvision.datasets.MNIST, transform, config, batch_size, workers)
-        self._orig_trainloader_lth = len(self.trainloader)
-
-
-class Cifar10Experiment(Experiment):
-    def __init__(self, exp, config, master=True):
-        super().__init__(exp, config, master=master)
-
-    def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-
-        # return self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
-
-        self.trainloader, self.valloader, self.testloader = \
-            self._init_torchvision_loaders(torchvision.datasets.CIFAR10, transform, config, batch_size, workers)
-        self._orig_trainloader_lth = len(self.trainloader)
-
-
-_opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 'use_att', 'use_box',
-               'norm_att_feat', 'norm_box_feat', 'input_box_dir', 'train_only', 'seq_per_img', 'fitness']
-CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=(None,) * len(_opt_fields))
-
-
-class MSCocoExperiment(Experiment):
-    def __init__(self, exp, config, master=True):
-        self.opt: CaptionOptions = CaptionOptions(**exp['caption_options'])
-        # self.fitness = Fitness(self.opt.get('fitness', 'sc_loss'))
-
-        # Deal with feature things before anything
-        # self.options.use_att = utils.if_use_att(self.options.caption_model)
-        # if self.options.use_box:
-        #     self.options.att_feat_size = self.options.att_feat_size + 5
-
-        # self.options.vocab_size = loader.vocab_size
-        # self.options.seq_length = loader.seq_length
-
-        super().__init__(exp, config, master=master)
-
-        self.vocab_size = self.trainloader.loader.vocab_size
-        self.seq_length = self.trainloader.loader.seq_length
-
-        exp['policy_options']['model_options'].update({
-            'vocab_size': self.vocab_size,
-            'seq_length': self.seq_length,
-        })
-
-    def init_loaders(self, config=None, batch_size=None, workers=None, _=None):
-        # TODO MSCOCO as torchvision.dataset?????
-        assert not (config is None and batch_size is None)
-
-        from captioning.dataloader import DataLoader
-        tloader = DataLoader(opt=self.opt, config=config, batch_size=batch_size)
-
-        val_bs = config.val_batch_size if config and config.val_batch_size else batch_size
-        vloader = DataLoader(opt=self.opt, config=config, batch_size=val_bs)
-
-        trainloader = MSCocoDataLdrWrapper(loader=tloader, split='train')
-        valloader = MSCocoDataLdrWrapper(loader=vloader, split='val')
-        testloader = MSCocoDataLdrWrapper(loader=vloader, split='test')
-
-        # return trainloader, valloader, testloader
-        self.trainloader, self.valloader, self.testloader = trainloader, valloader, testloader
-        self._orig_trainloader_lth = len(self.trainloader)
-
-    def take_ref_batch(self, batch_size):
-        return self.trainloader.take_ref_batch(bs=batch_size)
-
-
-class MSCocoDataLdrWrapper:
-    def __init__(self, loader, split):
-        from captioning.dataloader import DataLoader
-
-        self.loader: DataLoader = loader
-        self.split = split
-        self.batch_size = loader.batch_size
-        self.seq_per_img = loader.seq_per_img
-
-        self.get_vocab = loader.get_vocab
-
-    def reset(self):
-        self.loader.reset_iterator(split=self.split)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        # todo raise stopiter
-        return self.loader.get_batch(self.split)
-
-    def __len__(self):
-        return self.loader.length_of_split(self.split) // self.loader.batch_size
-
-    def take_ref_batch(self, bs):
-        return torch.from_numpy(self.loader.get_batch(self.split, batch_size=bs)['fc_feats'])
-
-
 class ExperimentFactory:
     @staticmethod
-    def create(dataset: SuppDataset, exp, config, master=True):
-        if exp['algorithm'] == 'ga':
-            if dataset == SuppDataset.MNIST:
-                class MnistGAExperiment(MnistExperiment, GAExperiment):
-                    pass
-                return MnistGAExperiment(exp, config, master=master)
-            elif dataset == SuppDataset.CIFAR10:
-                class Cifar10GAExperiment(Cifar10Experiment, GAExperiment):
-                    pass
-                return Cifar10GAExperiment(exp, config, master=master)
-            elif dataset == SuppDataset.MSCOCO:
-                class MSCocoGAExperiment(MSCocoExperiment, GAExperiment):
-                    pass
-                return MSCocoGAExperiment(exp, config, master=master)
+    def create(dataset: SuppDataset, exp, config: Config, master=True):
+        from classification.experiment import MnistExperiment
+        from captioning.experiment import MSCocoExperiment
+        from algorithm.nic_es.experiment import ESExperiment
+        from algorithm.nic_nes.experiment import NESExperiment
 
-        elif exp['algorithm'] == 'es':
+        if exp['algorithm'] == 'nic_es':
             if dataset == SuppDataset.MNIST:
                 class MnistESExperiment(MnistExperiment, ESExperiment):
                     pass
                 return MnistESExperiment(exp, config, master=master)
-            elif dataset == SuppDataset.CIFAR10:
-                class Cifar10ESExperiment(Cifar10Experiment, ESExperiment):
-                    pass
-                return Cifar10ESExperiment(exp, config, master=master)
             elif dataset == SuppDataset.MSCOCO:
                 class MSCocoESExperiment(MSCocoExperiment, ESExperiment):
                     pass
                 return MSCocoESExperiment(exp, config, master=master)
+
+        elif exp['algorithm'] == 'nic_nes':
+            if dataset == SuppDataset.MNIST:
+                class MnistNESExperiment(MnistExperiment, NESExperiment):
+                    pass
+                return MnistNESExperiment(exp, config, master=master)
+            elif dataset == SuppDataset.MSCOCO:
+                class MSCocoNESExperiment(MSCocoExperiment, NESExperiment):
+                    pass
+                return MSCocoNESExperiment(exp, config, master=master)

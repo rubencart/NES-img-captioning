@@ -5,17 +5,15 @@ import os
 
 from algorithm.tools.experiment import Experiment
 from algorithm.tools.iteration import Iteration
-from algorithm.policies import Policy
 from algorithm.tools.statistics import Statistics
 from algorithm.tools.utils import mkdir_p, remove_file_with_pattern
 
 logger = logging.getLogger(__name__)
 
 
-def save_snapshot(stats: Statistics, it: Iteration, experiment: Experiment, policy: Policy):
+def save_snapshot(stats: Statistics, it: Iteration, experiment: Experiment):
 
     mkdir_p(experiment.snapshot_dir())
-
     filename = save_infos(experiment, it, stats)
 
     logger.info('Saved snapshot {}'.format(filename))
