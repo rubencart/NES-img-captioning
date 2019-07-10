@@ -23,7 +23,7 @@ Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(
 def log(name, result):
     try:
         # result = round(result, 2)
-        result = '{:g}'.format(float('{:.{p}g}'.format(result, p=3)))
+        result = '{:g}'.format(float('{:.{p}g}'.format(result, p=4)))
     except Exception:
         pass
     logging.info('| %s: %s | %s %s |', name,

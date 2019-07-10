@@ -1,6 +1,7 @@
 # Neural image captioning with (natural) evolution strategies
 
-This repo implements two algorithms that train the weights of an LSTM network for MSCOCO image captioning.
+This repo implements two algorithms that train the weights of an LSTM network for MSCOCO image captioning: NIC-ES, an 
+evolution strategy inspired by the one in LINK, and NIC-NES, a natural evolution strategy inspired by LINK.
 
 
 ### Installation
@@ -35,6 +36,7 @@ make install
 ```
 
 TODO: get data from ...
+https://www.dropbox.com/sh/65735ziv4w7ky7o/AAC5RFJqBUlGPIvYjEC8ENwAa?dl=0
 
 
 ### Starting an experiment
@@ -45,6 +47,8 @@ screen -S redis
 # next 3 steps can be skipped but are recommended if redis displays a warning about thp pages
 sudo su
 echo never > /sys/kernel/mm/transparent_hugepage/enabled
+# when `WARNING: The TCP backlog setting of 511 cannot be enforced because /... is set to the lower value of 128.
+sysctl -w net.core.somaxconn=65535`
 exit
 . src/scripts/local_run_redis.sh
 
@@ -179,7 +183,6 @@ Example json experiment file:
     "input_label_h5": "data/cocotalk_label.h5"  # path to h5 file
   }
 }
-
 ```
 
 #### NIC-NES
@@ -361,6 +364,20 @@ TODO!
 
 TODO?
 
+First run for example (with redis already running): `. src/scripts/local_profile_cpu_exp.sh nic_nes experiments/mscoco_nes.json`.
+Then, after execution is finished, go into a python environment and do the following. Consult the cProfile documentation
+for more info.
+
+```
+import pstats
+from pstats import SortKey
+
+w = pstats.Stats('output/profile_worker.txt')
+w.sort_stats(SortKey.TIME).print_stats(10)
+m = pstats.Stats('output/profile_master.txt')
+m.sort_stats(SortKey.TIME).print_stats(10)
+```
+
 ### Remarks
 
 Some other remarks:
@@ -380,3 +397,7 @@ Based on & took code from:
 - https://github.com/openai/evolution-strategies-starter/
 - https://towardsdatascience.com/paper-repro-deep-neuroevolution-756871e00a66
 - https://github.com/uber-research/safemutations
+- https://github.com/vrama91/cider
+- https://github.com/tylin/coco-caption
+
+Thanks to everyone who worked on these projects. 

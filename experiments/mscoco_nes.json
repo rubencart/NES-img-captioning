@@ -1,10 +1,10 @@
 {
   "algorithm": "nic_nes",
   "config": {
-    "eval_prob": 0.003,
-    "noise_stdev": 0.003,
+    "eval_prob": 0.1,
+    "noise_stdev": 0.006,
     "snapshot_freq": 1,
-    "batch_size": 128,
+    "batch_size": 2,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
@@ -17,13 +17,13 @@
     "stepsize_divisor": 1,
 
     "ref_batch_size": 0,
-    "l2coeff": 0.0,
-    "single_batch": false
+    "l2coeff": 0,
+    "single_batch": true
   },
 
   "policy_options": {
     "net": "fc_caption",
-    "fitness": "greedy_logprob",
+    "fitness": "greedy",
     "vbn": false,
 
     "model_options": {
@@ -45,13 +45,13 @@
   "optimizer_options": {
     "type": "adam",
     "args": {
-      "stepsize": 0.002
+      "stepsize": 0.001
     }
   },
 
   "dataset": "mscoco",
 
-  "nb_offspring": 1000,
+  "nb_offspring": 10,
   "num_elites": 1,
 
   "___from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
