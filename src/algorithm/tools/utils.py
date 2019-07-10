@@ -31,6 +31,15 @@ def log(name, result):
                  result)
 
 
+def array_to_str(arr):
+    out = ''
+    for i in range(len(arr)):
+        out += str(arr[i]) + ' '
+        if arr[i] == 0:
+            break
+    return out.strip()
+
+
 def mkdir_p(path):
     try:
         os.makedirs(path)
