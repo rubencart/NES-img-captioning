@@ -3,7 +3,7 @@
   "config": {
     "eval_prob": 0.003,
     "noise_stdev": 0.003,
-    "snapshot_freq": 1,
+    "snapshot_freq": 5,
     "batch_size": 128,
 
     "val_batch_size": 256,
@@ -17,13 +17,13 @@
     "stepsize_divisor": 1,
 
     "ref_batch_size": 0,
-    "l2coeff": 0.0,
+    "l2coeff": 0,
     "single_batch": false
   },
 
   "policy_options": {
     "net": "fc_caption",
-    "fitness": "greedy_logprob",
+    "fitness": "greedy",
     "vbn": false,
 
     "model_options": {
@@ -45,7 +45,7 @@
   "optimizer_options": {
     "type": "adam",
     "args": {
-      "stepsize": 0.002
+      "stepsize": 0.001
     }
   },
 
@@ -57,7 +57,7 @@
   "___from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
   "_from_single": "./logs/logs/_es_mscoco_fc_caption_5741/best/best_elite/0_0_elite.pth",
   "__from_single": "../instance_m_gpu_logs/vbn_5_xent_128_checkpt_c.695/model-best.pth",
-  "from_infos": "logs/es_mscoco_fc_caption_12885/snapshot/z_info_e1_i85-885.json",
+  "from_infos": "logs/es_mscoco_fc_caption_48528/snapshot/z_info_e1_i91-885.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
