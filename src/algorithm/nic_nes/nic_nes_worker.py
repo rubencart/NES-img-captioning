@@ -36,6 +36,8 @@ class NESWorker(object):
         self.experiment: NESExperiment = setup_tuple[2]
 
         self.placeholder = torch.FloatTensor(1)
+        self.loader = self.experiment.get_trainloader()
+        self.iloader = iter(self.experiment.get_trainloader())
 
     # @profile(stream=open('output/memory_profile_worker.txt', 'w+'))
     def run_worker(self):
@@ -119,17 +121,18 @@ class NESWorker(object):
         # NIC-NES with vs without single batch:
         # take published batch or take random batch from own dataloader
         if self.config.single_batch:
-            logging.info('taking published batch')
+            logging.debug('taking published batch')
             batch_data = copy.deepcopy(task_data.batch_data)
         else:
-            loader = self.experiment.get_trainloader()
-            if loader.batch_size != task_data.batch_size:
+            # loader = self.experiment.get_trainloader()
+            if self.loader.batch_size != task_data.batch_size:
                 self.experiment.increase_loader_batch_size(task_data.batch_size)
-            batch_data = next(iter(loader))
+            batch_data = next(self.iloader)
 
         current_path = task_data.current
         policy.set_model(current_path)
-        current_params = copy.deepcopy(policy.parameter_vector())
+        current_params = torch.empty_like(policy.parameter_vector()).copy_(policy.parameter_vector())
+        # copy.deepcopy(policy.parameter_vector())
 
         mem_usages.append(psutil.Process(os.getpid()).memory_info().rss)
 

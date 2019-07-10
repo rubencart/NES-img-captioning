@@ -92,40 +92,43 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     time.sleep(5)
     if num_workers == -1:
         # for testing purposes if num_workers = -1 the current process just acts as only worker
-        start_and_run_worker(0, master_redis_cfg, relay_redis_cfg)
+        run_func(0, master_redis_cfg, relay_redis_cfg)
     else:
 
         num_workers = num_workers if num_workers else os.cpu_count() - 2
         processes = spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg)
         counter = 0
-        while True:
-            # sometimes workers die because of parallel computing issues with pytorch
-            # dirty workaround here: count alive workers at intervals and relaunch some if necessary
-            alive_procs = [p for p in processes if p.is_alive()]
-            nb_alive = len(alive_procs)
-            if num_workers > nb_alive:
-                logging.warning('****************************************************')
-                logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - nb_alive))
-                logging.warning('****************************************************')
-                new_procs = spawn_workers(num_workers - nb_alive, run_func, master_redis_cfg, relay_redis_cfg)
-                processes = alive_procs + new_procs
+        try:
+            while True:
+                # sometimes workers die because of parallel computing issues with pytorch
+                # dirty workaround here: count alive workers at intervals and relaunch some if necessary
+                alive_procs = [p for p in processes if p.is_alive()]
+                nb_alive = len(alive_procs)
+                if num_workers > nb_alive:
+                    logging.warning('****************************************************')
+                    logging.warning('SPAWNING {} NEW WORKERS'.format(num_workers - nb_alive))
+                    logging.warning('****************************************************')
+                    new_procs = spawn_workers(num_workers - nb_alive, run_func, master_redis_cfg, relay_redis_cfg)
+                    processes = alive_procs + new_procs
 
-            if psutil.virtual_memory().percent > 90.0:
-                # a memory leak occurs when sampling fitness function is used, since I couldn't find
-                # the reason this is a dirty workaround again: just kill all workers and relaunch them
-                logging.warning('****************************************************')
-                logging.warning('!!!!! ---  KILLING ALL WORKERS   --- !!!!!')
-                logging.warning('****************************************************')
+                if psutil.virtual_memory().percent > 90.0:
+                    # a memory leak occurs when sampling fitness function is used, since I couldn't find
+                    # the reason this is a dirty workaround again: just kill all workers and relaunch them
+                    logging.warning('****************************************************')
+                    logging.warning('!!!!! ---  KILLING ALL WORKERS   --- !!!!!')
+                    logging.warning('****************************************************')
 
-                [p.kill() for p in processes]
-                processes = spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg)
-                counter += 1
-            if counter > 20:
-                [p.kill() for p in processes]
-                break
-            if nb_alive == 0:
-                break
-            time.sleep(60)
+                    [p.kill() for p in processes]
+                    processes = spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg)
+                    counter += 1
+                if counter > 20:
+                    [p.kill() for p in processes]
+                    break
+                if nb_alive == 0:
+                    break
+                time.sleep(60)
+        except KeyboardInterrupt:
+            [p.kill() for p in processes]
 
 
 def spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg):

@@ -23,12 +23,21 @@ Config = namedtuple('Config', field_names=config_fields, defaults=(None,) * len(
 def log(name, result):
     try:
         # result = round(result, 2)
-        result = '{:g}'.format(float('{:.{p}g}'.format(result, p=3)))
+        result = '{:g}'.format(float('{:.{p}g}'.format(result, p=4)))
     except Exception:
         pass
     logging.info('| %s: %s | %s %s |', name,
                  ' ' * (max(19 - len(name), 0)), ' ' * (max(10 - len(str(result)), 0)),
                  result)
+
+
+def array_to_str(arr):
+    out = ''
+    for i in range(len(arr)):
+        out += str(arr[i]) + ' '
+        if arr[i] == 0:
+            break
+    return out.strip()
 
 
 def mkdir_p(path):

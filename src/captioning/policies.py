@@ -1,19 +1,22 @@
 
-import logging
 import random
+import sys
+from collections import OrderedDict
 from enum import Enum
 
+import numpy as np
 import torch
 
 import captioning.eval_utils as eval_utils
 
 from algorithm.policies import Policy
-from algorithm.tools.utils import Config
+from algorithm.tools.utils import Config, array_to_str
 from captioning.dataloader import DataLoader
-from captioning.fitness import compute_ciders, LogFitnessCriterion, \
+from captioning.fitness import LogFitnessCriterion, \
     ExpFitnessCriterion, AltLogFitnessCriterion, LinFitnessCriterion
 
-logger = logging.getLogger(__name__)
+sys.path.append('cider')
+from pyciderevalcap.ciderD.ciderD import CiderD
 
 
 class Fitness(Enum):
@@ -60,6 +63,11 @@ class CaptPolicy(Policy):
     Img captioning policy
     """
 
+    def __init__(self, dataset, options):
+        super().__init__(dataset, options)
+        # takes a while so we make sure we only have to do this once for every worker
+        self.cider_scorer = CiderD(df='coco-train-idxs')
+
     def calculate_all_sensitivities(self, task_data, loader, directory, batch_size):
         """
         Method that calculates a sensitivity vector for the entire dataloader, per batch, and saves
@@ -103,7 +111,7 @@ class CaptPolicy(Policy):
                                                       greedy=Fitness.is_greedy(self.fitness))
 
         self_critical = Fitness.is_self_critical(self.fitness)
-        cider, ciders = compute_ciders(self.policy_net, fc_feats, data, gen_result, self_critical)
+        cider, ciders = self.compute_ciders(self.policy_net, fc_feats, data, gen_result, self_critical)
 
         if Fitness.needs_criterion(self.fitness):
             crit = Fitness.get_criterium(self.fitness)
@@ -130,3 +138,54 @@ class CaptPolicy(Policy):
         lang_stats, _ = eval_utils.eval_split(self.policy_net, dataloader.loader, directory, num=num)
 
         return float(lang_stats['CIDEr'])
+
+    def compute_ciders(self, model, fc_feats, data, gen_result, self_critical):
+        """
+        Compute the reward of the generated sequences in gen_result. If necessary,
+            also generate sequences by greedy decoding (to baseline when self-critical fitness is used).
+        """
+
+        batch_size = gen_result.size(0)  # batch_size = sample_size * seq_per_img
+        seq_per_img = batch_size // len(data['gts'])
+
+        res = OrderedDict()
+
+        gen_result = gen_result.data.cpu().numpy()
+        for i in range(batch_size):
+            res[i] = [array_to_str(gen_result[i])]
+
+        gts = OrderedDict()
+        for i in range(len(data['gts'])):
+            gts[i] = [array_to_str(data['gts'][i][j]) for j in range(len(data['gts'][i]))]
+
+        if self_critical:
+            # get greedy decoding baseline
+            model.eval()
+            greedy_res, _ = model(fc_feats, greedy=True)
+            greedy_res = greedy_res.data.cpu().numpy()
+
+            for i in range(batch_size):
+                res[batch_size + i] = [array_to_str(greedy_res[i])]
+
+            res_ = [{'image_id': i, 'caption': res[i]} for i in range(2 * batch_size)]
+            gts = {i: gts[i % batch_size // seq_per_img] for i in range(2 * batch_size)}
+
+        else:
+            res_ = [{'image_id': i, 'caption': res[i]} for i in range(batch_size)]
+            gts = {i: gts[i % batch_size // seq_per_img] for i in range(batch_size)}
+
+        score, scores = self.cider_scorer.compute_score(gts, res_)
+
+        if self_critical:
+            scores = scores[:batch_size] - scores[batch_size:]
+            score = np.mean(scores)
+
+        # scores[:, np.newaxis] makes a column vector of 1d array scores
+        # scores = [1, 2, 3] --> scores[:, np.newaxis] = [[1], [2], [3]]
+        # np.repeat: https://docs.scipy.org/doc/numpy/reference/generated/numpy.repeat.html
+        # repeats elements of scores gen_result.shape[1] times along first axis
+        # [[1], [2], [3]] --> [[1, 1], [2, 2], [3, 3]]
+        rewards = np.repeat(scores[:, np.newaxis], gen_result.shape[1], 1)
+
+        return score.item(), rewards.copy()
+

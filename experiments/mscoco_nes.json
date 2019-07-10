@@ -51,7 +51,7 @@
 
   "dataset": "mscoco",
 
-  "nb_offspring": 1000,
+  "nb_offspring": 10,
   "num_elites": 1,
 
   "___from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
