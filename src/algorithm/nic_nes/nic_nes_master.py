@@ -121,6 +121,10 @@ class NESMaster(object):
 
                     # compute a gradient estimate from the mutations and the scores
                     grad_estimate = self.gradient_estimate(it.fitnesses(), it.noise_vecs())
+                    if config.l2coeff:
+                        logging.info('Impact of l2 regularization (grad / reg): %s / %s',
+                                     np.linalg.norm(grad_estimate),
+                                     np.linalg.norm(config.l2coeff * policy.parameter_vector().numpy()))
                     update_ratio, theta = optimizer.update(
                         # caution l2 * theta is correct because L2 regularization adds a (1/2)* l2 * sum(theta^2) term
                         # to the loss function, the derivative of this w.r.t. theta = l2 * theta
