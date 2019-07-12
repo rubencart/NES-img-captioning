@@ -72,7 +72,8 @@ class ESWorker(object):
             # within one generation because master is running behind on tasks or waiting for evaluations
             # (as opposed to evolutions)
             if len(os.listdir(self.offspring_dir)) > 3 * self.experiment.nb_offspring():
-                time.sleep(1)
+                time.sleep(2)
+                logging.warning('Too many files in offspring dir')
                 if eval_or_evolve >= config.eval_prob:
                     continue
 

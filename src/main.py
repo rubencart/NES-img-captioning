@@ -3,6 +3,8 @@ import os
 # this should go before everything else!
 # tells the OS to not multithread low-level lin alg operations, so every worker stays nicely
 # on 1 cpu
+import signal
+
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
@@ -75,7 +77,9 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     # start the relay process
     master_redis_cfg = {'host': master_host, 'port': master_port}
     relay_redis_cfg = {'unix_socket_path': relay_socket_path}
-    if os.fork() == 0:
+
+    relay_pid = os.fork()
+    if relay_pid == 0:
         RelayClient(master_redis_cfg, relay_redis_cfg).run()
         return
 
@@ -92,7 +96,10 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
     time.sleep(5)
     if num_workers == -1:
         # for testing purposes if num_workers = -1 the current process just acts as only worker
-        run_func(0, master_redis_cfg, relay_redis_cfg)
+        try:
+            run_func(0, master_redis_cfg, relay_redis_cfg)
+        except KeyboardInterrupt:
+            os.kill(relay_pid, signal.SIGKILL)
     else:
 
         num_workers = num_workers if num_workers else os.cpu_count() - 2
@@ -123,24 +130,27 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
                     counter += 1
                 if counter > 20:
                     [p.kill() for p in processes]
+                    os.kill(relay_pid, signal.SIGKILL)
                     break
                 if nb_alive == 0:
+                    os.kill(relay_pid, signal.SIGKILL)
                     break
                 time.sleep(60)
         except KeyboardInterrupt:
             [p.kill() for p in processes]
+            os.kill(relay_pid, signal.SIGKILL)
 
 
 def spawn_workers(num_workers, run_func, master_redis_cfg, relay_redis_cfg):
     logging.info('Spawning {} workers'.format(num_workers))
-    worker_ids = []
+    procs = []
     for _id in range(num_workers):
 
         p = mp.Process(target=run_func, args=(0, master_redis_cfg, relay_redis_cfg))
         p.start()
-        worker_ids += [p]
+        procs += [p]
 
-    return worker_ids
+    return procs
 
 
 if __name__ == '__main__':
