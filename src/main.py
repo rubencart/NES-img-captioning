@@ -93,7 +93,7 @@ def workers(algo, master_host, master_port, relay_socket_path, num_workers):
 
     # wait for master process to have uploaded tasks, otherwise we get errors
     # because workers start on old tasks that were cached by redis
-    time.sleep(5)
+    time.sleep(10)
     if num_workers == -1:
         # for testing purposes if num_workers = -1 the current process just acts as only worker
         try:
