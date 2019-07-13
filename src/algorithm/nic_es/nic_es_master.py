@@ -138,14 +138,14 @@ class ESMaster(object):
                     stats.log_stats()
                     it.log_stats()
 
-                    if it.patience_reached() or it.schedule_reached():
-                        # to use new trainloader!
-                        break
-
                     if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:
                         save_snapshot(stats, it, experiment)
                         if plot:
                             stats.plot_stats(experiment.snapshot_dir())
+
+                    if it.patience_reached() or it.schedule_reached():
+                        # to use new trainloader!
+                        break
 
         except KeyboardInterrupt:
             save_snapshot(stats, it, experiment)

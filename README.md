@@ -48,7 +48,7 @@ screen -S redis
 sudo su
 echo never > /sys/kernel/mm/transparent_hugepage/enabled
 # when `WARNING: The TCP backlog setting of 511 cannot be enforced because /... is set to the lower value of 128.
-sysctl -w net.core.somaxconn=65535`
+sysctl -w net.core.somaxconn=65535
 exit
 . src/scripts/local_run_redis.sh
 
@@ -60,7 +60,6 @@ screen -S es
 # (optional) <id>: any chosen number to id outputfiles 
 # (optional) <redis tcp port> to use: 6379 | 6380 | 6381 | 6382
 . src/scripts/local_run_exp.sh nic_es experiments/mscoco_es.json 92 123
-. src/scripts/local_run_exp.sh ga experiments/mscoco_ga.json 92 90
 # or
 . src/scripts/local_run_exp.sh nic_nes experiments/mscoco_nes.json 92 123
 ```
@@ -84,11 +83,13 @@ there. So an experiment creates:
                 z_info_e<nb>_i<nb>-<nb>.json    # checkpoint with scores and stats, experiments can be started from
                                                 # checkpoint json's like these.
             models/
-                best/
+                best/       # stores best models so far
                 offspring/  # stores population + offspring: only for NIC-ES
                 current/    # stores current theta: only for NIC-NES
             optimizer/      # stores adam/sgd optimizer state: only for NIC-NES
 ```
+
+NIC-ES stores the parents and the population on disk. This is an ... TODO
 
 To run with qsub, choose settings in json files as below, choose PBS settings in `src/scripts/local_run_exp.pbs`, and then:
 ```
@@ -270,6 +271,8 @@ When NIC-ES is resumed all parents are copied, so apart from having to generate 
 when execution was interrupted again, execution can resume as if it had never stopped. The same counts for NIC-NES.
 All running stats are also copied so the future checkpoints are as if they were from 1 single (uninterrupted) run.
 
+TODO also not taken: dataloader! so could be possible that one cycle through dataset is interrupted
+
 When resuming an experiment part of the settings are taken from the checkpoint .json and part of the settings are 
 taken from the used experiment .json, which can be confusing. Most importantly:
 - mutation stdev
@@ -386,10 +389,13 @@ Some other remarks:
 For a 3M param network with an 11MB param file and nb_offspring=1000 this is ~12GB. 
 Recommended is at least 2-3 times this space to have some margin.
 - Sometimes when starting an experiment you might get errors because redis stores results from previous experiments, 
-which might reach your master or workers. Just restart the experiment when this happens.
+which might reach your master or workers. Try restarting the experiment when this happens. Sometimes restarting redis also
+helps (this clears the cache).
 
 
 ### References
+
+TODO LICENSE!!!!!!
 
 Based on & took code from:
 - https://github.com/ruotianluo/self-critical.pytorch

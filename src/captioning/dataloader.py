@@ -137,9 +137,9 @@ class DataLoader(data.Dataset):
         seq_per_img = seq_per_img or self.seq_per_img
 
         fc_batch = []  # np.ndarray((batch_size * seq_per_img, self.opt.fc_feat_size), dtype = 'float32')
-        att_batch = []  # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
+        # att_batch = []  # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
         label_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype='int')
-        mask_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype='float32')
+        # mask_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype='float32')
 
         wrapped = False
 
@@ -150,7 +150,7 @@ class DataLoader(data.Dataset):
             # fetch image
             tmp_fc, tmp_att, ix, tmp_wrapped = self._prefetch_process[split].get()
             fc_batch.append(tmp_fc)
-            att_batch.append(tmp_att)
+            # att_batch.append(tmp_att)
 
             label_batch[i * seq_per_img: (i + 1) * seq_per_img, 1: self.seq_length + 1] = \
                 self.get_captions(ix, seq_per_img)
@@ -168,33 +168,33 @@ class DataLoader(data.Dataset):
             info_dict['file_path'] = self.info['images'][ix]['file_path']
             infos.append(info_dict)
 
-        fc_batch, att_batch, label_batch, gts, infos = \
-            zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0,
+        fc_batch, label_batch, gts, infos = \
+            zip(*sorted(zip(fc_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0,
                         reverse=True))
         data = {}
         data['fc_feats'] = np.stack(sum([[_] * seq_per_img for _ in fc_batch], []))
 
         # merge att_feats
-        max_att_len = max([_.shape[0] for _ in att_batch])
-        data['att_feats'] = np.zeros([len(att_batch) * seq_per_img, max_att_len, att_batch[0].shape[1]],
-                                     dtype='float32')
-        for i in range(len(att_batch)):
-            data['att_feats'][i * seq_per_img:(i + 1) * seq_per_img, :att_batch[i].shape[0]] = att_batch[i]
-        data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
-        for i in range(len(att_batch)):
-            data['att_masks'][i * seq_per_img:(i + 1) * seq_per_img, :att_batch[i].shape[0]] = 1
-
-        # set att_masks to None if attention features have same length
-        if data['att_masks'].sum() == data['att_masks'].size:
-            data['att_masks'] = None
+        # max_att_len = max([_.shape[0] for _ in att_batch])
+        # data['att_feats'] = np.zeros([len(att_batch) * seq_per_img, max_att_len, att_batch[0].shape[1]],
+        #                              dtype='float32')
+        # for i in range(len(att_batch)):
+        #     data['att_feats'][i * seq_per_img:(i + 1) * seq_per_img, :att_batch[i].shape[0]] = att_batch[i]
+        # data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
+        # for i in range(len(att_batch)):
+        #     data['att_masks'][i * seq_per_img:(i + 1) * seq_per_img, :att_batch[i].shape[0]] = 1
+        #
+        # # set att_masks to None if attention features have same length
+        # if data['att_masks'].sum() == data['att_masks'].size:
+        #     data['att_masks'] = None
 
         data['labels'] = np.vstack(label_batch)
 
         # generate mask
-        nonzeros = np.array(list(map(lambda x: (x != 0).sum() + 2, data['labels'])))
-        for ix, row in enumerate(mask_batch):
-            row[:nonzeros[ix]] = 1
-        data['masks'] = mask_batch
+        # nonzeros = np.array(list(map(lambda x: (x != 0).sum() + 2, data['labels'])))
+        # for ix, row in enumerate(mask_batch):
+        #     row[:nonzeros[ix]] = 1
+        # data['masks'] = mask_batch
 
         data['gts'] = gts  # all ground truth captions of each images
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
@@ -221,7 +221,7 @@ class DataLoader(data.Dataset):
             if self.use_box:
                 box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
 
-                # devided by image width and height
+                # divided by image width and height
                 x1, y1, x2, y2 = np.hsplit(box_feat, 4)
                 h, w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
                 box_feat = np.hstack(

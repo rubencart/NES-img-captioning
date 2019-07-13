@@ -121,16 +121,16 @@ class NESMaster(object):
 
                     # compute a gradient estimate from the mutations and the scores
                     grad_estimate = self.gradient_estimate(it.fitnesses(), it.noise_vecs())
+                    # caution l2 * theta is correct because L2 regularization adds a (1/2)* l2 * sum(theta^2) term
+                    # to the loss function, the derivative of this w.r.t. theta = l2 * theta
+                    reg_term = config.l2coeff * policy.parameter_vector().numpy()
+
                     if config.l2coeff:
-                        logging.info('Impact of l2 regularization (l2, grad / reg): %s, %s / %s',
-                                     config.l2coeff,
-                                     np.linalg.norm(grad_estimate),
-                                     np.linalg.norm(config.l2coeff * policy.parameter_vector().numpy()))
-                    update_ratio, theta = optimizer.update(
-                        # caution l2 * theta is correct because L2 regularization adds a (1/2)* l2 * sum(theta^2) term
-                        # to the loss function, the derivative of this w.r.t. theta = l2 * theta
-                        - grad_estimate + config.l2coeff * policy.parameter_vector().numpy()
-                    )
+                        logging.info('Impact of l2 regularization (l2, reg / grad): %s, %s / %s = %s',
+                                     config.l2coeff, np.linalg.norm(reg_term), np.linalg.norm(grad_estimate),
+                                     np.linalg.norm(reg_term) / np.linalg.norm(grad_estimate))
+
+                    update_ratio, theta = optimizer.update(-grad_estimate + reg_term)
 
                     # set the policy to the resulting parameters
                     policy.set_from_parameter_vector(vector=theta)
@@ -153,14 +153,14 @@ class NESMaster(object):
                     stats.log_stats()
                     it.log_stats()
 
-                    if it.patience_reached() or it.schedule_reached():
-                        # to use new trainloader when increased batch size!
-                        break
-
                     if config.snapshot_freq != 0 and it.iteration() % config.snapshot_freq == 0:
                         save_snapshot(stats, it, experiment)
                         if plot:
                             stats.plot_stats(experiment.snapshot_dir())
+
+                    if it.patience_reached() or it.schedule_reached():
+                        # to use new trainloader when increased batch size!
+                        break
 
         except KeyboardInterrupt:
             save_snapshot(stats, it, experiment)
