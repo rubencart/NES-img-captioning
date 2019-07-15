@@ -14,12 +14,12 @@ import redis
 
 logger = logging.getLogger(__name__)
 
-EXP_KEY = 'nic_nes:exp'
-TASK_ID_KEY = 'nic_nes:task_id'
-TASK_DATA_KEY = 'nic_nes:task_data'
-TASK_CHANNEL = 'nic_nes:task_channel'
-RESULTS_KEY = 'nic_nes:results'
-ARCHIVE_KEY = 'nic_nes:archive'
+EXP_KEY = 'nic:exp'
+TASK_ID_KEY = 'nic:task_id'
+TASK_DATA_KEY = 'nic:task_data'
+TASK_CHANNEL = 'nic:task_channel'
+RESULTS_KEY = 'nic:results'
+ARCHIVE_KEY = 'nic:archive'
 
 
 def serialize(x):

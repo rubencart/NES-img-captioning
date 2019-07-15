@@ -33,8 +33,8 @@ class PolicyNet(nn.Module, ABC):
         self.rng_state = rng_state
         self.from_param_file = from_param_file
 
-        if rng_state:
-            torch.manual_seed(rng_state)
+        # if rng_state:
+        #     torch.manual_seed(rng_state)
 
         self.nb_learnable_params = 0
         self.nb_params = 0
@@ -68,12 +68,12 @@ class PolicyNet(nn.Module, ABC):
                 elif 'bias' in name:
                     param.data.zero_()
 
-            logging.info('Params: %s, %s, %s', name, param.size(), param.data.abs().mean())
+            # logging.info('Params: %s, %s, %s', name, param.size(), param.data.abs().mean())
 
         self.nb_learnable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         self.nb_params = self.count_parameters()
 
-        logging.info('Number of learnable params: {}'.format(self.nb_learnable_params))
+        # logging.info('Number of learnable params: {}'.format(self.nb_learnable_params))
 
         # freeze all params (gradientwise)
         if not self.grad:
@@ -89,8 +89,8 @@ class PolicyNet(nn.Module, ABC):
         :param  rng_state: optionally provide a random seed
         :return delta: the mutation vector
         """
-        rng = rng_state if rng_state is not None else random_state()
-        torch.manual_seed(rng)
+        # rng = rng_state if rng_state is not None else random_state()
+        # torch.manual_seed(rng)
 
         safe, proportional = False, False
         if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS, Mutation.SAFE_VECTOR]:

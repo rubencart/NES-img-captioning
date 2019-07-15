@@ -20,7 +20,7 @@ class DataLoader(data.Dataset):
 
     def reset_iterator(self, split):
         del self._prefetch_process[split]
-        self._prefetch_process[split] = BlobFetcher(split, self, split == 'train')
+        self._prefetch_process[split] = BlobFetcher(split, self, if_shuffle=(split == 'train'))
         self.iterators[split] = 0
 
     def get_vocab_size(self):
@@ -275,6 +275,8 @@ class BlobFetcher():
         self.split = split
         self.dataloader = dataloader
         self.if_shuffle = if_shuffle
+        if self.if_shuffle:
+            random.shuffle(self.dataloader.split_ix[self.split])
 
     # Add more in the queue
     def reset(self):
@@ -287,8 +289,9 @@ class BlobFetcher():
         # batch_size is 1, the merge is done in DataLoader class
         self.split_loader = iter(data.DataLoader(dataset=self.dataloader,
                                                  batch_size=1,
-                                                 sampler=SubsetSampler(self.dataloader.split_ix[self.split][
-                                                                       self.dataloader.iterators[self.split]:]),
+                                                 sampler=SubsetSampler(self.dataloader.split_ix[self.split]
+                                                                       [self.dataloader.iterators[self.split]:]),
+                                                 # mutually exclusive with sampler
                                                  shuffle=False,
                                                  pin_memory=True,
                                                  num_workers=0,  # 4 is usually enough
