@@ -11,13 +11,12 @@ import torch
 from algorithm.tools.utils import find_file_with_pattern
 
 
-logger = logging.getLogger(__name__)
-
-
 class Sensitivity(object):
 
     def __init__(self, net, underflow, method):
         self._sensitivity = None
+        self._sens_iteration = -1
+        self._parent_id = -1
         self.net = net
         self._orig_batch_size = 0
         self._underflow = underflow
@@ -33,44 +32,56 @@ class Sensitivity(object):
         self._sensitivity = sensitivity
 
     def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
-        sensitivity_filename = 'sens_t{t}_p{p}.txt'.format(t=task_id, p=parent_id)
-        if find_file_with_pattern(sensitivity_filename, directory):
+        sensitivity_pattern = 'sens_t{t}_p{p}_[0-9]*?.pt'.format(t=task_id, p=parent_id)  # _[0-9]*?
+
+        if self._sensitivity is not None and self._sens_iteration == task_id and self._parent_id == parent_id:
+            # logging.info('took sensitivity from own attribute')
+            return
+
+        elif find_file_with_pattern(sensitivity_pattern, directory):
             try:
-                self._sensitivity = torch.load(os.path.join(directory, sensitivity_filename))
+                filename = find_file_with_pattern(sensitivity_pattern, directory)
+                self._sensitivity = torch.load(os.path.join(directory, filename))
+                self._sens_iteration, self._parent_id = task_id, parent_id
+                logging.info('took sensitivity from file')
+                return
             except (RuntimeError, EOFError):
-                time.sleep(5)
+                time.sleep(2)
                 self.calc_sensitivity(task_id, parent_id, experiences, batch_size, directory)
-        else:
+        # else:
 
-            start_time = time.time()
-            torch.set_grad_enabled(True)
-            for param in self.net.parameters():
-                param.requires_grad = True
+        start_time = time.time()
+        torch.set_grad_enabled(True)
+        for param in self.net.parameters():
+            param.requires_grad = True
 
-            if self._orig_batch_size == 0:
-                self._orig_batch_size = batch_size
+        if self._orig_batch_size == 0:
+            self._orig_batch_size = batch_size
 
-            sensitivity = self._calc_sensitivity(experiences)
-            sensitivity[sensitivity < self._underflow] = self._underflow
-            sensitivity /= self._underflow
+        sensitivity = self._calc_sensitivity(experiences)
+        sensitivity[sensitivity < self._underflow] = self._underflow
+        sensitivity /= self._underflow
 
-            torch.set_grad_enabled(False)
-            for param in self.net.parameters():
-                param.requires_grad = False
-            for param in sensitivity:
-                param.requires_grad = False
+        torch.set_grad_enabled(False)
+        for param in self.net.parameters():
+            param.requires_grad = False
+        for param in sensitivity:
+            param.requires_grad = False
 
-            time_elapsed = time.time() - start_time
-            logger.info('Safe mutation sensitivity computed in {:.2f}s on {} samples'
-                        .format(time_elapsed, batch_size))
-            if not find_file_with_pattern(sensitivity_filename, directory):
-                torch.save(sensitivity.clone().detach().requires_grad_(False),
-                           os.path.join(directory, sensitivity_filename))
-            self._sensitivity = sensitivity.clone().detach().requires_grad_(False)
-            logger.info('Sensitivity parent {}: min {:.2f}, mean {:.2f}, max {:.2f}'
-                        .format(parent_id, sensitivity.min().item(), sensitivity.mean().item(),
-                                sensitivity.max().item()))
-            del sensitivity, experiences
+        time_elapsed = time.time() - start_time
+        logging.info('Safe mutation sensitivity computed in {:.2f}s on {} samples'
+                     .format(time_elapsed, batch_size))
+
+        if not find_file_with_pattern(sensitivity_pattern, directory):
+            sensitivity_filename = 'sens_t{t}_p{p}_{i}.pt'.format(t=task_id, p=parent_id, i=os.getpid())
+            torch.save(sensitivity.clone().detach().requires_grad_(False),
+                       os.path.join(directory, sensitivity_filename))
+        self._sensitivity = sensitivity.clone().detach().requires_grad_(False)
+        self._sens_iteration, self._parent_id = task_id, parent_id
+        logging.info('Sensitivity parent {}: min {:.2f}, mean {:.2f}, max {:.2f}'
+                     .format(parent_id, sensitivity.min().item(), sensitivity.mean().item(),
+                            sensitivity.max().item()))
+        del sensitivity, experiences
 
     def _calc_sensitivity(self, experiences):
         from algorithm.nets import Mutation

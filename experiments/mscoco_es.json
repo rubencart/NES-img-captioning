@@ -1,10 +1,10 @@
 {
   "algorithm": "nic_es",
   "config": {
-    "eval_prob": 0.003,
+    "eval_prob": 0.1,
     "noise_stdev": 0.003,
     "snapshot_freq": 5,
-    "batch_size": 128,
+    "batch_size": 20,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
@@ -24,7 +24,7 @@
     "model_options": {
       "safe_mutations": "SM-G-SUM",
       "safe_mutation_vector": "",
-      "safe_mutation_underflow": 0.2,
+      "safe_mutation_underflow": 0.1,
 
       "vbn_e": false,
       "vbn_affine": false,

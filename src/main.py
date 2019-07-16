@@ -26,7 +26,6 @@ def run():
     parser.add_argument('who', type=str, choices=['master', 'workers'])
 
     # MASTER
-    parser.add_argument('--algo', type=str, default='nic_es', help='')
     parser.add_argument('--exp_file', type=str, default='experiments/mnist_es.json', help='')
     parser.add_argument('--master_socket_path', type=str, default='/tmp/es_redis_master_6379.sock', help='')
     parser.add_argument('--plot', action='store_true', default=True)
@@ -44,21 +43,21 @@ def run():
         level=logging.INFO,
     )
 
-    if args.who == 'master':
-        master(args.algo, args.exp_file, args.master_socket_path, args.plot)
-    elif args.who == 'workers':
-        workers(args.algo, args.master_host, args.master_port, args.relay_socket_path, args.num_workers)
-
-
-def master(algo, exp_file, master_socket_path, plot):
-    # start the master
-
-    if exp_file:
-        with open(exp_file, 'r') as f:
+    if args.exp_file:
+        with open(args.exp_file, 'r') as f:
             exp = json.loads(f.read())
     else:
         assert False
 
+    algo = exp['algorithm']
+    if args.who == 'master':
+        master(algo, exp, args.master_socket_path, args.plot)
+    elif args.who == 'workers':
+        workers(algo, args.master_host, args.master_port, args.relay_socket_path, args.num_workers)
+
+
+def master(algo, exp, master_socket_path, plot):
+    # start the master
     if algo == 'nic_es':
         from algorithm.nic_es.nic_es_master import ESMaster
         logging.info('RUNNING NIC-ES')

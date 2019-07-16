@@ -35,8 +35,7 @@ cd redis-stable
 make install
 ```
 
-TODO: get data from ...
-https://www.dropbox.com/sh/65735ziv4w7ky7o/AAC5RFJqBUlGPIvYjEC8ENwAa?dl=0
+TODO: get data from https://www.dropbox.com/sh/65735ziv4w7ky7o/AAC5RFJqBUlGPIvYjEC8ENwAa?dl=0
 
 
 ### Starting an experiment
@@ -54,14 +53,13 @@ exit
 
 screen -S es
 # <path_to_run_script> followed by arguments:
-# <algorithm_name>: nic_es | nic_nes
-# <path_to_experiment_json>, should match alg_name
+# <path_to_experiment_json>
 # <nb of workers>: set to -1 to have the launched process be the only worker
 # (optional) <id>: any chosen number to id outputfiles 
 # (optional) <redis tcp port> to use: 6379 | 6380 | 6381 | 6382
-. src/scripts/local_run_exp.sh nic_es experiments/mscoco_es.json 92 123
+. src/scripts/local_run_exp.sh experiments/mscoco_es.json 92 123
 # or
-. src/scripts/local_run_exp.sh nic_nes experiments/mscoco_nes.json 92 123
+. src/scripts/local_run_exp.sh experiments/mscoco_nes.json 92 123
 ```
 
 This will start a screen that runs redis and another screen where the experiment runs. In the experiment screen the output of
@@ -113,7 +111,7 @@ I recommend to not use layer/batch normalisation (was not tested a lot).
 Example json experiment file:
 ```
 {
-  "algorithm": "nic_es",                # nic_es | nic_nes: should match <algorithm_name> in the start shell command!
+  "algorithm": "nic_es",                # nic_es | nic_nes
   "config": {
     "eval_prob": 0.006,                 # prob that worker will do evaluation run on validation set instead of
                                         # evolve/mutate run
@@ -286,6 +284,8 @@ Settings like the mutation type, fitness, the patience or schedule, number of of
 from the used experiment .json.
 
 ### Overview of code
+
+TODO scripts/ to ../ !
 
 The repo structure:
 ```

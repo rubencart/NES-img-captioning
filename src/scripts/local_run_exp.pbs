@@ -29,7 +29,6 @@ cd $PROJECT_ROOT
 source $HOME/.bashrc
 . src/scripts/local_env_setup.sh
 
-ALGO=${algo}
 EXP_FILE=${exp}
 NUM_WORKERS=${workers}
 ID=${id}
@@ -46,5 +45,5 @@ fi
 
 redis-server redis_config/redis_master_"$PORT".conf > ./output/"$ID"_redis_m_outputfile.txt 2>&1 &
 redis-server redis_config/redis_local_mirror_"$PORT".conf > ./output/"$ID"_redis_w_outputfile.txt 2>&1 &
-python -u src/main.py master --master_socket_path /tmp/es_redis_master_"$PORT".sock --algo "$ALGO" --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
-python -u src/main.py workers --master_port "$PORT" --master_host localhost --relay_socket_path /tmp/es_redis_relay_"$PORT".sock --algo "$ALGO" --num_workers "$WORKERS" > ./output/"$ID"_worker_outputfile.txt 2>&1
+python -u src/main.py master --master_socket_path /tmp/es_redis_master_"$PORT".sock --exp_file "$EXP_FILE" > ./output/"$ID"_master_outputfile.txt 2>&1 &
+python -u src/main.py workers --master_port "$PORT" --master_host localhost --relay_socket_path /tmp/es_redis_relay_"$PORT".sock --num_workers "$WORKERS" > ./output/"$ID"_worker_outputfile.txt 2>&1
