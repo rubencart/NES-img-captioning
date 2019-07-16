@@ -1,19 +1,19 @@
 {
   "algorithm": "nic_es",
   "config": {
-    "eval_prob": 0.1,
-    "noise_stdev": 0.003,
+    "eval_prob": 0.006,
+    "noise_stdev": 0.005,
     "snapshot_freq": 5,
-    "batch_size": 20,
+    "batch_size": 256,
 
     "val_batch_size": 256,
     "num_val_items": 5000,
 
     "patience": 0,
     "schedule_start": 200,
-    "schedule_limit": 100,
-    "stdev_divisor": 1,
-    "bs_multiplier": 2
+    "schedule_limit": 200,
+    "stdev_divisor": 1.414,
+    "bs_multiplier": 1.414
   },
 
   "policy_options": {
@@ -22,9 +22,9 @@
     "vbn": false,
 
     "model_options": {
-      "safe_mutations": "SM-G-SUM",
+      "safe_mutations": "SM-PROPORTIONAL",
       "safe_mutation_vector": "",
-      "safe_mutation_underflow": 0.1,
+      "safe_mutation_underflow": 0.0,
 
       "vbn_e": false,
       "vbn_affine": false,
@@ -39,17 +39,17 @@
 
   "dataset": "mscoco",
 
-  "nb_offspring": 10,
-  "population_size": 5,
+  "nb_offspring": 1000,
+  "population_size": 50,
   "selection": "uniform",
-  "tournament_size": 2,
+  "tournament_size": 0,
 
   "num_elites": 3,
-  "num_elite_cands": 1,
+  "num_elite_cands": 2,
 
-  "from_single": "logs/logs_xent_fc_128/checkpt/model-best.pth",
-  "_from_single": "../instance_m_gpu_logs/vbn_5_xent_128_checkpt_c.695/model.pth",
-  "_from_infos": "logs/ga_mscoco_fc_caption_24173/snapshot/z_info_e6_i450-442.json",
+  "_from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
+  "from_single": "pretrained/bu_xent_09.pth",
+  "_from_infos": "logs/nic_es_mscoco_fc_caption_70521/snapshot/z_info_e2_i345-313.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",
