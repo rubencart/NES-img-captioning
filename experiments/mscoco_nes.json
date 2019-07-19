@@ -2,7 +2,7 @@
   "algorithm": "nic_nes",
   "config": {
     "eval_prob": 0.003,
-    "noise_stdev": 0.015,
+    "noise_stdev": 0.01,
     "snapshot_freq": 5,
     "batch_size": 64,
 
@@ -56,6 +56,9 @@
 
   "from_single": "./pretrained/bu_xent_09.pth",
   "_from_infos": "logs/nic_nes_mscoco_fc_caption_3577/snapshot/z_info_e1_i716-885.json",
+  
+  "nb_offspring": 2000,
+  "num_elites": 1,
 
   "caption_options": {
     "input_json": "data/cocotalk.json",

@@ -35,8 +35,7 @@ cd redis-stable
 make install
 ```
 
-TODO: get data from ...
-https://www.dropbox.com/sh/65735ziv4w7ky7o/AAC5RFJqBUlGPIvYjEC8ENwAa?dl=0
+TODO: get data from https://www.dropbox.com/sh/65735ziv4w7ky7o/AAC5RFJqBUlGPIvYjEC8ENwAa?dl=0
 
 
 ### Starting an experiment
@@ -286,6 +285,8 @@ Settings like the mutation type, fitness, the patience or schedule, number of of
 from the used experiment .json.
 
 ### Overview of code
+
+TODO scripts/ to ../ !
 
 The repo structure:
 ```

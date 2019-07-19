@@ -109,7 +109,7 @@ class Iteration(ABC):
 
     def record_task_result(self, result):
         self._task_results.append(result)
-        self.decr_nb_models_to_evaluate()
+        self._nb_models_to_evaluate -= 1
 
     def record_eval_result(self, result):
         raise NotImplementedError
@@ -155,7 +155,7 @@ class Iteration(ABC):
 
     def warn_waiting_for_evaluations(self):
         if not self.models_left_to_evolve() and self.models_left_to_eval():
-            if not self.was_already_waiting_for_eval_run():
+            if not self._waiting_for_eval_run:
                 logging.warning('Waiting for evaluations')
                 self.set_waiting_for_elite_ev(True)
 
@@ -166,9 +166,9 @@ class Iteration(ABC):
         self._epoch += 1
 
     def incr_iteration(self):
-        self.reset_task_results()
-        self.reset_eval_results()
-        self.reset_worker_ids()
+        self._task_results = []
+        self._eval_results = {}
+        self._worker_ids = []
 
         self.set_nb_models_to_evaluate(self._nb_offspring)
         self.set_waiting_for_elite_ev(False)
@@ -199,18 +199,6 @@ class Iteration(ABC):
 
     def set_nb_models_to_evaluate(self, nb_models):
         self._nb_models_to_evaluate = nb_models
-
-    def decr_nb_models_to_evaluate(self):
-        self._nb_models_to_evaluate -= 1
-
-    def reset_task_results(self):
-        self._task_results = []
-
-    def reset_eval_results(self):
-        self._eval_results = {}
-
-    def reset_worker_ids(self):
-        self._worker_ids = []
 
     def set_waiting_for_elite_ev(self, value):
         self._waiting_for_eval_run = value
@@ -245,9 +233,6 @@ class Iteration(ABC):
 
     def get_noise_stdev(self):
         return self._noise_stdev
-
-    def was_already_waiting_for_eval_run(self):
-        return self._waiting_for_eval_run
 
     def eval_returns(self):
         return self._eval_results

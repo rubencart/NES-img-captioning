@@ -47,9 +47,8 @@
   "num_elites": 3,
   "num_elite_cands": 2,
 
-  "_from_single": "logs/logs_xent_fc_128/checkpt/model.pth",
-  "_from_single": "pretrained/bu_xent_09.pth",
-  "from_infos": "logs/nic_es_mscoco_fc_caption_4083/snapshot/z_info_e4_i810-221.json",
+  "from_single": "pretrained/bu_xent_09.pth",
+  "_from_infos": "logs/nic_es_mscoco_fc_caption_70521/snapshot/z_info_e2_i345-313.json",
 
   "caption_options": {
     "input_json": "data/cocotalk.json",

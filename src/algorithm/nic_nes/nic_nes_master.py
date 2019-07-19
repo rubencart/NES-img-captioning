@@ -205,7 +205,7 @@ class NESMaster(object):
         return ranks
 
     @staticmethod
-    def batched_weighted_sum(weights, vecs, batch_size=500):
+    def batched_weighted_sum(weights, vecs, batch_size=200):
         """
         Taken from https://github.com/openai/evolution-strategies-starter
 

@@ -11,7 +11,6 @@ _opt_fields = ['input_json', 'input_fc_dir', 'input_att_dir', 'input_label_h5', 
 CaptionOptions = namedtuple('CaptionOptions', field_names=_opt_fields, defaults=(None,) * len(_opt_fields))
 
 
-
 class MSCocoExperiment(Experiment):
     """
         Subclass for MSCOCO experiment
