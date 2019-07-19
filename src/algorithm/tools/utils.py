@@ -205,6 +205,7 @@ def get_ciders_from_sc(hist, infos):
 def plot_ciders_vs_something_nicely(time_xent, ciders_xent, time_sc, ciders_sc):
     from matplotlib import pyplot as plt
 
+    plt.close()
     plt.plot(time_xent, ciders_xent, label='XENT')
     plt.plot(time_sc, ciders_sc, label='Self-critical RL')
     plt.axhline(ciders_sc.max(), linestyle='dashed', color='green', lw=0.5)

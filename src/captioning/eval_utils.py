@@ -57,7 +57,7 @@ def language_eval(preds, directory, split):
     return out
 
 
-def eval_split(model, loader, directory, num=-1, split='val', do_eval=True, verbose=False):
+def eval_split(model, loader, directory, num=-1, split='val', do_eval=True, verbose=False, incl_gts=False):
     model.eval()
 
     # Todo we assume model is on single device
@@ -83,6 +83,10 @@ def eval_split(model, loader, directory, num=-1, split='val', do_eval=True, verb
 
         for k, sent in enumerate(sents):
             entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
+            if incl_gts:
+                gts = decode_sequence(loader.get_vocab(),
+                                      torch.from_numpy(data['gts'][k].astype(np.int32)))
+                entry['gts'] = gts
             predictions.append(entry)
             if verbose:
                 logging.info('image %s: %s' % (entry['image_id'], entry['caption']))
