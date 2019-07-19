@@ -67,4 +67,4 @@ class NESIteration(Iteration):
         return np.concatenate([r.fitness for r in self._task_results])
 
     def noise_vecs(self):
-        return np.stack([r.evolve_noise for r in self._task_results])
+        return np.stack([r.evolve_noise.astype(np.float32) for r in self._task_results])

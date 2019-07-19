@@ -6,11 +6,11 @@ import logging
 from enum import Enum
 from abc import ABC
 
+import numpy as np
 import torch
 from torch import nn
 
 from algorithm.safe_mutations import Sensitivity
-from algorithm.tools.utils import random_state
 
 
 class Mutation(Enum):
@@ -116,7 +116,7 @@ class PolicyNet(nn.Module, ABC):
         for param in self.parameters():
             param.requires_grad = False
 
-        return torch.empty_like(noise).copy_(noise).numpy()
+        return torch.empty_like(noise).copy_(noise).numpy().astype(np.float32)
 
     def calc_sensitivity(self, task_id, parent_id, experiences, batch_size, directory):
         if self.mutations in [Mutation.SAFE_GRAD_SUM, Mutation.SAFE_GRAD_ABS]:
