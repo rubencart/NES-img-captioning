@@ -13,7 +13,7 @@ from algorithm.policies import Policy
 from algorithm.tools.utils import Config, array_to_str
 from captioning.dataloader import DataLoader
 from captioning.fitness import LogFitnessCriterion, \
-    ExpFitnessCriterion, AltLogFitnessCriterion, LinFitnessCriterion
+    ExpFitnessCriterion, AltLogFitnessCriterion, LinFitnessCriterion, AvgLogFitnessCriterion
 
 sys.path.append('cider')
 from pyciderevalcap.ciderD.ciderD import CiderD
@@ -31,6 +31,7 @@ class Fitness(Enum):
     GR_LOGPROB = 'greedy_logprob'
     GR_EXPPROB = 'greedy_expprob'
     GR_LINPROB = 'greedy_linprob'
+    GR_AVGPROB = 'greedy_avgprob'
     DEFAULT = GREEDY
 
     @classmethod
@@ -54,6 +55,8 @@ class Fitness(Enum):
             return AltLogFitnessCriterion()
         elif fitness == Fitness.GR_EXPPROB:
             return ExpFitnessCriterion()
+        elif fitness == Fitness.GR_AVGPROB:
+            return AvgLogFitnessCriterion()
         else:
             return LinFitnessCriterion()
 

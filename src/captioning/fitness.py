@@ -62,6 +62,29 @@ class AltLogFitnessCriterion(nn.Module):
         return torch.empty_like(output).copy_(output)
 
 
+class AvgLogFitnessCriterion(nn.Module):
+    """
+    Different version of LogFitnessCriterion: mean of CIDER and AltLogFitnessCriterion
+        Output = 0.5 * reward + 0.5 * reward * ( log_10(prob + 1/9) + log_10(9) )
+    """
+
+    def __init__(self):
+        super(AltLogFitnessCriterion, self).__init__()
+
+    def forward(self, input, seq, reward):
+        input = to_contiguous(input).view(-1)
+        reward = to_contiguous(reward).view(-1)
+        mask = (seq > 0).float()
+        mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+
+        pfact = torch.log10(torch.exp(input) + 1/(10 - 1)) + np.log10(10 - 1)
+        output = 0.5 * reward * mask + 0.5 * pfact * reward * mask
+
+        output = torch.sum(output) / torch.sum(mask)
+        return torch.empty_like(output).copy_(output)
+
+
+
 class ExpFitnessCriterion(nn.Module):
     """
         Output = reward * exp(prob - 1) / (e - 1)
