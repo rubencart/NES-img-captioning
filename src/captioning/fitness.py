@@ -69,7 +69,7 @@ class AvgLogFitnessCriterion(nn.Module):
     """
 
     def __init__(self):
-        super(AltLogFitnessCriterion, self).__init__()
+        super(AvgLogFitnessCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
         input = to_contiguous(input).view(-1)

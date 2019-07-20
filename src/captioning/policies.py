@@ -36,7 +36,7 @@ class Fitness(Enum):
 
     @classmethod
     def needs_criterion(cls, fitness):
-        return fitness in (cls.SC_LOSS, cls.GR_LOGPROB, cls.GR_EXPPROB, cls.GR_LINPROB)
+        return fitness in (cls.SC_LOSS, cls.GR_LOGPROB, cls.GR_EXPPROB, cls.GR_LINPROB, cls.GR_AVGPROB)
 
     @classmethod
     def is_self_critical(cls, fitness):
@@ -44,7 +44,7 @@ class Fitness(Enum):
 
     @classmethod
     def is_greedy(cls, fitness):
-        return fitness in (cls.GR_LINPROB, cls.GR_EXPPROB, cls.GR_LOGPROB, cls.GREEDY)
+        return fitness in (cls.GR_LINPROB, cls.GR_EXPPROB, cls.GR_LOGPROB, cls.GREEDY, cls.GR_AVGPROB)
 
     @classmethod
     def get_criterium(cls, fitness):
