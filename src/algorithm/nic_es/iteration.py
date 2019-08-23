@@ -60,17 +60,25 @@ class ESIteration(Iteration):
             cand = policy.generate_model().serialize(path=self._new_elite_path.format(i=i))
             self._elites_to_evaluate.append((i, cand))
 
-    def init_from_single(self, param_file_name: str, exp: dict, policy: Policy):
+    def init_from_singles(self, param_file_names: list, exp: dict, policy: Policy):
+        if isinstance(param_file_names, str):
+            param_file_names = [param_file_names]
 
-        parent_path = policy \
-            .generate_model(from_param_file=param_file_name) \
-            .serialize(path=self._new_parent_path.format(i=0))
-        elite_path = policy \
-            .generate_model(from_param_file=param_file_name) \
-            .serialize(path=self._new_elite_path.format(i=0))
+        self._parents = []
+        self._elites_to_evaluate = []
 
-        self._parents = [(0, parent_path)]
-        self._elites_to_evaluate = [(0, elite_path)]
+        for i, param_file_name in enumerate(param_file_names):
+            parent_path = policy \
+                .generate_model(from_param_file=param_file_name) \
+                .serialize(path=self._new_parent_path.format(i=i))
+            elite_path = policy \
+                .generate_model(from_param_file=param_file_name) \
+                .serialize(path=self._new_elite_path.format(i=i))
+
+            self._parents.append((i, parent_path))
+            self._elites_to_evaluate.append((i, elite_path))
+
+        self._elites_to_evaluate = self._elites_to_evaluate[:self._num_elite_cands]
 
     def record_parents(self, parents: list):
         new_parents = [(i, p) for i, p in enumerate(parents)]

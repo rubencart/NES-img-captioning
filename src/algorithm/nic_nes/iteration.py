@@ -29,7 +29,7 @@ class NESIteration(Iteration):
     def init_from_zero(self, exp, policy):
         self._model = policy.generate_model().serialize(path=self._current_path)
 
-    def init_from_single(self, param_file_name, exp, policy):
+    def init_from_single(self, param_file_name: str, exp, policy):
         self._model = (policy
                        .generate_model(from_param_file=param_file_name)
                        .serialize(path=self._current_path))

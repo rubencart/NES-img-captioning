@@ -11,6 +11,8 @@ from torch import nn
 
 class LogFitnessCriterion(nn.Module):
     """
+    DON'T USE! Not a good fitness function: has the reverse effect...
+
     From https://github.com/ruotianluo/self-critical.pytorch
         Output = reward * log(prob)
         --> so when prob = 0 ==> output = -inf
